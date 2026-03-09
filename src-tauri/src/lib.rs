@@ -13,6 +13,7 @@ use commands::chat::{
     get_iflow_file_contexts, get_iflow_token_stats,
     list_claude_code_sessions, get_claude_code_session_history,
     find_codex_paths, validate_codex_path,
+    list_codex_sessions, get_codex_session_history,
 };
 use commands::{validate_workspace_path, get_directory_info, get_home_dir};
 use commands::window::{
@@ -233,6 +234,8 @@ pub fn run() {
             // Codex 相关
             find_codex_paths,
             validate_codex_path,
+            list_codex_sessions,
+            get_codex_session_history,
             // 工作区相关
             validate_workspace_path,
             get_directory_info,

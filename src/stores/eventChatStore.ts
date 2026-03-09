@@ -831,8 +831,11 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
     const { currentMessage, tokenBuffer } = get()
     const now = new Date().toISOString()
 
+    console.log('[appendTextBlock] 调用, currentMessage:', !!currentMessage, 'content长度:', content.length, 'content预览:', content.slice(0, 50))
+
     // 如果没有当前消息，创建一个新的（首次调用）
     if (!currentMessage) {
+      console.log('[appendTextBlock] 创建新消息')
       const textBlock: ContentBlock = { type: 'text', content }
       const newMessage: CurrentAssistantMessage = {
         id: crypto.randomUUID(),

@@ -1638,3 +1638,276 @@ pub fn validate_codex_path(path: String) -> CodexPathValidationResult {
         },
     }
 }
+
+// ============================================================================
+// Codex 历史记录命令
+// ============================================================================
+
+/// Codex 会话元数据
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexSessionMeta {
+    /// 会话 ID
+    pub session_id: String,
+    /// 会话标题（从第一条用户消息提取）
+    pub title: String,
+    /// 消息数量
+    pub message_count: u32,
+    /// 文件大小（字节）
+    pub file_size: u64,
+    /// 创建时间
+    pub created_at: String,
+    /// 更新时间
+    pub updated_at: String,
+    /// 文件路径
+    pub file_path: String,
+}
+
+/// Codex 历史消息
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexHistoryMessage {
+    /// 消息 ID
+    pub id: String,
+    /// 时间戳
+    pub timestamp: String,
+    /// 消息类型: user, assistant
+    pub r#type: String,
+    /// 文本内容
+    pub content: String,
+}
+
+/// 获取 Codex 会话目录
+fn get_codex_sessions_dir() -> PathBuf {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .unwrap_or_default();
+    PathBuf::from(home).join(".codex").join("sessions")
+}
+
+/// 列出所有 Codex 会话
+#[tauri::command]
+pub fn list_codex_sessions(work_dir: Option<String>) -> Result<Vec<CodexSessionMeta>> {
+    let sessions_dir = get_codex_sessions_dir();
+
+    if !sessions_dir.exists() {
+        eprintln!("[list_codex_sessions] Codex 会话目录不存在: {:?}", sessions_dir);
+        return Ok(vec![]);
+    }
+
+    let mut sessions: Vec<CodexSessionMeta> = vec![];
+
+    // 遍历 sessions 目录下的所有年份/月份目录
+    fn scan_dir(dir: &Path, sessions: &mut Vec<CodexSessionMeta>) {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    // 递归扫描子目录
+                    scan_dir(&path, sessions);
+                } else if path.extension().map(|e| e == "jsonl").unwrap_or(false) {
+                    // 解析 JSONL 文件
+                    if let Ok(meta) = parse_codex_session_file(&path) {
+                        sessions.push(meta);
+                    }
+                }
+            }
+        }
+    }
+
+    scan_dir(&sessions_dir, &mut sessions);
+
+    // 按修改时间倒序排序
+    sessions.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    // 可选：过滤指定工作目录的会话
+    if let Some(wd) = work_dir {
+        // 从文件内容中提取工作目录并过滤
+        // 这里简化处理，返回所有会话
+        eprintln!("[list_codex_sessions] 过滤工作目录: {}", wd);
+    }
+
+    eprintln!("[list_codex_sessions] 找到 {} 个会话", sessions.len());
+    Ok(sessions)
+}
+
+/// 解析 Codex 会话文件
+fn parse_codex_session_file(file_path: &Path) -> std::io::Result<CodexSessionMeta> {
+    use std::fs::File;
+    use std::io::BufRead;
+
+    let file = File::open(file_path)?;
+    let reader = std::io::BufReader::new(file);
+    let file_size = std::fs::metadata(file_path)?.len();
+
+    // 从文件名提取 session_id
+    let filename = file_path.file_name().unwrap_or_default().to_string_lossy();
+    let session_id = extract_codex_session_id(&filename);
+
+    let mut title = String::from("Codex 对话");
+    let mut message_count: u32 = 0;
+    let mut created_at = String::new();
+    let mut updated_at = String::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        if let Ok(entry) = serde_json::from_str::<serde_json::Value>(&line) {
+            let entry_type = entry.get("type").and_then(|v| v.as_str()).unwrap_or("");
+
+            // 从 session_meta 获取创建时间
+            if entry_type == "session_meta" {
+                if let Some(payload) = entry.get("payload") {
+                    if let Some(ts) = payload.get("timestamp").and_then(|v| v.as_str()) {
+                        if created_at.is_empty() {
+                            created_at = ts.to_string();
+                        }
+                    }
+                }
+            }
+
+            // 从 message 获取内容
+            if entry_type == "message" {
+                if let Some(payload) = entry.get("payload") {
+                    // 时间戳
+                    if let Some(ts) = payload.get("timestamp").and_then(|v| v.as_str()) {
+                        updated_at = ts.to_string();
+                        if created_at.is_empty() {
+                            created_at = ts.to_string();
+                        }
+                    }
+
+                    // 角色和内容
+                    let role = payload.get("role").and_then(|v| v.as_str()).unwrap_or("");
+                    if role == "user" || role == "assistant" {
+                        message_count += 1;
+                    }
+
+                    // 提取标题（第一条用户消息）
+                    if title == "Codex 对话" && role == "user" {
+                        if let Some(content) = payload.get("content") {
+                            if let Some(text) = content.as_str() {
+                                title = truncate_string(text, 50);
+                            } else if let Some(arr) = content.as_array() {
+                                for block in arr {
+                                    if block.get("type").and_then(|v| v.as_str()) == Some("text") {
+                                        if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
+                                            title = truncate_string(t, 50);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(CodexSessionMeta {
+        session_id,
+        title,
+        message_count,
+        file_size,
+        created_at,
+        updated_at,
+        file_path: file_path.to_string_lossy().to_string(),
+    })
+}
+
+/// 从文件名提取 session_id
+fn extract_codex_session_id(filename: &str) -> String {
+    // 文件名格式: rollout-2026-03-09T21-51-52-019cd2de-5521-7973-ad00-639ba81645c1.jsonl
+    // 提取最后的 UUID
+    if let Some(pos) = filename.rfind('-') {
+        // 找到倒数第四个 '-'，因为 UUID 有 4 个 '-'
+        let uuid_part = &filename[pos - 35..]; // UUID 长度为 36
+        let uuid = uuid_part.trim_end_matches(".jsonl");
+        return uuid.to_string();
+    }
+    filename.replace(".jsonl", "").to_string()
+}
+
+/// 获取 Codex 会话历史
+#[tauri::command]
+pub fn get_codex_session_history(file_path: String) -> Result<Vec<CodexHistoryMessage>> {
+    use std::fs::File;
+    use std::io::BufRead;
+
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err(AppError::Unknown(format!("文件不存在: {}", file_path)));
+    }
+
+    let file = File::open(path).map_err(|e| AppError::Unknown(format!("打开文件失败: {}", e)))?;
+    let reader = std::io::BufReader::new(file);
+
+    let mut messages: Vec<CodexHistoryMessage> = vec![];
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| AppError::Unknown(format!("读取行失败: {}", e)))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        if let Ok(entry) = serde_json::from_str::<serde_json::Value>(&line) {
+            let entry_type = entry.get("type").and_then(|v| v.as_str()).unwrap_or("");
+
+            if entry_type == "message" {
+                if let Some(payload) = entry.get("payload") {
+                    let id = payload.get("id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let timestamp = payload.get("timestamp")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let role = payload.get("role")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    // 提取内容
+                    let content = if let Some(c) = payload.get("content") {
+                        if let Some(text) = c.as_str() {
+                            text.to_string()
+                        } else if let Some(arr) = c.as_array() {
+                            let mut text_content = String::new();
+                            for block in arr {
+                                if block.get("type").and_then(|v| v.as_str()) == Some("text") {
+                                    if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
+                                        text_content.push_str(t);
+                                    }
+                                }
+                            }
+                            text_content
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
+
+                    if !role.is_empty() && !content.is_empty() {
+                        messages.push(CodexHistoryMessage {
+                            id,
+                            timestamp,
+                            r#type: role.to_string(),
+                            content,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    eprintln!("[get_codex_session_history] 找到 {} 条消息", messages.len());
+    Ok(messages)
+}
