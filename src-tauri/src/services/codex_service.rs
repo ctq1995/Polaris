@@ -158,7 +158,7 @@ impl CodexService {
             });
 
         let codex_cmd = Self::get_codex_cmd(config)?;
-        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, message, None);
+        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, message);
 
         let program = cmd.get_program().to_string_lossy().to_string();
         let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
@@ -184,33 +184,18 @@ impl CodexService {
         Ok(CodexSession::new(temp_id, child, String::new()))
     }
 
-    /// 构建 Codex 命令
-    fn build_codex_command(codex_cmd: &str, work_dir: &str, message: &str, session_id: Option<&str>) -> Command {
+    /// 构建 Codex 命令 (始终使用 exec 非交互模式)
+    fn build_codex_command(codex_cmd: &str, work_dir: &str, message: &str) -> Command {
         let mut cmd = Command::new(codex_cmd);
 
-        // 如果是恢复会话，使用 resume 子命令
-        if let Some(id) = session_id {
-            // codex resume --json <SESSION_ID> <PROMPT>
-            // 注意: --last 和 SESSION_ID 不能同时使用
-            cmd.arg("resume")
-                .arg("--json")        // JSON 输出模式，避免终端检测
-                .arg(id)              // 会话 ID
-                .arg("--full-auto");  // 自动执行模式
-            
-            // 消息作为参数传递
-            if !message.is_empty() {
-                cmd.arg(message);
-            }
-        } else {
-            // 新会话使用 exec 子命令
-            cmd.arg("exec")
-                .arg("--json")
-                .arg("--skip-git-repo-check");
+        // 始终使用 exec 子命令（非交互模式）
+        cmd.arg("exec")
+            .arg("--json")
+            .arg("--skip-git-repo-check");
 
-            // 消息作为参数传递
-            if !message.is_empty() {
-                cmd.arg(message);
-            }
+        // 消息作为参数传递
+        if !message.is_empty() {
+            cmd.arg(message);
         }
 
         cmd.current_dir(work_dir);
@@ -221,6 +206,121 @@ impl CodexService {
         cmd.creation_flags(CREATE_NO_WINDOW);
 
         cmd
+    }
+
+    /// 查找会话的 JSONL 文件
+    fn find_session_file(session_id: &str) -> Result<PathBuf> {
+        let config_dir = Self::get_codex_config_dir()?;
+        let sessions_dir = config_dir.join("sessions");
+
+        if !sessions_dir.exists() {
+            return Err(AppError::ConfigError("Codex sessions 目录不存在".to_string()));
+        }
+
+        // 遍历 sessions 目录下的所有 JSONL 文件
+        fn search_dir(dir: &Path, target_id: &str) -> Option<PathBuf> {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if let Some(found) = search_dir(&path, target_id) {
+                            return Some(found);
+                        }
+                    } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        // 文件名格式: rollout-2026-03-09T22-07-11-SESSIONID.jsonl
+                        if name.contains(target_id) && name.ends_with(".jsonl") {
+                            return Some(path);
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        search_dir(&sessions_dir, session_id)
+            .ok_or_else(|| AppError::ConfigError(format!("未找到会话 {} 的文件", session_id)))
+    }
+
+    /// 从 JSONL 文件解析历史消息
+    fn parse_history_jsonl(file_path: &Path) -> Result<Vec<(String, String)>> {
+        let file = File::open(file_path)
+            .map_err(|e| AppError::ConfigError(format!("无法打开会话文件: {}", e)))?;
+
+        let reader = BufReader::new(file);
+        let mut history: Vec<(String, String)> = Vec::new();
+
+        for line in reader.lines().flatten() {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                let event_type = json.get("type").and_then(|t| t.as_str()).unwrap_or("");
+
+                match event_type {
+                    "user_message" => {
+                        if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
+                            history.push(("user".to_string(), text.to_string()));
+                        }
+                    }
+                    "assistant_message" => {
+                        if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
+                            history.push(("assistant".to_string(), text.to_string()));
+                        }
+                    }
+                    "item.completed" => {
+                        // 新格式: {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
+                        if let Some(item) = json.get("item") {
+                            let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                            if item_type == "agent_message" {
+                                if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                    history.push(("assistant".to_string(), text.to_string()));
+                                }
+                            }
+                        }
+                    }
+                    "input" => {
+                        // 用户输入格式
+                        if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
+                            history.push(("user".to_string(), text.to_string()));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(history)
+    }
+
+    /// 构建包含历史上下文的消息
+    fn build_context_message(history: &[(String, String)], new_message: &str) -> String {
+        if history.is_empty() {
+            return new_message.to_string();
+        }
+
+        let mut context_parts: Vec<String> = Vec::new();
+
+        // 添加历史对话
+        for (role, text) in history {
+            let role_name = match role.as_str() {
+                "user" => "用户",
+                "assistant" => "助手",
+                _ => role,
+            };
+            context_parts.push(format!("**{}**: {}", role_name, text));
+        }
+
+        // 添加新消息
+        context_parts.push(format!("**用户**: {}", new_message));
+
+        // 构建完整消息
+        let history_text = context_parts.join("\n\n---\n\n");
+
+        format!(
+            "{}\n\n---\n\n请继续上述对话。",
+            history_text
+        )
     }
 
     /// 继续聊天会话
@@ -237,8 +337,31 @@ impl CodexService {
                     .unwrap_or_else(|| ".".to_string())
             });
 
+        // 尝试加载历史记录并构建上下文消息
+        let full_message = match Self::find_session_file(session_id) {
+            Ok(file_path) => {
+                eprintln!("[CodexService::continue_chat] 找到会话文件: {:?}", file_path);
+                match Self::parse_history_jsonl(&file_path) {
+                    Ok(history) => {
+                        eprintln!("[CodexService::continue_chat] 解析到 {} 条历史消息", history.len());
+                        Self::build_context_message(&history, message)
+                    }
+                    Err(e) => {
+                        eprintln!("[CodexService::continue_chat] 解析历史失败: {}, 使用原始消息", e);
+                        message.to_string()
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("[CodexService::continue_chat] 未找到会话文件: {}, 使用原始消息", e);
+                message.to_string()
+            }
+        };
+
+        eprintln!("[CodexService::continue_chat] 完整消息长度: {} 字符", full_message.len());
+
         let codex_cmd = Self::get_codex_cmd(config)?;
-        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, message, Some(session_id));
+        let mut cmd = Self::build_codex_command(&codex_cmd, &work_dir, &full_message);
 
         let program = cmd.get_program().to_string_lossy().to_string();
         let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
