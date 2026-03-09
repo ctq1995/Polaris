@@ -912,15 +912,13 @@ async fn start_codex_chat_internal(
     CodexService::monitor_output(session.child, temp_session_id.clone(), move |event| {
         // 检查是否收到真实的 session_id
         if let StreamEvent::System { extra, .. } = &event {
-            if let Some(extra_map) = extra {
-                if let Some(serde_json::Value::String(real_session_id)) = extra_map.get("session_id") {
-                    eprintln!("[start_codex_chat] 收到真实 session_id: {}", real_session_id);
+            if let Some(serde_json::Value::String(real_session_id)) = extra.get("session_id") {
+                eprintln!("[start_codex_chat] 收到真实 session_id: {}", real_session_id);
 
-                    if let Ok(mut sessions) = sessions_arc.lock() {
-                        if let Some(&pid) = sessions.get(&temp_session_id) {
-                            sessions.remove(&temp_session_id);
-                            sessions.insert(real_session_id.clone(), pid);
-                        }
+                if let Ok(mut sessions) = sessions_arc.lock() {
+                    if let Some(&pid) = sessions.get(&temp_session_id) {
+                        sessions.remove(&temp_session_id);
+                        sessions.insert(real_session_id.clone(), pid);
                     }
                 }
             }

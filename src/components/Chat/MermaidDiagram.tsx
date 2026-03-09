@@ -90,7 +90,6 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
   const contentRef = useRef<HTMLDivElement>(null);
   const [renderState, setRenderState] = useState<RenderState>('idle');
   const [svg, setSvg] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
 
   // 图表交互状态
   const [diagramState, setDiagramState] = useState<DiagramState>(() => getDiagramState(id));
@@ -117,7 +116,6 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
       }
 
       setRenderState('loading');
-      setError(null);
 
       try {
         // 动态导入 mermaid（懒加载）
@@ -139,13 +137,10 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
         if (mounted) {
           setSvg(svg);
           setRenderState('success');
-          setError(null);
         }
       } catch (err) {
         if (mounted) {
           console.error('Mermaid render error:', err);
-          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          setError(errorMessage);
           setRenderState('error');
           setSvg('');
         }

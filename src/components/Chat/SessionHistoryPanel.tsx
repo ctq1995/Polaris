@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react'
 import { useEventChatStore, type UnifiedHistoryItem } from '../../stores/eventChatStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Zap, Loader2, X } from 'lucide-react'
+import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Zap, Loader2, X, Terminal } from 'lucide-react'
 
 interface SessionHistoryPanelProps {
   onClose?: () => void
@@ -40,7 +40,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   }
 
   // 恢复会话
-  const handleRestore = async (sessionId: string, engineId: 'claude-code' | 'iflow' | 'deepseek') => {
+  const handleRestore = async (sessionId: string, engineId: 'claude-code' | 'iflow' | 'deepseek' | 'codex') => {
     setRestoring(sessionId)
     try {
       const success = await useEventChatStore.getState().restoreFromHistory(sessionId, engineId)
@@ -84,7 +84,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   }
 
   // 获取引擎信息
-  const getEngineInfo = (engineId: 'claude-code' | 'iflow' | 'deepseek', source: string) => {
+  const getEngineInfo = (engineId: 'claude-code' | 'iflow' | 'deepseek' | 'codex', source: string) => {
     if (source === 'claude-code-native') {
       return {
         name: 'Claude Code',
@@ -99,6 +99,14 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
         color: 'text-purple-500',
         bgColor: 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300',
         icon: Zap,
+      }
+    }
+    if (engineId === 'codex') {
+      return {
+        name: 'Codex',
+        color: 'text-green-500',
+        bgColor: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300',
+        icon: Terminal,
       }
     }
     return {

@@ -354,6 +354,10 @@ impl ConfigStore {
         let deepseek_configured = !self.config.deepseek.api_key.is_empty();
         let deepseek_available = deepseek_configured; // 简单检查，实际可能需要验证 API Key
 
+        // 检查 Codex 配置
+        let codex_available = self.config.codex.cli_path.is_some();
+        let codex_version = None; // TODO: 实际检查 Codex 版本
+
         HealthStatus {
             claude_available,
             claude_version,
@@ -361,6 +365,8 @@ impl ConfigStore {
             iflow_version,
             deepseek_available: Some(deepseek_available),
             deepseek_configured: Some(deepseek_configured),
+            codex_available: Some(codex_available),
+            codex_version,
             work_dir: self.config.work_dir.as_ref()
                 .and_then(|p| p.to_str().map(|s| s.to_string())),
             config_valid: true,
@@ -675,6 +681,7 @@ impl OldConfig {
             },
             iflow: Default::default(),
             deepseek: Default::default(),
+            codex: Default::default(),
             dingtalk: Default::default(),
             work_dir: self.work_dir,
             session_dir: self.session_dir,

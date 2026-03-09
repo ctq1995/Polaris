@@ -5,6 +5,7 @@
 use crate::error::{AppError, Result};
 use crate::models::config::Config;
 use crate::models::events::StreamEvent;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -348,9 +349,11 @@ impl CodexService {
             "thread.started" => {
                 // 线程开始，提取 thread_id 作为会话 ID
                 let thread_id = value.get("thread_id")?.as_str()?.to_string();
+                let mut extra = HashMap::new();
+                extra.insert("session_id".to_string(), serde_json::json!(thread_id));
                 Some(StreamEvent::System {
                     subtype: Some("thread_started".to_string()),
-                    extra: serde_json::json!({"session_id": thread_id}).as_object().cloned(),
+                    extra,
                 })
             }
 
@@ -361,15 +364,15 @@ impl CodexService {
                 match item_type {
                     "agent_message" => {
                         let text = item.get("text")?.as_str()?.to_string();
-                        Some(StreamEvent::Assistant {
-                            message: crate::models::events::AssistantMessage {
-                                content: vec![crate::models::events::ContentBlock::Text {
-                                    text,
-                                }],
-                                model: Some("codex".to_string()),
-                                id: item.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                            },
-                        })
+                        let message = serde_json::json!({
+                            "content": [{
+                                "type": "text",
+                                "text": text
+                            }],
+                            "model": "codex",
+                            "id": item.get("id").and_then(|v| v.as_str()).unwrap_or("")
+                        });
+                        Some(StreamEvent::Assistant { message })
                     }
                     "tool_use" => {
                         let tool_id = item.get("id")?.as_str()?.to_string();
@@ -379,7 +382,7 @@ impl CodexService {
                         Some(StreamEvent::ToolStart {
                             tool_use_id: tool_id,
                             tool_name,
-                            input: tool_input.to_string(),
+                            input: tool_input,
                         })
                     }
                     _ => None,
