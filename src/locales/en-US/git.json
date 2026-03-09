@@ -109,6 +109,8 @@
     "title": "Commit History",
     "viewMore": "View more",
     "noCommits": "No commits yet",
+    "loadingMore": "Loading more...",
+    "noMore": "All commits loaded",
     "justNow": "Just now",
     "minutesAgo": "{{count}} minutes ago",
     "hoursAgo": "{{count}} hours ago",

@@ -191,7 +191,7 @@ export function HistoryTab() {
           <Virtuoso
             data={commits}
             endReached={loadMore}
-            itemContent={(index, commit) => <CommitItem commit={commit} />}
+            itemContent={(_, commit) => <CommitItem commit={commit} />}
             components={{
               Footer,
             }}

@@ -109,6 +109,8 @@
     "title": "提交历史",
     "viewMore": "查看更多",
     "noCommits": "暂无提交",
+    "loadingMore": "加载更多...",
+    "noMore": "已加载全部提交",
     "justNow": "刚刚",
     "minutesAgo": "{{count}} 分钟前",
     "hoursAgo": "{{count}} 小时前",
