@@ -63,6 +63,16 @@ export async function validateIFlowPath(path: string): Promise<PathValidationRes
   return invoke<PathValidationResult>('validate_iflow_path', { path });
 }
 
+/** 查找所有可用的 Codex CLI 路径 */
+export async function findCodexPaths(): Promise<string[]> {
+  return invoke<string[]>('find_codex_paths');
+}
+
+/** 验证 Codex CLI 路径 */
+export async function validateCodexPath(path: string): Promise<PathValidationResult> {
+  return invoke<PathValidationResult>('validate_codex_path', { path });
+}
+
 // ============================================================================
 // 健康检查命令
 // ============================================================================
@@ -108,6 +118,25 @@ export async function continueIFlowChat(sessionId: string, message: string): Pro
 /** 中断 IFlow 聊天 */
 export async function interruptIFlowChat(sessionId: string): Promise<void> {
   return invoke('interrupt_iflow_chat', { sessionId });
+}
+
+// ============================================================================
+// Codex 聊天相关命令
+// ============================================================================
+
+/** 启动 Codex 聊天会话 */
+export async function startCodexChat(message: string): Promise<string> {
+  return invoke<string>('start_codex_chat', { message });
+}
+
+/** 继续 Codex 聊天会话 */
+export async function continueCodexChat(sessionId: string, message: string): Promise<void> {
+  return invoke('continue_codex_chat', { sessionId, message });
+}
+
+/** 中断 Codex 聊天 */
+export async function interruptCodexChat(sessionId: string): Promise<void> {
+  return invoke('interrupt_codex_chat', { sessionId });
 }
 
 // ============================================================================

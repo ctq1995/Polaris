@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as tauri from '../../services/tauri';
 
-type EngineType = 'claude-code' | 'iflow' | 'deepseek';
+type EngineType = 'claude-code' | 'iflow' | 'deepseek' | 'codex';
 
 interface ClaudePathSelectorProps {
   /** 当前路径值 */
@@ -58,9 +58,14 @@ export function ClaudePathSelector({
   const detectPaths = async () => {
     setDetecting(true);
     try {
-      const paths = engineType === 'claude-code'
-        ? await tauri.findClaudePaths()
-        : await tauri.findIFlowPaths();
+      let paths: string[] = [];
+      if (engineType === 'claude-code') {
+        paths = await tauri.findClaudePaths();
+      } else if (engineType === 'iflow') {
+        paths = await tauri.findIFlowPaths();
+      } else if (engineType === 'codex') {
+        paths = await tauri.findCodexPaths();
+      }
       setDetectedPaths(paths);
 
       if (paths.length > 0 && !value) {
@@ -83,9 +88,16 @@ export function ClaudePathSelector({
 
     setValidating(true);
     try {
-      const result = engineType === 'claude-code'
-        ? await tauri.validateClaudePath(path)
-        : await tauri.validateIFlowPath(path);
+      let result: { valid: boolean; error?: string };
+      if (engineType === 'claude-code') {
+        result = await tauri.validateClaudePath(path);
+      } else if (engineType === 'iflow') {
+        result = await tauri.validateIFlowPath(path);
+      } else if (engineType === 'codex') {
+        result = await tauri.validateCodexPath(path);
+      } else {
+        result = { valid: true };
+      }
       setIsValid(result.valid);
       setValidationError(result.error || null);
     } catch (e) {
@@ -122,6 +134,8 @@ export function ClaudePathSelector({
       </div>
     );
   }
+
+  // claude-code, iflow, codex 使用 CLI 路径选择
 
   return (
     <div className="space-y-3">

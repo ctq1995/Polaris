@@ -140,7 +140,7 @@ export interface AIRuntimeConfig {
   /** 是否启用 EventBus 调试 */
   debug?: boolean
   /** 使用的引擎 ID */
-  engineId?: 'claude-code' | 'iflow' | 'deepseek'
+  engineId?: 'claude-code' | 'iflow' | 'deepseek' | 'codex'
 }
 
 /**
@@ -157,7 +157,7 @@ export class AIRuntimeService {
   private currentSession: AISession | null = null
   private unregister: (() => void) | null = null
   private config: AIRuntimeConfig
-  private currentEngineId: 'claude-code' | 'iflow' | 'deepseek' = 'claude-code'
+  private currentEngineId: 'claude-code' | 'iflow' | 'deepseek' | 'codex' = 'claude-code'
 
   constructor(config?: AIRuntimeConfig) {
     this.config = config || {}
@@ -329,14 +329,14 @@ export class AIRuntimeService {
   /**
    * 获取当前引擎 ID
    */
-  getEngineId(): 'claude-code' | 'iflow' | 'deepseek' {
+  getEngineId(): 'claude-code' | 'iflow' | 'deepseek' | 'codex' {
     return this.currentEngineId
   }
 
   /**
    * 设置引擎 ID
    */
-  setEngineId(engineId: 'claude-code' | 'iflow' | 'deepseek'): void {
+  setEngineId(engineId: 'claude-code' | 'iflow' | 'deepseek' | 'codex'): void {
     this.currentEngineId = engineId
     this.config.engineId = engineId
   }

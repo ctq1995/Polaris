@@ -85,6 +85,22 @@ impl Default for DeepSeekConfig {
     }
 }
 
+/// Codex 引擎配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfig {
+    /// Codex CLI 命令路径（可选，默认为 "codex"）
+    pub cli_path: Option<String>,
+}
+
+impl Default for CodexConfig {
+    fn default() -> Self {
+        Self {
+            cli_path: None,
+        }
+    }
+}
+
 /// 引擎 ID 类型
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -95,6 +111,8 @@ pub enum EngineId {
     IFlow,
     /// DeepSeek 引擎
     DeepSeek,
+    /// OpenAI Codex 引擎
+    Codex,
 }
 
 impl Default for EngineId {
@@ -110,6 +128,7 @@ impl EngineId {
             Self::ClaudeCode => "claude-code",
             Self::IFlow => "iflow",
             Self::DeepSeek => "deepseek",
+            Self::Codex => "codex",
         }
     }
 
@@ -119,6 +138,7 @@ impl EngineId {
             "claude-code" => Some(Self::ClaudeCode),
             "iflow" => Some(Self::IFlow),
             "deepseek" => Some(Self::DeepSeek),
+            "codex" => Some(Self::Codex),
             _ => None,
         }
     }
@@ -292,6 +312,10 @@ pub struct Config {
     #[serde(default)]
     pub deepseek: DeepSeekConfig,
 
+    /// Codex 引擎配置
+    #[serde(default)]
+    pub codex: CodexConfig,
+
     /// 工作目录
     pub work_dir: Option<PathBuf>,
 
@@ -331,6 +355,7 @@ impl Default for Config {
             claude_code: ClaudeCodeConfig::default(),
             iflow: IFlowConfig::default(),
             deepseek: DeepSeekConfig::default(),
+            codex: CodexConfig::default(),
             work_dir: None,
             session_dir: None,
             git_bin_path: None,
@@ -403,6 +428,12 @@ pub struct HealthStatus {
 
     /// DeepSeek API Key 是否配置
     pub deepseek_configured: Option<bool>,
+
+    /// Codex CLI 是否可用
+    pub codex_available: Option<bool>,
+
+    /// Codex 版本
+    pub codex_version: Option<String>,
 
     /// 工作目录
     pub work_dir: Option<String>,

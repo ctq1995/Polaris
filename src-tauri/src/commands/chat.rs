@@ -393,6 +393,9 @@ pub async fn start_chat(
         EngineId::IFlow => {
             start_iflow_chat_internal(&config, &message, window, state, context_id.as_deref()).await
         }
+        EngineId::Codex => {
+            start_codex_chat_internal(&config, &message, window, state, context_id.as_deref()).await
+        }
         EngineId::DeepSeek => {
             // DeepSeek 通过前端引擎处理，这里暂时返回错误
             Err(crate::error::AppError::Unknown("DeepSeek 引擎暂不支持通过后端启动".to_string()))
@@ -662,6 +665,9 @@ pub async fn continue_chat(
         EngineId::IFlow => {
             continue_iflow_chat_internal(&config, &session_id, &message, window, state, context_id.as_deref()).await
         }
+        EngineId::Codex => {
+            continue_codex_chat_internal(&config, &session_id, &message, window, state, context_id.as_deref()).await
+        }
         EngineId::DeepSeek => {
             // DeepSeek 通过前端引擎处理，这里暂时返回错误
             Err(crate::error::AppError::Unknown("DeepSeek 引擎暂不支持通过后端继续会话".to_string()))
@@ -862,6 +868,142 @@ async fn continue_iflow_chat_internal(
         let _ = child.wait();
 
         eprintln!("[continue_iflow_chat] 后台线程结束");
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// Codex 会话处理
+// ============================================================================
+
+use crate::services::codex_service::CodexService;
+
+/// 启动 Codex 聊天会话
+async fn start_codex_chat_internal(
+    config: &Config,
+    message: &str,
+    window: Window,
+    state: State<'_, crate::AppState>,
+    context_id: Option<&str>,
+) -> Result<String> {
+    eprintln!("[start_codex_chat] 启动 Codex 会话");
+
+    let session = CodexService::start_chat(config, message)?;
+
+    let temp_session_id = session.id.clone();
+    let return_session_id = temp_session_id.clone();
+    let process_id = session.child.id();
+    let ctx_id = context_id.map(|s| s.to_string());
+
+    eprintln!("[start_codex_chat] 临时会话 ID: {}, 进程 ID: {:?}", temp_session_id, process_id);
+
+    // 保存 PID 到全局 sessions
+    {
+        let mut sessions = state.sessions.lock()
+            .map_err(|e| AppError::Unknown(e.to_string()))?;
+        sessions.insert(temp_session_id.clone(), process_id);
+    }
+
+    let sessions_arc = Arc::clone(&state.sessions);
+    let window_clone = window.clone();
+
+    // 启动后台线程监控进程输出
+    CodexService::monitor_output(session.child, temp_session_id.clone(), move |event| {
+        // 检查是否收到真实的 session_id
+        if let StreamEvent::System { extra, .. } = &event {
+            if let Some(extra_map) = extra {
+                if let Some(serde_json::Value::String(real_session_id)) = extra_map.get("session_id") {
+                    eprintln!("[start_codex_chat] 收到真实 session_id: {}", real_session_id);
+
+                    if let Ok(mut sessions) = sessions_arc.lock() {
+                        if let Some(&pid) = sessions.get(&temp_session_id) {
+                            sessions.remove(&temp_session_id);
+                            sessions.insert(real_session_id.clone(), pid);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 包装事件，添加 contextId
+        let event_json = if let Some(ref cid) = ctx_id {
+            serde_json::json!({
+                "contextId": cid,
+                "payload": event
+            }).to_string()
+        } else {
+            serde_json::json!({
+                "contextId": "main",
+                "payload": event
+            }).to_string()
+        };
+        eprintln!("[start_codex_chat] 发送事件: {}", event_json);
+        let _ = window_clone.emit("chat-event", event_json);
+    });
+
+    Ok(return_session_id)
+}
+
+/// 继续 Codex 聊天会话
+async fn continue_codex_chat_internal(
+    config: &Config,
+    session_id: &str,
+    message: &str,
+    window: Window,
+    state: State<'_, crate::AppState>,
+    context_id: Option<&str>,
+) -> Result<()> {
+    eprintln!("[continue_codex_chat] 继续 Codex 会话: {}", session_id);
+
+    let old_pid = {
+        let mut sessions = state.sessions.lock()
+            .map_err(|e| AppError::Unknown(e.to_string()))?;
+        sessions.remove(session_id)
+    };
+
+    if let Some(pid) = old_pid {
+        eprintln!("[continue_codex_chat] 发现旧进程 PID: {:?}, 尝试终止", pid);
+        terminate_process(pid);
+    }
+
+    let child = CodexService::continue_chat(config, session_id, message)?;
+    let new_pid = child.id();
+
+    eprintln!("[continue_codex_chat] 新进程 PID: {:?}", new_pid);
+
+    let session_id_owned = session_id.to_string();
+    let ctx_id = context_id.map(|s| s.to_string());
+    {
+        let mut sessions = state.sessions.lock()
+            .map_err(|e| AppError::Unknown(e.to_string()))?;
+        sessions.insert(session_id_owned.clone(), new_pid);
+    }
+
+    let sessions_arc = Arc::clone(&state.sessions);
+    let window_clone = window.clone();
+
+    CodexService::monitor_output(child, session_id_owned.clone(), move |event| {
+        // 包装事件，添加 contextId
+        let event_json = if let Some(ref cid) = ctx_id {
+            serde_json::json!({
+                "contextId": cid,
+                "payload": event
+            }).to_string()
+        } else {
+            serde_json::json!({
+                "contextId": "main",
+                "payload": event
+            }).to_string()
+        };
+        eprintln!("[continue_codex_chat] 发送事件: {}", event_json);
+        let _ = window_clone.emit("chat-event", event_json);
+
+        if matches!(event, StreamEvent::SessionEnd) {
+            if let Ok(mut sessions) = sessions_arc.lock() {
+                sessions.remove(&session_id_owned);
+            }
+        }
     });
 
     Ok(())
