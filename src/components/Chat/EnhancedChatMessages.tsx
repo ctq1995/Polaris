@@ -11,7 +11,7 @@
  * - Edit 工具优化显示
  */
 
-import { useMemo, memo, useState, useCallback, useRef } from 'react';
+import { useMemo, memo, useState, useCallback, useRef, useDeferredValue } from 'react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
@@ -21,6 +21,7 @@ import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, 
 import { useEventChatStore, useGitStore, useWorkspaceStore, useTabStore } from '../../stores';
 import { getToolConfig, extractToolKeyInfo } from '../../utils/toolConfig';
 import { markdownCache } from '../../utils/cache';
+import { useThrottle } from '../../hooks/useThrottle';
 import {
   formatDuration,
   calculateDuration,
@@ -65,18 +66,49 @@ const UserBubble = memo(function UserBubble({ message }: { message: UserChatMess
   );
 });
 
-/** 文本内容块组件（支持 Mermaid 渲染 + 代码高亮 + 双语翻译） */
+/** 文本内容块组件（支持 Mermaid 渲染 + 代码高亮 + 双语翻译）
+ * 
+ * 性能优化策略：
+ * 1. 流式输出时使用节流（而非防抖），确保固定间隔渲染，提供更好的实时性
+ * 2. 流式阶段显示简化版内容（纯文本），避免复杂 markdown 渲染
+ * 3. 使用 useDeferredValue 降低渲染优先级，保持 UI 响应
+ * 4. 流式结束后显示完整渲染结果
+ */
 const TextBlockRenderer = memo(function TextBlockRenderer({ 
   block, 
   messageId,
-  onTranslateAll
+  onTranslateAll,
+  isStreaming = false
 }: { 
   block: TextBlock;
   messageId: string;
   onTranslateAll?: () => void;
+  isStreaming?: boolean;
 }) {
+  // 流式输出时使用节流（200ms 间隔），确保固定频率渲染
+  // 节流比防抖更适合流式场景：用户能看到内容持续更新，而不是等待结束后才显示
+  const throttledContent = useThrottle(block.content, isStreaming ? 200 : 0);
+  
+  // 使用 useDeferredValue 延迟渲染复杂内容，保持 UI 响应
+  const deferredContent = useDeferredValue(throttledContent);
+  
+  // 流式阶段使用节流内容，非流式使用原始内容
+  const contentToRender = isStreaming ? deferredContent : block.content;
+
+  // 非流式阶段：完整渲染（useMemo 必须在条件判断之前调用，遵守 React Hooks 规则）
   const parts = useMemo(() => splitMarkdownWithMermaid(block.content), [block.content]);
 
+  // 流式阶段：显示简化版内容（纯文本），避免复杂渲染
+  // 性能关键：直接返回，不执行任何 markdown 解析或正则处理
+  if (isStreaming) {
+    return (
+      <div className="prose prose-invert prose-sm max-w-none">
+        <StreamingTextContent content={contentToRender} />
+      </div>
+    );
+  }
+
+  // 非流式阶段：完整渲染
   return (
     <div className="prose prose-invert prose-sm max-w-none">
       {parts.map((part, partIndex) => {
@@ -94,6 +126,127 @@ const TextBlockRenderer = memo(function TextBlockRenderer({
       })}
     </div>
   );
+});
+
+/**
+ * 流式文本内容渲染器 - 极简版，最大化性能
+ * 
+ * 优化策略：
+ * 1. 单节点渲染：不按行分割，直接渲染整个文本
+ * 2. 使用 CSS white-space: pre-wrap 保持换行格式
+ * 3. 仅做最小化的代码块标识符高亮
+ * 4. 避免所有不必要的 useMemo/map 操作
+ * 
+ * 性能关键（2026-03-09 更新）：
+ * - 不使用正则表达式（正则在长文本上性能差）
+ * - 使用 lastIndexOf 从末尾搜索代码块标记（O(n) 但从末尾开始，流式场景更高效）
+ * - 限制处理范围：只处理最后 2000 字符中的代码块标记
+ * - 避免对整个长文本进行多次遍历
+ */
+const StreamingTextContent = memo(function StreamingTextContent({ content }: { content: string }) {
+  // 如果内容为空，渲染占位符
+  if (!content) {
+    return <span className="text-text-muted">...</span>;
+  }
+
+  // 性能优化：对于长文本，只处理最后 2000 字符
+  // 因为流式输出中，代码块标记通常出现在最新内容中
+  const SEARCH_WINDOW = 2000;
+  const searchStart = Math.max(0, content.length - SEARCH_WINDOW);
+  const searchRegion = content.slice(searchStart);
+  
+  // 快速检测：从末尾搜索代码块标记
+  const lastCodeBlockInRegion = searchRegion.lastIndexOf('```');
+  
+  // 如果搜索区域内没有代码块标记，直接渲染纯文本（最快路径）
+  if (lastCodeBlockInRegion === -1) {
+    return (
+      <span className="whitespace-pre-wrap break-words">
+        {content}
+      </span>
+    );
+  }
+
+  // 将区域内的相对位置转换为全局位置
+  const firstCodeBlock = searchStart + lastCodeBlockInRegion;
+
+  // 构建渲染结果
+  const parts: React.ReactNode[] = [];
+  let keyIndex = 0;
+  const MAX_PARTS = 10; // 减少最大片段数，避免创建过多节点
+
+  // 添加代码块标记之前的所有文本（作为一个整体）
+  if (firstCodeBlock > 0) {
+    parts.push(
+      <span key={`text-${keyIndex++}`}>
+        {content.slice(0, firstCodeBlock)}
+      </span>
+    );
+  }
+
+  // 处理代码块标记
+  let remaining = content.slice(firstCodeBlock);
+  
+  while (remaining.length > 0 && keyIndex < MAX_PARTS) {
+    const idx = remaining.indexOf('```');
+    
+    if (idx === -1) {
+      parts.push(
+        <span key={`text-${keyIndex++}`}>
+          {remaining}
+        </span>
+      );
+      break;
+    }
+
+    // 添加代码块标记之前的普通文本
+    if (idx > 0) {
+      parts.push(
+        <span key={`text-${keyIndex++}`}>
+          {remaining.slice(0, idx)}
+        </span>
+      );
+    }
+
+    // 找到代码块标记的结束位置（到下一个换行或行尾）
+    let endOfMarker = 3;
+    const afterMarker = remaining.slice(idx + 3);
+    
+    // 查找语言标识符结束位置
+    for (let i = 0; i < afterMarker.length && i < 30; i++) {
+      const char = afterMarker[i];
+      if (char === '\n' || char === '\r') {
+        endOfMarker = 3 + i + 1;
+        break;
+      }
+      if (!/[a-zA-Z0-9_+-]/.test(char)) {
+        endOfMarker = 3 + i;
+        break;
+      }
+      endOfMarker = 3 + i + 1;
+    }
+
+    // 添加代码块标记（带样式）
+    const marker = remaining.slice(idx, idx + endOfMarker);
+    parts.push(
+      <span key={`code-${keyIndex++}`} className="text-text-muted font-mono text-xs">
+        {marker}
+      </span>
+    );
+
+    remaining = remaining.slice(idx + endOfMarker);
+  }
+
+  // 添加剩余内容
+  if (remaining.length > 0) {
+    parts.push(
+      <span key={`text-remaining`}>
+        {remaining}
+      </span>
+    );
+  }
+
+  return <span className="whitespace-pre-wrap break-words">{parts}</span>;
 });
 
 /**
@@ -925,10 +1078,10 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
 });
 
 /** 内容块渲染器 */
-function renderContentBlock(block: ContentBlock, messageId: string, onTranslateAll?: () => void): React.ReactNode {
+function renderContentBlock(block: ContentBlock, messageId: string, onTranslateAll?: () => void, isStreaming?: boolean): React.ReactNode {
   switch (block.type) {
     case 'text':
-      return <TextBlockRenderer key={`text-${block.content.slice(0, 20)}`} block={block} messageId={messageId} onTranslateAll={onTranslateAll} />;
+      return <TextBlockRenderer key={`text-${block.content.slice(0, 20)}`} block={block} messageId={messageId} onTranslateAll={onTranslateAll} isStreaming={isStreaming} />;
     case 'tool_call':
       return <ToolCallBlockRenderer key={block.id} block={block} />;
     default:
@@ -983,7 +1136,7 @@ const AssistantBubble = memo(function AssistantBubble({ message }: { message: As
           <div className="space-y-1">
             {message.blocks.map((block, index) => (
               <div key={index}>
-                {renderContentBlock(block, message.id, handleTranslateAll)}
+                {renderContentBlock(block, message.id, handleTranslateAll, message.isStreaming)}
               </div>
             ))}
           </div>
@@ -1128,11 +1281,74 @@ const EmptyState = memo(function EmptyState() {
  * 增强版聊天消息列表组件
  *
  * 使用内容块架构渲染消息，工具调用穿插在文本中间
+ *
+ * 性能优化：
+ * - 流式阶段直接从 currentMessage 读取内容，不更新 messages 数组
+ * - 避免 50ms 一次的整个消息列表重渲染
  */
 export function EnhancedChatMessages() {
-  const { messages, archivedMessages, loadArchivedMessages } = useEventChatStore();
+  const { messages, archivedMessages, loadArchivedMessages, currentMessage, isStreaming } = useEventChatStore();
 
-  const isEmpty = messages.length === 0;
+  // 性能优化：流式阶段合并 currentMessage 到消息列表
+  // 这样就不需要频繁更新 messages 数组，避免整个列表重渲染
+  // 使用 ref 缓存消息对象，避免每次 currentMessage 变化都创建新引用
+  const prevDisplayMessagesRef = useRef<ChatMessage[]>([]);
+  // 存储 lastContentRef 用于快速比较内容是否变化
+  const lastContentRef = useRef<{ id: string; contentLen: number } | null>(null);
+  
+  const displayMessages = useMemo(() => {
+    if (!currentMessage || !isStreaming) {
+      prevDisplayMessagesRef.current = messages;
+      lastContentRef.current = null;
+      return messages;
+    }
+
+    // 快速检查：如果 currentMessage 内容长度与上次相同，直接返回缓存
+    const lastBlock = currentMessage.blocks[currentMessage.blocks.length - 1];
+    const currentContentLen = lastBlock?.type === 'text' ? (lastBlock as any).content?.length || 0 : 0;
+    
+    if (
+      lastContentRef.current?.id === currentMessage.id &&
+      lastContentRef.current?.contentLen === currentContentLen
+    ) {
+      // 内容长度相同，直接返回缓存（避免创建新数组）
+      return prevDisplayMessagesRef.current;
+    }
+
+    // 更新缓存标记
+    lastContentRef.current = { id: currentMessage.id, contentLen: currentContentLen };
+
+    // 检查 currentMessage 是否已在 messages 中
+    const existingIndex = messages.findIndex(m => m.id === currentMessage.id);
+    
+    if (existingIndex >= 0) {
+      // 内容变化，创建新的消息数组，但复用不变的消息对象
+      const updated: ChatMessage[] = [
+        ...messages.slice(0, existingIndex),
+        {
+          ...messages[existingIndex],
+          blocks: currentMessage.blocks,
+          isStreaming: true,
+        } as AssistantChatMessage,
+        ...messages.slice(existingIndex + 1),
+      ];
+      prevDisplayMessagesRef.current = updated;
+      return updated;
+    } else {
+      // 添加到末尾
+      const newMessages: ChatMessage[] = [...messages, {
+        id: currentMessage.id,
+        type: 'assistant' as const,
+        blocks: currentMessage.blocks,
+        timestamp: new Date().toISOString(),
+        isStreaming: true,
+      }];
+      prevDisplayMessagesRef.current = newMessages;
+      return newMessages;
+    }
+  }, [messages, currentMessage, isStreaming]);
+
+  const isEmpty = displayMessages.length === 0;
   const hasArchive = archivedMessages.length > 0;
 
   // Virtuoso 引用，用于滚动控制
@@ -1144,10 +1360,10 @@ export function EnhancedChatMessages() {
   // 当前可见的对话轮次索引
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
 
-  // 对话轮次分组
+  // 对话轮次分组（使用 displayMessages 包含流式消息）
   const conversationRounds = useMemo(() => {
-    return groupConversationRounds(messages);
-  }, [messages]);
+    return groupConversationRounds(displayMessages);
+  }, [displayMessages]);
 
   // 检测用户是否在底部附近（基于像素距离）
   const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
@@ -1235,18 +1451,18 @@ export function EnhancedChatMessages() {
             <Virtuoso
               ref={virtuosoRef}
               style={{ height: '100%' }}
-              data={messages}
+              data={displayMessages}
               itemContent={(_index, item) => renderChatMessage(item)}
               components={{
                 EmptyPlaceholder: () => null,
                 Footer: () => <div style={{ height: '120px' }} />,
               }}
-              followOutput={autoScroll ? 'smooth' : false}
+              followOutput={autoScroll ? (isStreaming ? true : 'smooth') : false}
               atBottomStateChange={handleAtBottomStateChange}
               atBottomThreshold={150}
               rangeChanged={handleRangeChange}
               increaseViewportBy={{ top: 100, bottom: 300 }}
-              initialTopMostItemIndex={messages.length - 1}
+              initialTopMostItemIndex={displayMessages.length - 1}
             />
           )}
         </div>

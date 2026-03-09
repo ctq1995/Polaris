@@ -6,6 +6,7 @@
  * - 一键复制代码
  * - 显示编程语言标签
  * - 暗色主题适配
+ * - 异步高亮避免阻塞主线程
  */
 
 import { memo, useState, useCallback, useEffect } from 'react';
@@ -42,6 +43,16 @@ hljs.registerLanguage('json', json);
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('markdown', markdown);
 hljs.registerLanguage('shell', bash);
+
+// 高亮结果缓存
+const highlightCache = new Map<string, string>();
+
+/**
+ * 生成缓存键
+ */
+function getCacheKey(code: string, language: string): string {
+  return `${language}:${code.length}:${code.slice(0, 50)}`;
+}
 
 interface CodeBlockProps {
   /** 代码内容 */
@@ -100,6 +111,63 @@ function getDisplayName(language: string): string {
 }
 
 /**
+ * 异步执行高亮（使用 requestIdleCallback 或 setTimeout）
+ */
+function scheduleHighlight(
+  code: string,
+  language: string,
+  callback: (result: string) => void
+): () => void {
+  // 检查缓存
+  const cacheKey = getCacheKey(code, language);
+  const cached = highlightCache.get(cacheKey);
+  if (cached) {
+    callback(cached);
+    return () => {};
+  }
+
+  let cancelled = false;
+
+  const doHighlight = () => {
+    if (cancelled) return;
+
+    try {
+      const result = hljs.highlight(code, { language }).value;
+      highlightCache.set(cacheKey, result);
+      // 限制缓存大小
+      if (highlightCache.size > 100) {
+        const firstKey = highlightCache.keys().next().value;
+        if (firstKey) highlightCache.delete(firstKey);
+      }
+      if (!cancelled) callback(result);
+    } catch {
+      try {
+        const result = hljs.highlightAuto(code).value;
+        highlightCache.set(cacheKey, result);
+        if (!cancelled) callback(result);
+      } catch {
+        if (!cancelled) callback(code);
+      }
+    }
+  };
+
+  // 使用 requestIdleCallback 或 setTimeout 延迟执行
+  if ('requestIdleCallback' in window) {
+    const id = (window as any).requestIdleCallback(doHighlight, { timeout: 100 });
+    return () => {
+      cancelled = true;
+      (window as any).cancelIdleCallback(id);
+    };
+  } else {
+    const id = setTimeout(doHighlight, 16);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }
+}
+
+/**
  * CodeBlock 组件
  *
  * @example
@@ -112,7 +180,7 @@ function getDisplayName(language: string): string {
  */
 export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-  const [highlightedCode, setHighlightedCode] = useState('');
+  const [highlightedCode, setHighlightedCode] = useState<string | null>(null);
   const codeString = String(children).trimEnd();
 
   // 提取语言
@@ -120,29 +188,14 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
   const normalizedLanguage = languageAliases[language] || language;
   const displayName = getDisplayName(normalizedLanguage);
 
-  // 语法高亮
+  // 异步语法高亮
   useEffect(() => {
     if (!normalizedLanguage) {
-      // 没有语言信息，直接显示原文
-      setHighlightedCode(codeString);
+      setHighlightedCode(null);
       return;
     }
 
-    try {
-      const result = hljs.highlight(codeString, {
-        language: normalizedLanguage,
-      });
-      setHighlightedCode(result.value);
-    } catch (error) {
-      // 语言不支持，降级到自动检测
-      try {
-        const result = hljs.highlightAuto(codeString);
-        setHighlightedCode(result.value);
-      } catch {
-        // 完全失败，显示原文
-        setHighlightedCode(codeString);
-      }
-    }
+    return scheduleHighlight(codeString, normalizedLanguage, setHighlightedCode);
   }, [codeString, normalizedLanguage]);
 
   // 复制代码
@@ -165,6 +218,10 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
       setTimeout(() => setCopied(false), 2000);
     }
   }, [codeString]);
+
+  // 显示原始代码或高亮后的代码
+  const displayCode = highlightedCode ?? codeString;
+  const useHighlight = highlightedCode !== null;
 
   return (
     <div className="relative group my-4 rounded-lg overflow-hidden bg-background-base border border-border-subtle">
@@ -207,10 +264,14 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
             margin: 0,
           }}
         >
-          <code
-            className="hljs text-sm"
-            dangerouslySetInnerHTML={{ __html: highlightedCode }}
-          />
+          {useHighlight ? (
+            <code
+              className="hljs text-sm"
+              dangerouslySetInnerHTML={{ __html: displayCode }}
+            />
+          ) : (
+            <code className="text-sm text-text-secondary">{codeString}</code>
+          )}
         </pre>
       </div>
     </div>

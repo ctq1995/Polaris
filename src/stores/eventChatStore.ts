@@ -855,6 +855,8 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       // 创建 TokenBuffer 用于后续的批量处理
       const newBuffer = new TokenBuffer((batchedContent) => {
         // TokenBuffer 刷新时的回调 - 批量更新内容
+        // 性能优化：流式阶段只更新 currentMessage，不更新 messages 数组
+        // 避免 50ms 一次的整个消息列表重渲染
         const state = get()
         const msg = state.currentMessage
         if (!msg) return
@@ -872,8 +874,8 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
               ? { ...state.currentMessage, blocks: updatedBlocks }
               : null,
           }))
-          // 更新消息列表中的消息
-          get().updateCurrentAssistantMessage(updatedBlocks)
+          // 注意：流式阶段不调用 updateCurrentAssistantMessage
+          // 让组件从 currentMessage 读取流式内容，避免频繁更新 messages 数组
         } else {
           // 最后一块不是文本块（如 tool_call），创建新的文本块
           // 这处理了工具调用后继续有文本的场景
@@ -884,7 +886,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
               ? { ...state.currentMessage, blocks: updatedBlocks }
               : null,
           }))
-          get().updateCurrentAssistantMessage(updatedBlocks)
+          // 注意：流式阶段不调用 updateCurrentAssistantMessage
         }
       }, { maxDelay: 50, maxSize: 500 })
 
