@@ -829,7 +829,6 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
    */
   appendTextBlock: (content) => {
     const { currentMessage, tokenBuffer } = get()
-    const now = new Date().toISOString()
 
     console.log('[appendTextBlock] 调用, currentMessage:', !!currentMessage, 'content长度:', content.length, 'content预览:', content.slice(0, 50))
 
@@ -846,14 +845,8 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
         currentMessage: newMessage,
         isStreaming: true,
       })
-      // 立即添加到消息列表，让用户能看到
-      get().addMessage({
-        id: newMessage.id,
-        type: 'assistant',
-        blocks: newMessage.blocks,
-        timestamp: now,
-        isStreaming: true,
-      })
+      // 注意：不再调用 addMessage，由 displayMessages 统一处理
+      // 避免与 displayMessages 的 useMemo 产生竞争条件导致消息重复
 
       // 创建 TokenBuffer 用于后续的批量处理
       const newBuffer = new TokenBuffer((batchedContent) => {
@@ -1843,6 +1836,47 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
           })
 
           console.log('[EventChatStore] 已从 IFlow 恢复会话:', sessionId)
+          return true
+        }
+      }
+
+      // 4. 如果指定了 Codex，尝试从 Codex 恢复
+      if (engineId === 'codex') {
+        const { getCodexSessionHistory } = await import('../services/tauri')
+        const messages = await getCodexSessionHistory(sessionId)
+
+        if (messages && messages.length > 0) {
+          // 将 Codex 历史消息转换为 ChatMessage 格式
+          const chatMessages: ChatMessage[] = messages.map((msg): ChatMessage => {
+            if (msg.type === 'user') {
+              return {
+                id: msg.id,
+                type: 'user',
+                content: msg.content,
+                timestamp: msg.timestamp,
+              } as UserChatMessage
+            } else {
+              return {
+                id: msg.id,
+                type: 'assistant',
+                blocks: [
+                  { type: 'text', content: msg.content }
+                ],
+                timestamp: msg.timestamp,
+                content: msg.content,
+              } as AssistantChatMessage
+            }
+          })
+
+          set({
+            messages: chatMessages,
+            archivedMessages: [],
+            conversationId: sessionId,
+            isStreaming: false,
+            error: null,
+          })
+
+          console.log('[EventChatStore] 已从 Codex 恢复会话:', sessionId, '消息数:', chatMessages.length)
           return true
         }
       }

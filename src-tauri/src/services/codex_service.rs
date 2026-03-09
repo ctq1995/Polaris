@@ -258,6 +258,30 @@ impl CodexService {
                 let event_type = json.get("type").and_then(|t| t.as_str()).unwrap_or("");
 
                 match event_type {
+                    // Codex CLI 标准格式: {"type":"event_msg","payload":{"type":"user_message","message":"..."}}
+                    "event_msg" => {
+                        if let Some(payload) = json.get("payload") {
+                            let payload_type = payload.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                            match payload_type {
+                                "user_message" => {
+                                    if let Some(text) = payload.get("message").and_then(|t| t.as_str()) {
+                                        history.push(("user".to_string(), text.to_string()));
+                                    }
+                                }
+                                "agent_message" => {
+                                    // 只收集 final 阶段的消息，忽略 commentary
+                                    let phase = payload.get("phase").and_then(|p| p.as_str()).unwrap_or("");
+                                    if phase == "final" || phase == "" {
+                                        if let Some(text) = payload.get("message").and_then(|t| t.as_str()) {
+                                            history.push(("assistant".to_string(), text.to_string()));
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    // 旧格式兼容
                     "user_message" => {
                         if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
                             history.push(("user".to_string(), text.to_string()));
