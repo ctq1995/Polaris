@@ -137,6 +137,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
           </div>
         ) : (
           <>
+            {commits.map((commit) => (
               <div
                 key={commit.sha}
                 onClick={() => setSelectedCommit(commit)}
