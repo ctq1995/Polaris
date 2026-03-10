@@ -227,7 +227,7 @@ export function BranchSelector() {
                   {localBranches.length > 0 && (
                     <>
                       <div className="px-3 py-1 text-xs text-text-tertiary bg-background sticky top-0">
-                        本地分支 ({localBranches.length})
+                        {t('branch.local')} ({localBranches.length})
                       </div>
                       {localBranches.map((branch) => (
                         <button
@@ -248,7 +248,7 @@ export function BranchSelector() {
                   {remoteBranches.length > 0 && (
                     <>
                       <div className="px-3 py-1 text-xs text-text-tertiary bg-background sticky top-0">
-                        远程分支 ({remoteBranches.length})
+                        {t('branch.remote')} ({remoteBranches.length})
                       </div>
                       {remoteBranches.map((branch) => (
                         <button

@@ -25,6 +25,7 @@ import {
   GitCompare,
   Square,
   Play,
+  ChevronRight,
 } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -557,7 +558,7 @@ export function BranchTab() {
             </button>
           )}
           {!isRemote && (
-            <ChevronRightIcon
+            <ChevronRight
               size={14}
               className={`flex-shrink-0 mt-1 ${
                 isCurrent ? 'text-primary/50' : 'text-text-tertiary'
@@ -1164,24 +1165,5 @@ export function BranchTab() {
         </div>
       )}
     </div>
-  )
-}
-
-// ChevronRight 图标组件
-function ChevronRightIcon({ size, className }: { size: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
   )
 }
