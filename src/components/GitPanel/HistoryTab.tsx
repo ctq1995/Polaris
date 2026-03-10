@@ -98,7 +98,7 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
   }, [loadCommits])
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col min-h-0">
       {/* 标题栏 */}
       <div className="px-4 py-2 border-b border-border-subtle flex items-center justify-between">
         <span className="text-sm font-medium text-text-primary">
