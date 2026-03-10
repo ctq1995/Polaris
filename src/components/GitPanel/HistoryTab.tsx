@@ -534,59 +534,33 @@ export function HistoryTab() {
       )}
 
       <div className="flex-1">
-        {(() => {
-          console.log('[HistoryTab] 🎨 渲染判断', {
-            isLoading,
-            commitsLength: commits.length,
-            filteredCommitsLength: filteredCommits.length,
-            hasSearch: !!searchQuery.trim()
-          })
-
-          if (isLoading && commits.length === 0) {
-            console.log('[HistoryTab] 渲染: Loading 状态')
-            return (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 size={20} className="animate-spin text-text-tertiary" />
-              </div>
-            )
-          }
-
-          if (commits.length === 0) {
-            console.log('[HistoryTab] 渲染: 没有提交')
-            return (
-              <div className="flex flex-col items-center justify-center py-8 text-text-tertiary">
-                <GitCommit size={24} className="mb-2 opacity-50" />
-                <span className="text-sm">{t('history.noCommits')}</span>
-              </div>
-            )
-          }
-
-          if (filteredCommits.length === 0) {
-            console.log('[HistoryTab] 渲染: 没有搜索结果')
-            return (
-              <div className="flex flex-col items-center justify-center py-8 text-text-tertiary">
-                <Search size={24} className="mb-2 opacity-50" />
-                <span className="text-sm">{t('history.noSearchResults')}</span>
-              </div>
-            )
-          }
-
-          console.log('[HistoryTab] 渲染: Virtuoso 列表', {
-            dataCount: filteredCommits.length
-          })
-
-          return (
-            <Virtuoso
-              data={filteredCommits}
-              endReached={loadMore}
-              itemContent={(_, commit) => <CommitItem commit={commit} />}
-              components={{
-                Footer,
-              }}
-              className="h-full"
-            />
-          )
-        })()}
+        {isLoading && commits.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={20} className="animate-spin text-text-tertiary" />
+          </div>
+        ) : commits.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-text-tertiary">
+            <GitCommit size={24} className="mb-2 opacity-50" />
+            <span className="text-sm">{t('history.noCommits')}</span>
+          </div>
+        ) : filteredCommits.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-text-tertiary">
+            <Search size={24} className="mb-2 opacity-50" />
+            <span className="text-sm">{t('history.noSearchResults')}</span>
+          </div>
+        ) : (
+          <Virtuoso
+            key={filteredCommits.length}
+            data={filteredCommits}
+            endReached={loadMore}
+            itemContent={(_, commit) => <CommitItem commit={commit} />}
+            components={{
+              Footer,
+            }}
+            className="h-full"
+            style={{ minHeight: '400px' }}
+          />
+        )}
       </div>
 
       {selectedCommit && (
