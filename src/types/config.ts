@@ -85,7 +85,7 @@ export interface DingTalkConfig {
 
 /** 应用配置 */
 export interface Config {
-  /** 当前选择的引擎（保留向后兼容） */
+  /** 当前选择的引擎 */
   defaultEngine: EngineId;
   /** 界面语言 */
   language?: Language;
@@ -98,19 +98,6 @@ export interface Config {
   iflow: {
     /** IFlow CLI 命令路径 */
     cliPath?: string;
-  };
-  /** DeepSeek 引擎配置（保留向后兼容） */
-  deepseek: {
-    /** API Key */
-    apiKey: string;
-    /** API Base URL (可选) */
-    apiBase?: string;
-    /** 模型选择 */
-    model?: 'deepseek-chat' | 'deepseek-coder' | 'deepseek-reasoner';
-    /** 温度参数 (可选) */
-    temperature?: number;
-    /** 最大 Token 数 (可选) */
-    maxTokens?: number;
   };
   /** Codex 引擎配置 */
   codex: {

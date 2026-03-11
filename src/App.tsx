@@ -86,21 +86,24 @@ function App() {
         // 先加载配置，获取默认引擎
         await loadConfig();
 
-        // 获取默认引擎 ID
+        // 获取配置
         const config = useConfigStore.getState().config;
         const defaultEngine = config?.defaultEngine || 'claude-code';
 
-        // 准备 DeepSeek 配置（如果使用 DeepSeek）
-        const deepSeekConfig = defaultEngine === 'deepseek' && config?.deepseek ? {
-          apiKey: config.deepseek.apiKey,
-          apiBase: config.deepseek.apiBase || 'https://api.deepseek.com',
-          model: config.deepseek.model || 'deepseek-chat',
-          temperature: config.deepseek.temperature || 0.7,
-          maxTokens: config.deepseek.maxTokens || 4096,
-        } : undefined;
+        // 注册 OpenAI Providers（如果有）
+        if (config?.openaiProviders && config.openaiProviders.length > 0) {
+          await bootstrapOpenAIProviders(config.openaiProviders, config.activeProviderId);
+        }
 
-        // 按需初始化 AI Engine Registry，只加载默认引擎
-        await bootstrapEngines(defaultEngine, deepSeekConfig);
+        // 按需初始化传统 AI Engine
+        const codexConfig = {
+          cliPath: config?.codex.cliPath || 'codex',
+          sandboxMode: config?.codex.sandboxMode || 'workspace-write',
+          approvalPolicy: config?.codex.approvalPolicy || 'never',
+          dangerousBypass: config?.codex.dangerousBypass || false,
+        };
+
+        await bootstrapEngines(defaultEngine as any, undefined, codexConfig);
 
         // 初始化 Agent 系统
         await bootstrapAgents();

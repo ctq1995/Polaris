@@ -9,4 +9,5 @@
 
 export { OpenAIProviderEngine, getOpenAIProviderEngine, removeOpenAIProviderEngine, clearOpenAIProviderEngines } from './engine'
 export { OpenAIProviderSession } from './session'
-export type { OpenAIProviderEngineConfig, OpenAIProviderSessionConfig } from './engine'
+export type { OpenAIProviderEngineConfig } from './engine'
+export type { OpenAIProviderSessionConfig } from './session'

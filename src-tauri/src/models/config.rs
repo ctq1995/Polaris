@@ -33,58 +33,6 @@ impl Default for IFlowConfig {
     }
 }
 
-/// DeepSeek 引擎配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeepSeekConfig {
-    /// API Key
-    #[serde(default = "default_deepseek_api_key")]
-    pub api_key: String,
-
-    /// API Base URL (可选)
-    pub api_base: Option<String>,
-
-    /// 模型选择
-    #[serde(default = "default_deepseek_model")]
-    pub model: String,
-
-    /// 温度参数
-    #[serde(default = "default_deepseek_temperature")]
-    pub temperature: f64,
-
-    /// 最大 Token 数
-    #[serde(default = "default_deepseek_max_tokens")]
-    pub max_tokens: usize,
-}
-
-fn default_deepseek_api_key() -> String {
-    String::new()
-}
-
-fn default_deepseek_model() -> String {
-    "deepseek-coder".to_string()
-}
-
-fn default_deepseek_temperature() -> f64 {
-    0.7
-}
-
-fn default_deepseek_max_tokens() -> usize {
-    8192
-}
-
-impl Default for DeepSeekConfig {
-    fn default() -> Self {
-        Self {
-            api_key: String::new(),
-            api_base: None,
-            model: "deepseek-coder".to_string(),
-            temperature: 0.7,
-            max_tokens: 8192,
-        }
-    }
-}
-
 /// Codex 引擎配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -400,10 +348,6 @@ pub struct Config {
     #[serde(default)]
     pub iflow: IFlowConfig,
 
-    /// DeepSeek 引擎配置
-    #[serde(default)]
-    pub deepseek: DeepSeekConfig,
-
     /// Codex 引擎配置
     #[serde(default)]
     pub codex: CodexConfig,
@@ -454,7 +398,6 @@ impl Default for Config {
             language: None,
             claude_code: ClaudeCodeConfig::default(),
             iflow: IFlowConfig::default(),
-            deepseek: DeepSeekConfig::default(),
             codex: CodexConfig::default(),
             openai_providers: Vec::new(),
             active_provider_id: None,
@@ -482,40 +425,8 @@ impl Config {
         self.claude_code.cli_path.clone()
     }
 
-    /// 迁移旧配置到新格式
-    pub fn migrate(&mut self) {
-        // 如果 claude_cmd 有值且 claude_code.cli_path 是默认值
-        if let Some(ref cmd) = self.claude_cmd {
-            if self.claude_code.cli_path == "claude" && !cmd.is_empty() {
-                self.claude_code.cli_path = cmd.clone();
-            }
-        }
-
-        // 迁移旧的 deepseek 配置到 openai_providers
-        if self.openai_providers.is_empty() && !self.deepseek.api_key.is_empty() {
-            let migrated_provider = OpenAIProvider {
-                id: "deepseek-migrated".to_string(),
-                name: "DeepSeek (迁移)".to_string(),
-                api_key: self.deepseek.api_key.clone(),
-                api_base: self.deepseek.api_base.clone()
-                    .unwrap_or_else(|| "https://api.deepseek.com".to_string()),
-                model: self.deepseek.model.clone(),
-                temperature: self.deepseek.temperature,
-                max_tokens: self.deepseek.max_tokens,
-                enabled: true,
-            };
-
-            self.openai_providers.push(migrated_provider);
-
-            // 设置为当前选中
-            if self.active_provider_id.is_none() {
-                self.active_provider_id = Some("deepseek-migrated".to_string());
-            }
-
-            println!("[Config] Migrated old deepseek config to openai_providers");
-        }
-
-        // 确保 default_engine 有效
+    /// 确保 default_engine 有效
+    pub fn validate(&mut self) {
         if EngineId::from_str(&self.default_engine).is_none() {
             self.default_engine = "claude-code".to_string();
         }

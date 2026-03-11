@@ -408,12 +408,13 @@ export class OpenAIProviderSession extends BaseSession {
         type: 'tool_call_end',
         callId: toolCall.id,
         tool: toolCall.name,
-        result: result.output,
-        success: !result.is_error,
+        result: result.success ? (result.data?.toString() || 'Success') : (result.error || 'Failed'),
+        success: result.success,
       })
 
       // 将工具结果添加到消息历史
-      this.addToolResultMessage(toolCall.id, result.output, result.is_error)
+      const output = result.success ? (result.data?.toString() || 'Success') : (result.error || 'Failed')
+      this.addToolResultMessage(toolCall.id, output, !result.success)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
@@ -499,6 +500,24 @@ export class OpenAIProviderSession extends BaseSession {
     const recentMessages = this.messages.slice(-MAX_MESSAGES + 1)
 
     return [systemMessage, ...recentMessages]
+  }
+
+  /**
+   * 中止任务
+   */
+  protected abortTask(_taskId: string): void {
+    // TODO: 实现任务中止逻辑
+    console.warn(`[OpenAIProviderSession] abortTask not implemented`)
+  }
+
+  /**
+   * 释放资源
+   */
+  protected disposeResources(): void {
+    // 清理资源
+    this.messages = []
+    this.currentIntent = null
+    console.log(`[OpenAIProviderSession] Resources disposed`)
   }
 
   /**

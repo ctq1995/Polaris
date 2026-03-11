@@ -12,7 +12,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
-import type { DeepSeekSessionConfig } from './session'
+import type { OpenAIProviderSessionConfig } from './session'
 
 /**
  * 工具执行结果
