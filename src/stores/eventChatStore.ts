@@ -1477,7 +1477,10 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       // 执行任务并迭代事件流
       const eventStream = session.run(task)
 
+      const eventBus = getEventBus({ debug: false })
+
       for await (const event of eventStream) {
+        eventBus.emit(event)
         // 直接使用 handleAIEvent 处理事件
         handleAIEvent(event, set, get, workspaceDir)
 

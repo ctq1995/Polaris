@@ -1294,7 +1294,7 @@ export function EnhancedChatMessages() {
   // 使用 ref 缓存消息对象，避免每次 currentMessage 变化都创建新引用
   const prevDisplayMessagesRef = useRef<ChatMessage[]>([]);
   // 存储 lastContentRef 用于快速比较内容是否变化
-  const lastContentRef = useRef<{ id: string; contentLen: number } | null>(null);
+  const lastContentRef = useRef<{ id: string; contentLen: number; blockCount: number } | null>(null);
   
   const displayMessages = useMemo(() => {
     if (!currentMessage || !isStreaming) {
@@ -1306,17 +1306,19 @@ export function EnhancedChatMessages() {
     // 快速检查：如果 currentMessage 内容长度与上次相同，直接返回缓存
     const lastBlock = currentMessage.blocks[currentMessage.blocks.length - 1];
     const currentContentLen = lastBlock?.type === 'text' ? (lastBlock as any).content?.length || 0 : 0;
+    const currentBlockCount = currentMessage.blocks.length;
     
     if (
       lastContentRef.current?.id === currentMessage.id &&
-      lastContentRef.current?.contentLen === currentContentLen
+      lastContentRef.current?.contentLen === currentContentLen &&
+      lastContentRef.current?.blockCount === currentBlockCount
     ) {
       // 内容长度相同，直接返回缓存（避免创建新数组）
       return prevDisplayMessagesRef.current;
     }
 
     // 更新缓存标记
-    lastContentRef.current = { id: currentMessage.id, contentLen: currentContentLen };
+    lastContentRef.current = { id: currentMessage.id, contentLen: currentContentLen, blockCount: currentBlockCount };
 
     // 检查 currentMessage 是否已在 messages 中
     const existingIndex = messages.findIndex(m => m.id === currentMessage.id);
