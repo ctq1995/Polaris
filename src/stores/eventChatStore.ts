@@ -1564,9 +1564,9 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
     if (currentEngine.startsWith('provider-')) {
       if (providerSessionCache?.session) {
         try {
-          providerSessionCache.session.dispose()
+          providerSessionCache.session.abort()
         } catch (e) {
-          console.warn('[EventChatStore] Dispose provider session failed:', e)
+          console.warn('[EventChatStore] Abort provider session failed:', e)
         }
       }
       set({ isStreaming: false, tokenBuffer: null })

@@ -87,6 +87,12 @@ export class OpenAIProviderSession extends BaseSession {
   /** 当前任务 ID */
   private currentTaskId: string | null = null
 
+  /** 后端会话 ID */
+  private backendSessionId: string | null = null
+
+  /** 是否已请求中断 */
+  private abortRequested = false
+
   /** 事件监听取消函数 */
   private unlistenChatEvent: (() => void) | null = null
 
@@ -142,6 +148,7 @@ export class OpenAIProviderSession extends BaseSession {
    */
   protected async executeTask(task: AITask): Promise<AsyncIterable<AIEvent>> {
     this.currentTaskId = task.id
+    this.abortRequested = false
 
     // 添加用户消息到历史
     this.addUserMessage(task.input.prompt)
@@ -167,8 +174,11 @@ export class OpenAIProviderSession extends BaseSession {
       return
     }
 
-    // TODO: 后端实现中断功能
     console.log(`[OpenAIProviderSession] Aborting task ${taskId}`)
+    this.abortRequested = true
+    if (this.backendSessionId) {
+      void this.interruptBackendSession(this.backendSessionId)
+    }
     this.currentTaskId = null
   }
 
@@ -181,6 +191,8 @@ export class OpenAIProviderSession extends BaseSession {
       this.unlistenChatEvent = null
     }
     this.currentTaskId = null
+    this.backendSessionId = null
+    this.abortRequested = false
   }
 
   /**
@@ -298,13 +310,25 @@ export class OpenAIProviderSession extends BaseSession {
         },
       })
 
+      this.backendSessionId = response
       console.log(`[OpenAIProviderSession] Backend session started: ${response}`)
+      if (this.abortRequested) {
+        await this.interruptBackendSession(response)
+      }
     } catch (error) {
       console.error('[OpenAIProviderSession] Failed to start backend chat:', error)
       this.emit({
         type: 'error',
         error: error instanceof Error ? error.message : String(error),
       })
+    }
+  }
+
+  private async interruptBackendSession(sessionId: string): Promise<void> {
+    try {
+      await invoke('interrupt_chat', { sessionId })
+    } catch (error) {
+      console.error('[OpenAIProviderSession] Failed to interrupt backend session:', error)
     }
   }
 
