@@ -747,7 +747,7 @@ fn notify_ai_reply_complete(window: &Window) {
     let _ = window
         .notification()
         .builder()
-        .title("AI 回复完成")
+        .title("Polaris")
         .body("已完成本轮回复")
         .show();
 }
