@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, lazy, Suspense, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Layout, StatusIndicator, FileExplorer, ResizeHandle, ConnectingOverlay, ErrorBoundary, ToastContainer } from './components/Common';
+import { ConfirmDialog } from './components/Common/ConfirmDialog';
 
 import { EnhancedChatMessages, ChatInput } from './components/Chat';
 import { ToolPanel } from './components/ToolPanel';
@@ -57,6 +58,8 @@ function App() {
   }, [workspaces, currentWorkspace]);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
+  const [showEngineSwitchConfirm, setShowEngineSwitchConfirm] = useState(false);
+  const [pendingEngineId, setPendingEngineId] = useState<EngineId | null>(null);
   // 使用 ref 确保初始化只执行一次
   const isInitialized = useRef(false);
   const hasCheckedWorkspaces = useRef(false);
@@ -99,12 +102,9 @@ function App() {
     return options;
   }, [config?.openaiProviders]);
 
-  const handleEngineSwitch = useCallback(async (engineId: EngineId) => {
+  const applyEngineSwitch = useCallback(async (engineId: EngineId) => {
     if (!config) return;
     if (engineId === config.defaultEngine) return;
-
-    const confirmed = window.confirm('切换引擎会清空当前对话并重新开始，是否继续？');
-    if (!confirmed) return;
 
     if (isStreaming) {
       try {
@@ -124,6 +124,13 @@ function App() {
     };
     await updateConfig(nextConfig);
   }, [config, isStreaming, interruptChat, clearMessages, updateConfig]);
+
+  const handleEngineSelect = useCallback((engineId: EngineId) => {
+    if (!config) return;
+    if (engineId === config.defaultEngine) return;
+    setPendingEngineId(engineId);
+    setShowEngineSwitchConfirm(true);
+  }, [config]);
 
   // 初始化配置（只执行一次）
   useEffect(() => {
@@ -479,12 +486,12 @@ function App() {
             <span className="text-sm text-text-primary">{t('labels.aiChat')}</span>
             <div className="flex items-center gap-3">
               <select
-                className="bg-transparent border border-border-subtle text-text-primary text-xs px-2 py-1 rounded-md"
+                className="bg-background-elevated border border-border-subtle text-text-primary text-xs px-2 py-1 rounded-md"
                 value={config?.defaultEngine || 'claude-code'}
-                onChange={(e) => handleEngineSwitch(e.target.value as EngineId)}
+                onChange={(e) => handleEngineSelect(e.target.value as EngineId)}
               >
                 {engineOptions.map((opt) => (
-                  <option key={opt.id} value={opt.id}>{opt.name}</option>
+                  <option key={opt.id} value={opt.id} className="bg-background text-text-primary">{opt.name}</option>
                 ))}
               </select>
               <StatusIndicator
@@ -494,9 +501,11 @@ function App() {
                     : (healthStatus?.claudeAvailable ? 'online' : 'offline')
                 }
                 label={
-                  config?.defaultEngine === 'iflow'
-                    ? (healthStatus?.iflowVersion ?? t('status.disconnected'))
-                    : (healthStatus?.claudeVersion ?? t('status.disconnected'))
+                  config?.defaultEngine?.startsWith('provider-')
+                    ? undefined
+                    : (config?.defaultEngine === 'iflow'
+                      ? (healthStatus?.iflowVersion ?? t('status.disconnected'))
+                      : (healthStatus?.claudeVersion ?? t('status.disconnected')))
                 }
               />
             </div>
@@ -556,6 +565,24 @@ function App() {
         <Suspense fallback={<div className="flex items-center justify-center text-text-muted">{t('status.loading')}</div>}>
           <CreateWorkspaceModal onClose={() => setShowCreateWorkspace(false)} />
         </Suspense>
+      )}
+
+      {showEngineSwitchConfirm && (
+        <ConfirmDialog
+          message="切换引擎会清空当前对话并重新开始，是否继续？"
+          onCancel={() => {
+            setShowEngineSwitchConfirm(false);
+            setPendingEngineId(null);
+          }}
+          onConfirm={async () => {
+            const nextId = pendingEngineId;
+            setShowEngineSwitchConfirm(false);
+            setPendingEngineId(null);
+            if (nextId) {
+              await applyEngineSwitch(nextId);
+            }
+          }}
+        />
       )}
 
       {/* 会话历史模态框 */}
