@@ -121,6 +121,78 @@ impl Default for CodexConfig {
     }
 }
 
+/// OpenAI Provider 配置
+///
+/// 支持任何 OpenAI 协议兼容的 API 服务
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAIProvider {
+    /// 唯一标识符（用于区分不同配置）
+    pub id: String,
+
+    /// 显示名称（用户可自定义）
+    pub name: String,
+
+    /// API Key
+    #[serde(default)]
+    pub api_key: String,
+
+    /// API Base URL
+    #[serde(default = "default_openai_api_base")]
+    pub api_base: String,
+
+    /// 模型名称（完全由用户决定）
+    #[serde(default = "default_openai_model")]
+    pub model: String,
+
+    /// 温度参数 (0-2)
+    #[serde(default = "default_openai_temperature")]
+    pub temperature: f64,
+
+    /// 最大 Token 数
+    #[serde(default = "default_openai_max_tokens")]
+    pub max_tokens: usize,
+
+    /// 是否启用
+    #[serde(default = "default_openai_enabled")]
+    pub enabled: bool,
+}
+
+fn default_openai_api_base() -> String {
+    "https://api.openai.com/v1".to_string()
+}
+
+fn default_openai_model() -> String {
+    "gpt-4o-mini".to_string()
+}
+
+fn default_openai_temperature() -> f64 {
+    0.7
+}
+
+fn default_openai_max_tokens() -> usize {
+    8192
+}
+
+fn default_openai_enabled() -> bool {
+    true
+}
+
+impl Default for OpenAIProvider {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: "New Provider".to_string(),
+            api_key: String::new(),
+            api_base: default_openai_api_base(),
+            model: default_openai_model(),
+            temperature: default_openai_temperature(),
+            max_tokens: default_openai_max_tokens(),
+            enabled: default_openai_enabled(),
+        }
+    }
+}
+
 /// 引擎 ID 类型
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -336,6 +408,14 @@ pub struct Config {
     #[serde(default)]
     pub codex: CodexConfig,
 
+    /// OpenAI Providers 列表
+    #[serde(default)]
+    pub openai_providers: Vec<OpenAIProvider>,
+
+    /// 当前选中的 Provider ID
+    #[serde(default)]
+    pub active_provider_id: Option<String>,
+
     /// 工作目录
     pub work_dir: Option<PathBuf>,
 
@@ -376,6 +456,8 @@ impl Default for Config {
             iflow: IFlowConfig::default(),
             deepseek: DeepSeekConfig::default(),
             codex: CodexConfig::default(),
+            openai_providers: Vec::new(),
+            active_provider_id: None,
             work_dir: None,
             session_dir: None,
             git_bin_path: None,
@@ -407,6 +489,30 @@ impl Config {
             if self.claude_code.cli_path == "claude" && !cmd.is_empty() {
                 self.claude_code.cli_path = cmd.clone();
             }
+        }
+
+        // 迁移旧的 deepseek 配置到 openai_providers
+        if self.openai_providers.is_empty() && !self.deepseek.api_key.is_empty() {
+            let migrated_provider = OpenAIProvider {
+                id: "deepseek-migrated".to_string(),
+                name: "DeepSeek (迁移)".to_string(),
+                api_key: self.deepseek.api_key.clone(),
+                api_base: self.deepseek.api_base.clone()
+                    .unwrap_or_else(|| "https://api.deepseek.com".to_string()),
+                model: self.deepseek.model.clone(),
+                temperature: self.deepseek.temperature,
+                max_tokens: self.deepseek.max_tokens,
+                enabled: true,
+            };
+
+            self.openai_providers.push(migrated_provider);
+
+            // 设置为当前选中
+            if self.active_provider_id.is_none() {
+                self.active_provider_id = Some("deepseek-migrated".to_string());
+            }
+
+            println!("[Config] Migrated old deepseek config to openai_providers");
         }
 
         // 确保 default_engine 有效

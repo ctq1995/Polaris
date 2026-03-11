@@ -10,26 +10,71 @@ import { ClaudeCodeEngine } from '../engines/claude-code'
 import { IFlowEngine } from '../engines/iflow'
 import { DeepSeekEngine, type DeepSeekEngineConfig } from '../engines/deepseek'
 import { CodexEngine, type CodexEngineConfig } from '../engines/codex'
+import { getOpenAIProviderEngine, clearOpenAIProviderEngines, type OpenAIProviderEngineConfig } from '../engines/openai-provider'
+import type { OpenAIProvider } from '../types/config'
 
 /**
- * 已注册的 Engine ID 列表
+ * 已注册的 Engine ID 列表（传统引擎）
  */
 export const REGISTERED_ENGINE_IDS = ['claude-code', 'iflow', 'deepseek', 'codex'] as const
 
 /**
  * Engine 类型
  */
-export type EngineId = typeof REGISTERED_ENGINE_IDS[number]
+export type EngineId = typeof REGISTERED_ENGINE_IDS[number] | `provider-${string}`
 
 /**
- * 按需初始化 AI Engine
+ * 从配置动态注册 OpenAI Provider 引擎
  *
- * 在应用启动时调用，只初始化默认引擎。
- * 其他引擎在需要时通过 registerEngineLazy() 延迟加载。
+ * @param providers Provider 配置列表
+ * @param activeProviderId 当前选中的 Provider ID
+ */
+export async function bootstrapOpenAIProviders(
+  providers: OpenAIProvider[],
+  activeProviderId?: string
+): Promise<void> {
+  const registry = getEngineRegistry()
+
+  // 清空旧的 Provider 引擎缓存
+  clearOpenAIProviderEngines()
+
+  // 为每个启用的 Provider 创建引擎
+  for (const provider of providers) {
+    if (!provider.enabled) continue
+
+    try {
+      const engineConfig: OpenAIProviderEngineConfig = {
+        providerId: provider.id,
+        providerName: provider.name,
+        apiKey: provider.api_key,
+        apiBase: provider.api_base,
+        model: provider.model,
+        temperature: provider.temperature,
+        maxTokens: provider.max_tokens,
+      }
+
+      const engine = getOpenAIProviderEngine(engineConfig)
+
+      // 如果是当前选中的 Provider，设为默认引擎
+      const isDefault = provider.id === activeProviderId
+      registerEngine(engine, { asDefault: isDefault })
+
+      await engine.initialize()
+
+      console.log(`[EngineBootstrap] Registered provider: ${provider.name} (${engine.id})`)
+    } catch (error) {
+      console.error(`[EngineBootstrap] Failed to register provider ${provider.name}:`, error)
+    }
+  }
+}
+
+/**
+ * 按需初始化 AI Engine（兼容旧版本）
  *
- * @param defaultEngineId 默认引擎 ID，只初始化该引擎
- * @param deepSeekConfig DeepSeek 引擎配置（如果使用 DeepSeek）
- * @param codexConfig Codex 引擎配置（如果使用 Codex）
+ * @param defaultEngineId 默认引擎 ID
+ * @param deepSeekConfig DeepSeek 引擎配置
+ * @param codexConfig Codex 引擎配置
+ * @deprecated 建议使用 bootstrapEnginesFromConfig
  */
 export async function bootstrapEngines(
   defaultEngineId: EngineId = 'claude-code',
@@ -68,11 +113,9 @@ export async function bootstrapEngines(
 /**
  * 延迟注册引擎（用于切换引擎时）
  *
- * 当用户切换到未初始化的引擎时，调用此函数加载该引擎。
- *
  * @param engineId 要注册的引擎 ID
- * @param deepSeekConfig DeepSeek 引擎配置（如果需要）
- * @param codexConfig Codex 引擎配置（如果需要）
+ * @param deepSeekConfig DeepSeek 引擎配置
+ * @param codexConfig Codex 引擎配置
  */
 export async function registerEngineLazy(
   engineId: EngineId,

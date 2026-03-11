@@ -2,11 +2,31 @@
  * 配置相关类型定义
  */
 
-/**  引擎 ID */
-export type EngineId = 'claude-code' | 'iflow' | 'deepseek' | 'codex'
+/**  引擎 ID（扩展以支持动态 Provider） */
+export type EngineId = 'claude-code' | 'iflow' | 'deepseek' | 'codex' | `provider-${string}`
 
 /** 支持的语言 */
 export type Language = 'zh-CN' | 'en-US'
+
+/** OpenAI Provider 配置 */
+export interface OpenAIProvider {
+  /** 唯一标识符 */
+  id: string;
+  /** 显示名称 */
+  name: string;
+  /** API Key */
+  api_key: string;
+  /** API Base URL */
+  api_base: string;
+  /** 模型名称（任意值） */
+  model: string;
+  /** 温度参数 */
+  temperature: number;
+  /** 最大 Token 数 */
+  max_tokens: number;
+  /** 是否启用 */
+  enabled: boolean;
+}
 
 /** AI 引擎配置 */
 export interface EngineConfig {
@@ -65,7 +85,7 @@ export interface DingTalkConfig {
 
 /** 应用配置 */
 export interface Config {
-  /** 当前选择的引擎 */
+  /** 当前选择的引擎（保留向后兼容） */
   defaultEngine: EngineId;
   /** 界面语言 */
   language?: Language;
@@ -79,7 +99,7 @@ export interface Config {
     /** IFlow CLI 命令路径 */
     cliPath?: string;
   };
-  /** DeepSeek 引擎配置 */
+  /** DeepSeek 引擎配置（保留向后兼容） */
   deepseek: {
     /** API Key */
     apiKey: string;
@@ -103,6 +123,10 @@ export interface Config {
     /** 危险全开放（跳过审批和沙箱） */
     dangerousBypass?: boolean;
   };
+  /** OpenAI Providers 列表 */
+  openaiProviders: OpenAIProvider[];
+  /** 当前选中的 Provider ID */
+  activeProviderId?: string;
   /** 工作目录 */
   workDir?: string;
   /** 会话保存路径 */
