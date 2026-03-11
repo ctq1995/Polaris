@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, lazy, Suspense, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Layout, StatusIndicator, FileExplorer, ResizeHandle, ConnectingOverlay, ErrorBoundary, ToastContainer } from './components/Common';
+import { Layout, FileExplorer, ResizeHandle, ConnectingOverlay, ErrorBoundary, ToastContainer } from './components/Common';
 import { ConfirmDialog } from './components/Common/ConfirmDialog';
 
 import { EnhancedChatMessages, ChatInput } from './components/Chat';
@@ -494,20 +494,6 @@ function App() {
                   <option key={opt.id} value={opt.id} className="bg-background text-text-primary">{opt.name}</option>
                 ))}
               </select>
-              <StatusIndicator
-                status={
-                  config?.defaultEngine === 'iflow'
-                    ? (healthStatus?.iflowAvailable ? 'online' : 'offline')
-                    : (healthStatus?.claudeAvailable ? 'online' : 'offline')
-                }
-                label={
-                  config?.defaultEngine?.startsWith('provider-')
-                    ? undefined
-                    : (config?.defaultEngine === 'iflow'
-                      ? (healthStatus?.iflowVersion ?? t('status.disconnected'))
-                      : (healthStatus?.claudeVersion ?? t('status.disconnected')))
-                }
-              />
             </div>
           </div>
 
