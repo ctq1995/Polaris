@@ -781,12 +781,14 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
    * 将 currentMessage 标记为完成，并清空
    */
   finishMessage: () => {
-    const { currentMessage, messages, tokenBuffer } = get()
+    const { tokenBuffer } = get()
 
-    // 修复：使用 destroy() 而不是 end()，确保释放 TokenBuffer 资源
+    // 先刷新并结束缓冲，确保最后一批内容写入 currentMessage
     if (tokenBuffer) {
-      tokenBuffer.destroy()
+      tokenBuffer.end()
     }
+
+    const { currentMessage, messages } = get()
 
     if (currentMessage) {
       // 标记消息为完成状态
