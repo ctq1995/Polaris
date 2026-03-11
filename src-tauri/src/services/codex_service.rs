@@ -657,6 +657,13 @@ impl CodexService {
                     }
                     "command_execution" => {
                         let tool_id = item.get("id").and_then(|v| v.as_str()).unwrap_or("");
+
+                        // 获取退出码
+                        let exit_code = item.get("exit_code")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(-1);
+
+                        // 尝试获取输出
                         let output = item.get("combined_output")
                             .or_else(|| item.get("output"))
                             .or_else(|| item.get("stdout"))
@@ -664,10 +671,24 @@ impl CodexService {
                             .or_else(|| item.get("result"))
                             .and_then(|v| if v.is_string() { v.as_str().map(|s| s.to_string()) } else { Some(v.to_string()) });
 
+                        // 如果输出为空但命令成功执行，生成友好消息
+                        let final_output = if output.is_none() || output.as_ref().map_or(false, |s| s.is_empty()) {
+                            if exit_code == 0 {
+                                eprintln!("[CodexService] command_execution 成功但无输出，生成友好消息");
+                                Some("✓ 命令执行成功（无输出）".to_string())
+                            } else {
+                                eprintln!("[CodexService] command_execution 失败，exit_code={}", exit_code);
+                                Some(format!("⚠ 命令执行失败 (exit_code: {})", exit_code))
+                            }
+                        } else {
+                            eprintln!("[CodexService] command_execution 有输出，长度={}", output.as_ref().map_or(0, |s| s.len()));
+                            output
+                        };
+
                         Some(StreamEvent::ToolEnd {
                             tool_use_id: tool_id.to_string(),
                             tool_name: Some("command_execution".to_string()),
-                            output,
+                            output: final_output,
                         })
                     }
                     _ => None,

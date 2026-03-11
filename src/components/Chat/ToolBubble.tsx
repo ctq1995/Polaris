@@ -140,6 +140,20 @@ export const ToolBubble = memo(function ToolBubble({ message }: ToolBubbleProps)
           )}
 
           {/* 输出结果 */}
+          {message.status === 'completed' && !message.output && (
+            <div className="bg-success-faint border border-success/30 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-success/20 bg-success/10">
+                <span className="text-xs text-text-subtle">执行结果</span>
+              </div>
+              <div className="p-3 text-xs text-success flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>命令执行成功（无输出）</span>
+              </div>
+            </div>
+          )}
+
           {message.output && (
             <div className={clsx(
               "rounded-lg border overflow-hidden",

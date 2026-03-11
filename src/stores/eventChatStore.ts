@@ -956,14 +956,9 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
    * 添加工具调用块到当前消息
    */
   appendToolCallBlock: (toolId, toolName, input) => {
-    const { currentMessage } = get()
+    const { currentMessage, isStreaming } = get()
     const toolPanelStore = useToolPanelStore.getState()
     const now = new Date().toISOString()
-
-    if (!currentMessage) {
-      console.warn('[EventChatStore] No current message when adding tool call block')
-      return
-    }
 
     const toolBlock: ToolCallBlock = {
       type: 'tool_call',
@@ -972,6 +967,35 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       input,
       status: 'pending',
       startedAt: now,
+    }
+
+    // 如果没有当前消息，创建一个新的（可能工具调用在文本之前到达）
+    if (!currentMessage) {
+      console.log('[EventChatStore] 创建新消息（工具调用优先）')
+      const newMessage: CurrentAssistantMessage = {
+        id: crypto.randomUUID(),
+        blocks: [toolBlock],
+        isStreaming: true,
+      }
+      set({
+        currentMessage: newMessage,
+        isStreaming: true,
+        toolBlockMap: new Map([[toolId, 0]]),
+      })
+
+      // 同步到工具面板
+      toolPanelStore.addTool({
+        id: toolId,
+        name: toolName,
+        status: 'pending',
+        input,
+        startedAt: now,
+      })
+
+      // 更新进度消息
+      const summary = generateToolSummary(toolName, input, 'pending')
+      set({ progressMessage: summary })
+      return
     }
 
     // 添加工具块
