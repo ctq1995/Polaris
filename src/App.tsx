@@ -23,10 +23,11 @@ import { bootstrapAgents } from './core/agent-bootstrap';
 import { bootstrapTools } from './core/tool-bootstrap';
 import { listen, emit } from '@tauri-apps/api/event';
 import './index.css';
+import type { EngineId } from './types';
 
 function App() {
   const { t } = useTranslation('common');
-  const { healthStatus, isConnecting, connectionState, loadConfig, config } = useConfigStore();
+  const { healthStatus, isConnecting, connectionState, loadConfig, config, updateConfig } = useConfigStore();
   const {
     isStreaming,
     sendMessage,
@@ -36,6 +37,7 @@ function App() {
     saveToStorage,
     initializeEventListeners,
     messages,
+    clearMessages,
   } = useEventChatStore();
   const workspaces = useWorkspaceStore(state => state.workspaces);
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace());
@@ -76,6 +78,52 @@ function App() {
   } = useViewStore();
   const { showFloatingWindow } = useFloatingWindowStore();
   const { openDiffTab } = useTabStore();
+
+  const engineOptions = useMemo(() => {
+    const options: { id: EngineId; name: string }[] = [
+      { id: 'claude-code', name: 'Claude Code' },
+      { id: 'iflow', name: 'IFlow' },
+      { id: 'codex', name: 'Codex' },
+    ];
+
+    if (config?.openaiProviders && config.openaiProviders.length > 0) {
+      for (const provider of config.openaiProviders) {
+        if (!provider.enabled) continue;
+        options.push({
+          id: provider.id as EngineId,
+          name: provider.name || provider.id,
+        });
+      }
+    }
+
+    return options;
+  }, [config?.openaiProviders]);
+
+  const handleEngineSwitch = useCallback(async (engineId: EngineId) => {
+    if (!config) return;
+    if (engineId === config.defaultEngine) return;
+
+    const confirmed = window.confirm('切换引擎会清空当前对话并重新开始，是否继续？');
+    if (!confirmed) return;
+
+    if (isStreaming) {
+      try {
+        await interruptChat();
+      } catch (e) {
+        console.warn('[App] 中断失败，继续切换引擎:', e);
+      }
+    }
+
+    clearMessages();
+
+    const isProvider = engineId.startsWith('provider-');
+    const nextConfig = {
+      ...config,
+      defaultEngine: engineId,
+      activeProviderId: isProvider ? engineId : config.activeProviderId,
+    };
+    await updateConfig(nextConfig);
+  }, [config, isStreaming, interruptChat, clearMessages, updateConfig]);
 
   // 初始化配置（只执行一次）
   useEffect(() => {
@@ -429,18 +477,29 @@ function App() {
           {/* 状态指示器 */}
           <div className="flex items-center justify-between px-4 py-2 bg-background-elevated border-b border-border-subtle">
             <span className="text-sm text-text-primary">{t('labels.aiChat')}</span>
-            <StatusIndicator
-              status={
-                config?.defaultEngine === 'iflow'
-                  ? (healthStatus?.iflowAvailable ? 'online' : 'offline')
-                  : (healthStatus?.claudeAvailable ? 'online' : 'offline')
-              }
-              label={
-                config?.defaultEngine === 'iflow'
-                  ? (healthStatus?.iflowVersion ?? t('status.disconnected'))
-                  : (healthStatus?.claudeVersion ?? t('status.disconnected'))
-              }
-            />
+            <div className="flex items-center gap-3">
+              <select
+                className="bg-transparent border border-border-subtle text-text-primary text-xs px-2 py-1 rounded-md"
+                value={config?.defaultEngine || 'claude-code'}
+                onChange={(e) => handleEngineSwitch(e.target.value as EngineId)}
+              >
+                {engineOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>{opt.name}</option>
+                ))}
+              </select>
+              <StatusIndicator
+                status={
+                  config?.defaultEngine === 'iflow'
+                    ? (healthStatus?.iflowAvailable ? 'online' : 'offline')
+                    : (healthStatus?.claudeAvailable ? 'online' : 'offline')
+                }
+                label={
+                  config?.defaultEngine === 'iflow'
+                    ? (healthStatus?.iflowVersion ?? t('status.disconnected'))
+                    : (healthStatus?.claudeVersion ?? t('status.disconnected'))
+                }
+              />
+            </div>
           </div>
 
           {error && (
