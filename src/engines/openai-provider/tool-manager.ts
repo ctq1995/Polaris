@@ -59,7 +59,9 @@ export class ToolCallManager {
     if (!this.config.workspaceDir) return
 
     try {
-      const gitignorePath = `${this.config.workspaceDir}/.gitignore`
+      // 规范化路径，避免混合斜杠
+      const normalizedWorkspace = this.normalizePath(this.config.workspaceDir)
+      const gitignorePath = `${normalizedWorkspace}/.gitignore`
       const content = await invoke<string>('read_file', { path: gitignorePath })
 
       // 解析 .gitignore 内容
@@ -92,7 +94,12 @@ export class ToolCallManager {
    * 检查文件是否应该被忽略
    */
   private shouldIgnoreFile(filePath: string): boolean {
-    const relativePath = filePath.replace(this.config.workspaceDir + '/', '')
+    if (!this.config.workspaceDir) return false
+
+    // 规范化路径进行比较
+    const normalizedWorkspace = this.normalizePath(this.config.workspaceDir)
+    const normalizedPath = this.normalizePath(filePath)
+    const relativePath = normalizedPath.replace(normalizedWorkspace + '/', '')
 
     for (const pattern of this.gitignorePatterns) {
       // 简单的 glob 匹配
@@ -110,6 +117,17 @@ export class ToolCallManager {
   }
 
   /**
+   * 规范化路径（统一使用正斜杠）
+   *
+   * @param path - 原始路径
+   * @returns 规范化后的路径
+   */
+  private normalizePath(path: string): string {
+    // 将反斜杠替换为正斜杠（Windows 兼容）
+    return path.replace(/\\/g, '/')
+  }
+
+  /**
    * 解析路径（将相对路径转换为绝对路径）
    *
    * @param path - 文件路径
@@ -123,29 +141,35 @@ export class ToolCallManager {
 
     if (!this.config.workspaceDir) {
       console.warn(`[resolvePath] ⚠️ 未配置工作区目录，使用原始路径`)
-      return path
+      return this.normalizePath(path)
     }
 
+    // 规范化工作区目录
+    const normalizedWorkspace = this.normalizePath(this.config.workspaceDir)
+
     // 检测是否是绝对路径
-    const isAbsolute = path.startsWith('/') || path.match(/^[A-Za-z]:\\/)
+    const isAbsolute = path.startsWith('/') || path.match(/^[A-Za-z]:/i)
 
     if (isAbsolute) {
+      // 规范化输入的绝对路径
+      const normalizedPath = this.normalizePath(path)
+
       // 检查是否是工作区内的绝对路径
-      if (path.startsWith(this.config.workspaceDir)) {
+      if (normalizedPath.startsWith(normalizedWorkspace)) {
         // 工作区内绝对路径，给出建议
-        const relative = path.slice(this.config.workspaceDir.length).replace(/^[\/\\]/, '')
+        const relative = normalizedPath.slice(normalizedWorkspace.length).replace(/^\//, '')
         console.warn(`[resolvePath] ⚠️ 检测到工作区绝对路径，建议使用相对路径: "${relative}"`)
-        console.log(`[resolvePath] ✅ 解析为: "${path}"`)
-        return path
+        console.log(`[resolvePath] ✅ 解析为: "${normalizedPath}"`)
+        return normalizedPath
       } else {
         // 外部绝对路径
-        console.warn(`[resolvePath] ⚠️ 检测到外部绝对路径: "${path}"`)
-        return path
+        console.warn(`[resolvePath] ⚠️ 检测到外部绝对路径: "${normalizedPath}"`)
+        return normalizedPath
       }
     }
 
-    // 相对路径，拼接工作区目录
-    const resolved = `${this.config.workspaceDir}/${path}`
+    // 相对路径，拼接工作区目录（使用正斜杠）
+    const resolved = `${normalizedWorkspace}/${path}`
     console.log(`[resolvePath] ✅ 相对路径解析为: "${resolved}"`)
     return resolved
   }
