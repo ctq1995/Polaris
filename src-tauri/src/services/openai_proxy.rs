@@ -301,7 +301,7 @@ impl OpenAIProxyService {
         session_id: String,
         context_id: Option<String>,
     ) -> Result<()> {
-        tracing::info!("[OpenAIProxy] 开始聊天循环, session={}, model={}", session_id, config.model);
+        tracing::info!("[OpenAIProxy] 开始聊天循环, session={}, model={}, model={}", session_id, config.model, messages);
         
         let mut tool_call_count = 0;
         const MAX_TOOL_CALLS: u32 = 50; // 防止无限循环
@@ -467,8 +467,10 @@ impl OpenAIProxyService {
                 buffer = buffer[pos + sep_len..].to_string();
 
                 // 打印原始事件数据
-                tracing::info!("[OpenAIProxy] SSE 事件数据: {}", 
-                    if event_data.len() > 300 { &event_data[..300] } else { &event_data });
+                tracing::info!(
+                    "[OpenAIProxy] SSE 事件数据: {}",
+                    truncate_for_log(&event_data, 300)
+                );
 
                 // 跳过空行
                 if event_data.trim().is_empty() {
@@ -477,7 +479,8 @@ impl OpenAIProxyService {
 
                 // 处理 SSE 事件
                 for line in event_data.lines() {
-                    if let Some(data) = line.strip_prefix("data: ") {
+                    if let Some(data) = line.strip_prefix("data:") {
+                        let data = data.trim_start();
                         if data == "[DONE]" {
                             tracing::info!("[OpenAIProxy] SSE 流结束 [DONE]");
                             continue;
@@ -525,8 +528,11 @@ impl OpenAIProxyService {
                                 }
                             }
                             Err(e) => {
-                                tracing::warn!("[OpenAIProxy] SSE 解析失败: {}, data: {}", e, 
-                                    if data.len() > 200 { &data[..200] } else { data });
+                                tracing::warn!(
+                                    "[OpenAIProxy] SSE 解析失败: {}, data: {}",
+                                    e,
+                                    truncate_for_log(data, 200)
+                                );
                             }
                         }
                     }
@@ -536,15 +542,20 @@ impl OpenAIProxyService {
 
         // 检查 buffer 中是否有剩余数据
         if !buffer.trim().is_empty() {
-            tracing::warn!("[OpenAIProxy] Buffer 中有未处理的数据: {}", 
-                if buffer.len() > 200 { &buffer[..200] } else { &buffer });
+            tracing::warn!(
+                "[OpenAIProxy] Buffer 中有未处理的数据: {}",
+                truncate_for_log(&buffer, 200)
+            );
             
             // 尝试处理剩余数据
             for line in buffer.lines() {
-                if let Some(data) = line.strip_prefix("data: ") {
+                if let Some(data) = line.strip_prefix("data:") {
+                    let data = data.trim_start();
                     if data != "[DONE]" {
-                        tracing::info!("[OpenAIProxy] 处理剩余数据: {}", 
-                            if data.len() > 100 { &data[..100] } else { data });
+                        tracing::info!(
+                            "[OpenAIProxy] 处理剩余数据: {}",
+                            truncate_for_log(data, 100)
+                        );
                     }
                 }
             }
@@ -674,12 +685,22 @@ impl OpenAIProxyService {
             .to_string()
         };
 
-        tracing::debug!("[OpenAIProxy] 发送事件: {}", 
-            if event_json.len() > 100 { &event_json[..100] } else { &event_json });
+        tracing::debug!(
+            "[OpenAIProxy] 发送事件: {}",
+            truncate_for_log(&event_json, 100)
+        );
         
         if let Err(e) = window.emit("chat-event", &event_json) {
             tracing::error!("[OpenAIProxy] 发送事件失败: {}", e);
         }
+    }
+}
+
+fn truncate_for_log(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        value.to_string()
+    } else {
+        value.chars().take(max_chars).collect()
     }
 }
 
