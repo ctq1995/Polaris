@@ -8,7 +8,6 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useConfigStore } from '../../stores'
 import { Button } from '../Common'
 import type { OpenAIProvider } from '../../types/config'
@@ -19,7 +18,6 @@ interface OpenAIProvidersTabProps {
 }
 
 export function OpenAIProvidersTab({ onClose }: OpenAIProvidersTabProps) {
-  const { t } = useTranslation('settings')
   const { config, updateConfig } = useConfigStore()
   const [providers, setProviders] = useState<OpenAIProvider[]>([])
   const [activeProviderId, setActiveProviderId] = useState<string>()

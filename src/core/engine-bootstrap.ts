@@ -33,7 +33,7 @@ export async function bootstrapOpenAIProviders(
   providers: OpenAIProvider[],
   activeProviderId?: string
 ): Promise<void> {
-  const registry = getEngineRegistry()
+  // const registry = getEngineRegistry() // 未使用，保留以供未来扩展
 
   // 清空旧的 Provider 引擎缓存
   clearOpenAIProviderEngines()

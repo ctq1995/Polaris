@@ -12,7 +12,6 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
-import type { OpenAIProviderSessionConfig } from "./session"
 
 /**
  * 工具执行结果

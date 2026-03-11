@@ -391,7 +391,7 @@ export function removeOpenAIProviderEngine(providerId: string): void {
  * 清空所有引擎实例
  */
 export function clearOpenAIProviderEngines(): void {
-  engineCache.forEach((engine, providerId) => {
+  engineCache.forEach((engine) => {
     engine.cleanup()
   })
   engineCache.clear()

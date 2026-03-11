@@ -956,7 +956,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
    * 添加工具调用块到当前消息
    */
   appendToolCallBlock: (toolId, toolName, input) => {
-    const { currentMessage, isStreaming } = get()
+    const { currentMessage } = get()
     const toolPanelStore = useToolPanelStore.getState()
     const now = new Date().toISOString()
 
