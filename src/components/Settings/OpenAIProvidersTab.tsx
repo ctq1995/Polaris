@@ -59,7 +59,7 @@ export function OpenAIProvidersTab({ onClose }: OpenAIProvidersTabProps) {
       temperature: 0.7,
       maxTokens: 8192,
       enabled: true,
-      supportsTools: false,
+      supportsTools: true,
     }
     setProviders([...providers, newProvider])
   }

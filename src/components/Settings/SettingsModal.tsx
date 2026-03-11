@@ -143,7 +143,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       temperature: 0.7,
       maxTokens: 8192,
       enabled: true,
-      supportsTools: false,
+      supportsTools: true,
     };
     setLocalConfig({
       ...localConfig,
@@ -418,6 +418,31 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                           className="w-full px-3 py-2 rounded border border-border bg-background"
                         />
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-text-secondary mb-1">温度 (0-2)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value={provider.temperature ?? 0.7}
+                            onChange={(e) => handleUpdateProvider(provider.id, { temperature: parseFloat(e.target.value) || 0.7 })}
+                            className="w-full px-3 py-2 rounded border border-border bg-background"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-text-secondary mb-1">最大 Token 数</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1024"
+                            value={provider.maxTokens ?? 8192}
+                            onChange={(e) => handleUpdateProvider(provider.id, { maxTokens: parseInt(e.target.value) || 8192 })}
+                            className="w-full px-3 py-2 rounded border border-border bg-background"
+                          />
+                        </div>
+                      </div>
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-2 text-xs text-text-secondary">
                           <input
@@ -427,6 +452,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             className="w-4 h-4"
                           />
                           启用此 Provider
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={provider.supportsTools ?? true}
+                            onChange={(e) => handleUpdateProvider(provider.id, { supportsTools: e.target.checked })}
+                            className="w-4 h-4"
+                          />
+                          支持工具调用
                         </label>
                         <button
                           onClick={() => setEditingProviderId(null)}
