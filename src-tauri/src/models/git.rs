@@ -5,7 +5,6 @@
  */
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 // ============================================================================
 // Git 文件状态

@@ -4,9 +4,9 @@
  * 提供所有 Git 操作的核心功能实现
  */
 
-use crate::models::git::{self, *};
+use crate::models::git::*;
 use git2::{
-    BranchType, Diff, DiffDelta, DiffOptions, Oid, Repository, StatusOptions, IndexAddOption,
+    BranchType, Diff, DiffDelta, DiffOptions, Oid, Repository, StatusOptions,
 };
 use std::path::Path;
 use std::collections::HashMap;

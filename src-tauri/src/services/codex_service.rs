@@ -10,7 +10,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio, Child};
-use std::time::Duration;
 use uuid::Uuid;
 
 #[cfg(windows)]
@@ -596,6 +595,18 @@ impl CodexService {
                                 "id": item.get("id").and_then(|v| v.as_str()).unwrap_or("")
                             });
                             Some(StreamEvent::Assistant { message })
+                        } else {
+                            None
+                        }
+                    }
+                    // 🔥 思考过程（reasoning）
+                    "reasoning" => {
+                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                            let id = item.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            Some(StreamEvent::Thinking {
+                                id,
+                                thinking: text.to_string(),
+                            })
                         } else {
                             None
                         }

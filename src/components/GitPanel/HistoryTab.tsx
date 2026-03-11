@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { GitCommit, User, Clock, RefreshCw, ChevronRight, Loader2, X } from 'lucide-react'
+import { GitCommit, User, Clock, RefreshCw, ChevronRight, Loader2 } from 'lucide-react'
 import { useGitStore } from '@/stores/gitStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { GitCommit as GitCommitType } from '@/types/git'
@@ -70,7 +70,6 @@ export function HistoryTab({ targetCommitSha, onCommitSelected }: HistoryTabProp
       const targetCommit = commits.find(c => c.sha === targetCommitSha || c.sha.startsWith(targetCommitSha))
       if (targetCommit) {
         setSelectedCommit(targetCommit)
-        setSearchQuery('')
         onCommitSelected?.()
       }
     }

@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use std::process::{Command, Stdio, Child};
 use std::io::{BufRead, BufReader};
 use tauri::{Window, Emitter};

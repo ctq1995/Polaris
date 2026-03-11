@@ -388,6 +388,13 @@ function handleAIEvent(
   storeGet: () => EventChatState,
   workspacePath?: string
 ): void {
+  // 🔍 强制诊断日志
+  console.log('🔍 [handleAIEvent] 收到事件:', event.type, {
+    hasToken: event.type === 'token',
+    tokenLength: event.type === 'token' ? event.value?.length : 0,
+    timestamp: new Date().toISOString()
+  })
+
   const state = storeGet()
 
   switch (event.type) {
@@ -834,7 +841,14 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   appendTextBlock: (content) => {
     const { currentMessage, tokenBuffer } = get()
 
-    console.log('[appendTextBlock] 调用, currentMessage:', !!currentMessage, 'content长度:', content.length, 'content预览:', content.slice(0, 50))
+    // 🔍 强制诊断日志（确保在控制台能看到）
+    console.log('🔍 [appendTextBlock] ==================== 开始 ====================')
+    console.log('🔍 [appendTextBlock] currentMessage 存在:', !!currentMessage)
+    console.log('🔍 [appendTextBlock] tokenBuffer 存在:', !!tokenBuffer)
+    console.log('🔍 [appendTextBlock] content 长度:', content.length)
+    console.log('🔍 [appendTextBlock] content 预览:', content.slice(0, 100))
+    console.log('🔍 [appendTextBlock] 时间:', new Date().toISOString())
+    console.log('🔍 [appendTextBlock] isStreaming:', get().isStreaming)
 
     // 如果没有当前消息，创建一个新的（首次调用）
     if (!currentMessage) {
@@ -854,12 +868,21 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
 
       // 创建 TokenBuffer 用于后续的批量处理
       const newBuffer = new TokenBuffer((batchedContent) => {
+        // 🔍 强制诊断日志
+        console.log('🔍 [TokenBuffer.flush()] ==================== 刷新 ====================')
+        console.log('🔍 [TokenBuffer.flush()] batchedContent 长度:', batchedContent.length)
+        console.log('🔍 [TokenBuffer.flush()] batchedContent 预览:', batchedContent.slice(0, 100))
+        console.log('🔍 [TokenBuffer.flush()] 时间:', new Date().toISOString())
+
         // TokenBuffer 刷新时的回调 - 批量更新内容
         // 性能优化：流式阶段只更新 currentMessage，不更新 messages 数组
         // 避免 50ms 一次的整个消息列表重渲染
         const state = get()
         const msg = state.currentMessage
-        if (!msg) return
+        if (!msg) {
+          console.log('⚠️ [TokenBuffer.flush()] 没有找到 currentMessage，跳过更新')
+          return
+        }
 
         const lastBlock = msg.blocks[msg.blocks.length - 1]
         if (lastBlock && lastBlock.type === 'text') {
@@ -869,6 +892,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
             type: 'text',
             content: (lastBlock as any).content + batchedContent,
           }
+          console.log('✅ [TokenBuffer.flush()] 更新文本块，新总长度:', (updatedBlocks[updatedBlocks.length - 1] as any).content.length)
           set((state) => ({
             currentMessage: state.currentMessage
               ? { ...state.currentMessage, blocks: updatedBlocks }
