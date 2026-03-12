@@ -30,6 +30,8 @@ pub struct IntegrationManager {
     app_handle: Option<AppHandle>,
     /// 运行状态
     running: bool,
+    /// 消息处理任务句柄
+    message_task: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl IntegrationManager {
@@ -42,6 +44,7 @@ impl IntegrationManager {
             sessions: SessionManager::new(),
             app_handle: None,
             running: false,
+            message_task: None,
         }
     }
 
@@ -78,6 +81,40 @@ impl IntegrationManager {
                 "平台 {} 未注册",
                 platform
             )));
+        }
+
+        // 启动消息处理任务（如果还没有启动）
+        if self.message_task.is_none() {
+            if let (Some(rx), Some(app_handle)) = (self.message_rx.take(), self.app_handle.clone()) {
+                tracing::info!("[IntegrationManager] 🚀 启动消息处理任务");
+
+                let task = tokio::spawn(async move {
+                    tracing::info!("[IntegrationManager] 📨 消息处理任务已启动，等待消息...");
+                    let mut rx = rx;
+
+                    while let Some(msg) = rx.recv().await {
+                        tracing::info!(
+                            "[IntegrationManager] 📩 收到消息: id={}, platform={}, conversation={}",
+                            msg.id,
+                            msg.platform,
+                            msg.conversation_id
+                        );
+
+                        // 发送到前端
+                        if let Err(e) = app_handle.emit("integration:message", &msg) {
+                            tracing::error!("[IntegrationManager] ❌ 发送消息到前端失败: {}", e);
+                        } else {
+                            tracing::info!("[IntegrationManager] ✅ 消息已发送到前端");
+                        }
+                    }
+
+                    tracing::warn!("[IntegrationManager] ⚠️ 消息处理任务结束");
+                });
+
+                self.message_task = Some(task);
+            } else {
+                tracing::error!("[IntegrationManager] ❌ 无法启动消息处理任务: message_rx 或 app_handle 为空");
+            }
         }
 
         Ok(())
