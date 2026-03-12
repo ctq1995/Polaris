@@ -5,8 +5,9 @@
  */
 
 use std::collections::HashMap;
-use tokio::sync::mpsc;
-use tauri::{Window, Emitter};
+use std::sync::Arc;
+use tokio::sync::{mpsc, Mutex};
+use tauri::{AppHandle, Emitter};
 
 use super::common::SessionManager;
 use super::qqbot::QQBotAdapter;
@@ -25,8 +26,8 @@ pub struct IntegrationManager {
     adapters: HashMap<Platform, Box<dyn PlatformIntegration>>,
     /// 会话管理
     sessions: SessionManager,
-    /// 窗口引用
-    window: Option<Window>,
+    /// App Handle (用于发送事件到前端)
+    app_handle: Option<AppHandle>,
     /// 运行状态
     running: bool,
 }
@@ -39,14 +40,14 @@ impl IntegrationManager {
             message_tx: None,
             adapters: HashMap::new(),
             sessions: SessionManager::new(),
-            window: None,
+            app_handle: None,
             running: false,
         }
     }
 
     /// 初始化
-    pub fn init(&mut self, qqbot_config: Option<QQBotConfig>, window: Window) {
-        self.window = Some(window);
+    pub fn init(&mut self, qqbot_config: Option<QQBotConfig>, app_handle: AppHandle) {
+        self.app_handle = Some(app_handle);
 
         // 创建消息通道
         let (tx, rx) = mpsc::channel(100);
@@ -157,8 +158,8 @@ impl IntegrationManager {
                 self.sessions.update(&msg.conversation_id);
 
                 // 发送到前端
-                if let Some(ref window) = self.window {
-                    if let Err(e) = window.emit("integration:message", &msg) {
+                if let Some(ref app_handle) = self.app_handle {
+                    if let Err(e) = app_handle.emit("integration:message", &msg) {
                         tracing::error!("[IntegrationManager] Failed to emit message: {}", e);
                     }
                 }
@@ -193,7 +194,3 @@ impl Default for IntegrationManager {
         Self::new()
     }
 }
-
-// 实现 Send + Sync，允许跨线程共享
-unsafe impl Send for IntegrationManager {}
-unsafe impl Sync for IntegrationManager {}

@@ -65,6 +65,22 @@ pub enum AppError {
     #[error("Network error: {0}")]
     NetworkError(String),
 
+    /// 认证错误
+    #[error("Authentication error: {0}")]
+    AuthError(String),
+
+    /// API 错误
+    #[error("API error: {0}")]
+    ApiError(String),
+
+    /// 验证错误
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+
+    /// 状态错误
+    #[error("State error: {0}")]
+    StateError(String),
+
     /// 其他错误
     #[error("Unknown error: {0}")]
     Unknown(String),
@@ -85,6 +101,10 @@ impl AppError {
             AppError::InvalidPath(path) => format!("无效路径: {}", path),
             AppError::Timeout => "操作超时".to_string(),
             AppError::NetworkError(e) => format!("网络错误: {}", e),
+            AppError::AuthError(e) => format!("认证错误: {}", e),
+            AppError::ApiError(e) => format!("API 错误: {}", e),
+            AppError::ValidationError(e) => format!("验证错误: {}", e),
+            AppError::StateError(e) => format!("状态错误: {}", e),
             AppError::Unknown(e) => format!("未知错误: {}", e),
         }
     }
