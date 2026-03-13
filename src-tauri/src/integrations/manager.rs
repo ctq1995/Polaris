@@ -136,11 +136,34 @@ impl IntegrationManager {
                             tracing::info!("[IntegrationManager] ✅ 消息已发送到前端");
                         }
 
-                        // 2. 调用 AI 生成回复
+                        // 2. 立即发送确认消息
+                        let platform = msg.platform;
+                        let conversation_id = msg.conversation_id.clone();
+                        let adapters_for_ack = adapters.clone();
+
+                        {
+                            let mut adapters_guard = adapters_for_ack.lock().await;
+                            if let Some(adapter) = adapters_guard.get_mut(&platform) {
+                                let target = SendTarget::Conversation(conversation_id.clone());
+                                let ack_content = MessageContent::text("已收到消息，正在处理...");
+
+                                match adapter.send(target, ack_content).await {
+                                    Ok(_) => {
+                                        tracing::info!("[IntegrationManager] ✅ 确认消息已发送");
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("[IntegrationManager] ❌ 发送确认消息失败: {:?}", e);
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. 调用 AI 生成回复
                         if let Some(ref registry) = engine_registry {
+                            tracing::info!("[IntegrationManager] 🔧 engine_registry 存在，准备调用 AI");
                             if let Some(text) = msg.content.as_text() {
+                                tracing::info!("[IntegrationManager] 📝 消息文本: {}", if text.len() > 50 { &text[..50] } else { text });
                                 if !text.is_empty() {
-                                    let platform = msg.platform;
                                     let conversation_id = msg.conversation_id.clone();
                                     let adapters_clone = adapters.clone();
                                     let app_handle_clone = app_handle.clone();
@@ -153,8 +176,14 @@ impl IntegrationManager {
                                         platform,
                                         adapters_clone,
                                     ).await;
+                                } else {
+                                    tracing::warn!("[IntegrationManager] ⚠️ 消息文本为空，跳过 AI 调用");
                                 }
+                            } else {
+                                tracing::warn!("[IntegrationManager] ⚠️ 消息不是文本类型，跳过 AI 调用");
                             }
+                        } else {
+                            tracing::warn!("[IntegrationManager] ⚠️ engine_registry 未设置，无法调用 AI");
                         }
                     }
 
@@ -179,7 +208,22 @@ impl IntegrationManager {
         platform: Platform,
         adapters: Arc<Mutex<HashMap<Platform, Box<dyn PlatformIntegration>>>>,
     ) {
-        tracing::info!("[IntegrationManager] 🤖 开始 AI 回复: conversation={}", conversation_id);
+        tracing::info!("[IntegrationManager] 🤖 开始 AI 回复: conversation={}, message_len={}", conversation_id, message.len());
+
+        // 检查引擎可用性
+        {
+            let registry = engine_registry.lock().await;
+            let available_engines = registry.list_available();
+            tracing::info!("[IntegrationManager] 🔧 可用引擎: {:?}", available_engines);
+            if available_engines.is_empty() {
+                tracing::error!("[IntegrationManager] ❌ 没有可用的 AI 引擎");
+                let _ = app_handle.emit("integration:ai:error", serde_json::json!({
+                    "conversationId": conversation_id,
+                    "error": "没有可用的 AI 引擎"
+                }));
+                return;
+            }
+        }
 
         // 用于累积回复文本
         let accumulated_text = Arc::new(Mutex::new(String::new()));
