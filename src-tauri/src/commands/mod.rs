@@ -59,5 +59,5 @@ pub use integration::{
     add_integration_instance, remove_integration_instance,
     list_integration_instances, list_integration_instances_by_platform,
     get_active_integration_instance, switch_integration_instance,
-    disconnect_integration_instance,
+    disconnect_integration_instance, update_integration_instance,
 };

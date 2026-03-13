@@ -57,6 +57,7 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
     loading: integrationLoading,
     loadInstances,
     addInstance,
+    updateInstance,
     removeInstance,
     switchInstance,
   } = useIntegrationStore();
@@ -65,6 +66,8 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
 
   // 本地编辑状态
   const [editingInstance, setEditingInstance] = useState<PlatformInstance | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   // 用于跟踪是否已初始化编辑实例
   const initializedRef = useRef(false);
@@ -91,15 +94,33 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
     });
   };
 
-  // 添加新实例
-  const handleAddInstance = async () => {
-    const newInstance = createEmptyInstance();
+  // 保存实例配置
+  const handleSave = async () => {
+    if (!editingInstance) return;
+    setSaving(true);
     try {
-      await addInstance(newInstance);
-      setEditingInstance(newInstance);
+      // 检查是否是新实例（还未保存到后端）
+      const existingInstance = instances.find((i) => i.id === editingInstance.id);
+      if (!existingInstance) {
+        // 新实例：添加
+        await addInstance(editingInstance);
+      } else {
+        // 已有实例：更新
+        await updateInstance(editingInstance);
+      }
+      setHasChanges(false);
     } catch (error) {
-      console.error('Failed to add instance:', error);
+      console.error('Failed to save instance:', error);
+    } finally {
+      setSaving(false);
     }
+  };
+
+  // 添加新实例
+  const handleAddInstance = () => {
+    const newInstance = createEmptyInstance();
+    setEditingInstance(newInstance);
+    setHasChanges(true);
   };
 
   // 删除实例
@@ -109,6 +130,7 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
       await removeInstance(instanceId);
       if (editingInstance?.id === instanceId) {
         setEditingInstance(null);
+        setHasChanges(false);
       }
     } catch (error) {
       console.error('Failed to remove instance:', error);
@@ -117,12 +139,17 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
 
   // 切换到实例
   const handleSwitchInstance = async (instanceId: string) => {
+    // 如果有未保存的更改，提示
+    if (hasChanges) {
+      if (!confirm('有未保存的更改，确定要切换吗？')) return;
+    }
     try {
       // 如果有连接，先断开
       if (isConnected) {
         await stopPlatform('qqbot');
       }
       await switchInstance(instanceId);
+      setHasChanges(false);
     } catch (error) {
       console.error('Failed to switch instance:', error);
     }
@@ -132,6 +159,19 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
   const handleConnect = async () => {
     if (!editingInstance) return;
     try {
+      // 先保存配置
+      if (hasChanges) {
+        setSaving(true);
+        const existingInstance = instances.find((i) => i.id === editingInstance.id);
+        if (!existingInstance) {
+          await addInstance(editingInstance);
+        } else {
+          await updateInstance(editingInstance);
+        }
+        setHasChanges(false);
+        setSaving(false);
+      }
+
       // 如果当前实例不是激活的，先切换
       if (activeInstance?.id !== editingInstance.id) {
         await switchInstance(editingInstance.id);
@@ -148,6 +188,8 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
       await startPlatform('qqbot', qqbotConfig);
     } catch (error) {
       console.error('Failed to connect QQ Bot:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -167,6 +209,23 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
       ...editingInstance,
       config: { ...editingInstance.config, ...updates },
     });
+    setHasChanges(true);
+  };
+
+  // 更新编辑中的实例名称
+  const updateEditingName = (name: string) => {
+    if (!editingInstance) return;
+    setEditingInstance({ ...editingInstance, name });
+    setHasChanges(true);
+  };
+
+  // 选择实例进行编辑
+  const handleSelectInstance = (instance: PlatformInstance) => {
+    if (hasChanges && editingInstance?.id !== instance.id) {
+      if (!confirm('有未保存的更改，确定要切换吗？')) return;
+    }
+    setEditingInstance(instance);
+    setHasChanges(false);
   };
 
   // 当前编辑的实例是否是激活的
@@ -224,7 +283,7 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
                           ? 'border-primary bg-primary/5'
                           : 'border-transparent hover:border-border'
                       }`}
-                      onClick={() => setEditingInstance(instance)}
+                      onClick={() => handleSelectInstance(instance)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -279,9 +338,14 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
               <div className="p-3 bg-background rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-text-secondary">实例配置</span>
-                  {isEditingActive && isConnected && (
-                    <span className="text-xs text-success">已连接</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {hasChanges && (
+                      <span className="text-xs text-warning">未保存</span>
+                    )}
+                    {isEditingActive && isConnected && (
+                      <span className="text-xs text-success">已连接</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* 实例名称 */}
@@ -290,9 +354,7 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
                   <input
                     type="text"
                     value={editingInstance.name}
-                    onChange={(e) =>
-                      setEditingInstance({ ...editingInstance, name: e.target.value })
-                    }
+                    onChange={(e) => updateEditingName(e.target.value)}
                     placeholder="例如：生产机器人"
                     className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     disabled={loading}
@@ -362,12 +424,13 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
                     className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     disabled={loading}
                   >
-                    <option value="compact">紧凑模式</option>
-                    <option value="full">完整模式</option>
+                    <option value="chat">聊天模式</option>
+                    <option value="separate">分离模式</option>
+                    <option value="both">两者都有</option>
                   </select>
                 </div>
 
-                {/* 连接控制 */}
+                {/* 操作按钮 */}
                 <div className="flex items-center gap-3 p-3 bg-surface rounded-lg">
                   <div
                     className={`w-2 h-2 rounded-full ${
@@ -378,6 +441,17 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
                     {isEditingActive && isConnected ? '已连接' : '未连接'}
                   </span>
                   <div className="flex-1" />
+
+                  {/* 保存按钮 */}
+                  <button
+                    onClick={handleSave}
+                    disabled={!hasChanges || saving || loading}
+                    className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-primary/10 hover:border-primary text-text-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {saving ? '保存中...' : '保存'}
+                  </button>
+
+                  {/* 连接/断开按钮 */}
                   {isEditingActive && isConnected ? (
                     <button
                       onClick={handleDisconnect}
@@ -391,12 +465,13 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
                       onClick={handleConnect}
                       disabled={
                         integrationLoading ||
+                        saving ||
                         !editingInstance.config.appId ||
                         !editingInstance.config.clientSecret
                       }
                       className="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      连接
+                      {saving ? '保存中...' : '连接'}
                     </button>
                   )}
                 </div>
@@ -419,12 +494,12 @@ export function QQBotTab({ config, onConfigChange, loading }: QQBotTabProps) {
                 </svg>
                 <div className="flex-1">
                   <p className="text-xs text-text-primary">
-                    <span className="font-medium">多实例说明：</span>
+                    <span className="font-medium">使用说明：</span>
                   </p>
                   <ul className="text-xs text-text-tertiary mt-1 space-y-1 list-disc list-inside">
-                    <li>可添加多个机器人实例，实现不同场景使用</li>
+                    <li>填写配置后点击「保存」保存实例</li>
+                    <li>点击「连接」会自动保存并连接</li>
                     <li>同一时间只能连接一个 QQ Bot 实例</li>
-                    <li>切换实例会断开当前连接</li>
                     <li>沙箱环境用于测试，生产环境需审核</li>
                   </ul>
                 </div>

@@ -635,3 +635,10 @@ export async function disconnectIntegrationInstance(
 ): Promise<void> {
   return invoke('disconnect_integration_instance', { platform });
 }
+
+/** 更新实例配置 */
+export async function updateIntegrationInstance(
+  instance: PlatformInstance
+): Promise<void> {
+  return invoke('update_integration_instance', { instance });
+}

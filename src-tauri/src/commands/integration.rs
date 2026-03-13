@@ -187,3 +187,13 @@ pub async fn disconnect_integration_instance(
     let mut manager = state.integration_manager.lock().await;
     manager.disconnect_instance(platform).await
 }
+
+/// 更新实例配置
+#[tauri::command]
+pub async fn update_integration_instance(
+    instance: PlatformInstance,
+    state: State<'_, crate::AppState>,
+) -> Result<()> {
+    let mut manager = state.integration_manager.lock().await;
+    manager.update_instance(instance).await
+}

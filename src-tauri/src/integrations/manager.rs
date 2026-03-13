@@ -844,6 +844,47 @@ impl IntegrationManager {
     pub fn instance_registry(&self) -> Arc<Mutex<InstanceRegistry>> {
         self.instance_registry.clone()
     }
+
+    /// 更新实例配置
+    pub async fn update_instance(&mut self, instance: PlatformInstance) -> Result<()> {
+        tracing::info!("[IntegrationManager] 更新实例: {}", instance.id);
+
+        let instance_id = instance.id.clone();
+        let platform = instance.platform;
+
+        // 更新注册表中的实例
+        {
+            let mut registry = self.instance_registry.lock().await;
+            if let Some(existing) = registry.get_mut(&instance_id) {
+                *existing = instance;
+                tracing::info!("[IntegrationManager] ✅ 实例配置已更新: {}", instance_id);
+            } else {
+                return Err(crate::error::AppError::ValidationError(format!(
+                    "实例不存在: {}",
+                    instance_id
+                )));
+            }
+        }
+
+        // 如果是当前激活的实例，需要重新创建 Adapter
+        {
+            let registry = self.instance_registry.lock().await;
+            if registry.is_active(&instance_id) {
+                tracing::info!("[IntegrationManager] 激活实例已更新，需要重建 Adapter");
+                drop(registry); // 释放锁
+
+                // 断开当前连接
+                {
+                    let mut adapters = self.adapters.lock().await;
+                    if let Some(mut adapter) = adapters.remove(&platform) {
+                        let _ = adapter.disconnect().await;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for IntegrationManager {

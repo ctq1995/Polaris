@@ -33,6 +33,7 @@ import {
   listIntegrationInstancesByPlatform,
   switchIntegrationInstance,
   disconnectIntegrationInstance,
+  updateIntegrationInstance,
 } from '../services/tauri';
 
 interface IntegrationState {
@@ -66,6 +67,7 @@ interface IntegrationState {
   loadInstances: () => Promise<void>;
   loadInstancesByPlatform: (platform: Platform) => Promise<void>;
   addInstance: (instance: PlatformInstance) => Promise<InstanceId>;
+  updateInstance: (instance: PlatformInstance) => Promise<void>;
   removeInstance: (instanceId: InstanceId) => Promise<void>;
   switchInstance: (instanceId: InstanceId) => Promise<void>;
   disconnectInstance: (platform: Platform) => Promise<void>;
@@ -306,6 +308,23 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '添加实例失败' });
       console.error('[IntegrationStore] Add instance error:', error);
+      throw error;
+    }
+  },
+
+  // 更新实例
+  updateInstance: async (instance) => {
+    try {
+      await updateIntegrationInstance(instance);
+      set((state) => ({
+        instances: state.instances.map((i) =>
+          i.id === instance.id ? instance : i
+        ),
+      }));
+      console.log('[IntegrationStore] Updated instance:', instance.id);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : '更新实例失败' });
+      console.error('[IntegrationStore] Update instance error:', error);
       throw error;
     }
   },
