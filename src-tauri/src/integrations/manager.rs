@@ -403,8 +403,8 @@ impl IntegrationManager {
     ) {
         tracing::info!("[IntegrationManager] 🤖 开始 AI 回复: conversation={}, message_len={}", conversation_id, message.len());
 
-        // 获取会话状态
-        let (engine_id, work_dir, system_prompt) = {
+        // 获取会话状态（包括已有的 ai_session_id）
+        let (engine_id, work_dir, system_prompt, existing_session_id) = {
             let mut states = conversation_states.lock().await;
             let state = states.get_or_create(&conversation_id);
 
@@ -420,7 +420,13 @@ impl IntegrationManager {
                 None => default_prompt.to_string(),
             };
 
-            (state.get_engine_id(), state.work_dir.clone(), system_prompt)
+            let session_id = state.ai_session_id.clone();
+            (
+                state.get_engine_id(),
+                state.work_dir.clone(),
+                system_prompt,
+                session_id,
+            )
         };
 
         // 记录开始时间
@@ -502,66 +508,115 @@ impl IntegrationManager {
         let task_active_sessions = active_sessions.clone();
 
         let task = tokio::spawn(async move {
-            // 调用 AI 引擎
-            let result = {
-                let mut registry = task_engine_registry.lock().await;
-                let mut options = SessionOptions::new(callback)
-                    .with_system_prompt(&system_prompt)
-                    .with_on_complete(complete_callback);
+            // 调用 AI 引擎（根据是否已有会话决定创建新会话还是继续会话）
+            let session_id_for_response: String;
 
-                if let Some(ref dir) = work_dir {
-                    options = options.with_work_dir(dir);
-                }
+            // 检查是否已有会话
+            if let Some(ref existing_id) = existing_session_id {
+                // 继续已有会话
+                tracing::info!("[IntegrationManager] 🔄 继续已有会话: {}", &existing_id[..8.min(existing_id.len())]);
 
-                registry.start_session(Some(engine_id), &message, options)
-            };
+                let result = {
+                    let mut registry = task_engine_registry.lock().await;
+                    let mut options = SessionOptions::new(callback)
+                        .with_system_prompt(&system_prompt)
+                        .with_on_complete(complete_callback);
 
-            match result {
-                Ok(session_id) => {
-                    tracing::info!("[IntegrationManager] AI 会话创建: session_id={}", session_id);
-
-                    // 保存会话 ID
-                    {
-                        let mut states = task_conversation_states.lock().await;
-                        states.set_ai_session(&task_conversation_id, session_id.clone());
+                    if let Some(ref dir) = work_dir {
+                        options = options.with_work_dir(dir);
                     }
 
-                    // 等待进程完成
-                    tracing::info!("[IntegrationManager] ⏳ 等待 AI 进程完成...");
-                    let _ = complete_rx.await;
+                    registry.continue_session(engine_id, existing_id, &message, options)
+                };
 
-                    // 获取完整回复文本
-                    let final_text = accumulated_text.lock().await.clone();
-                    tracing::info!("[IntegrationManager] 📝 回复文本长度: {}", final_text.len());
+                match result {
+                    Ok(()) => {
+                        session_id_for_response = existing_id.clone();
+                    }
+                    Err(e) => {
+                        tracing::error!("[IntegrationManager] 继续会话失败: {:?}", e);
+                        let _ = task_app_handle.emit("integration:ai:error", serde_json::json!({
+                            "conversationId": task_conversation_id,
+                            "error": e.to_string()
+                        }));
+                        Self::send_reply(&task_adapters, platform, &task_conversation_id, &format!("❌ AI 调用失败: {}", e)).await;
 
-                    // 发送完整回复事件到前端
-                    let _ = task_app_handle.emit("integration:ai:complete", serde_json::json!({
-                        "conversationId": task_conversation_id,
-                        "sessionId": session_id,
-                        "text": final_text
-                    }));
-
-                    // 发送回复到平台
-                    if !final_text.is_empty() {
-                        Self::send_reply(&task_adapters, platform, &task_conversation_id, &final_text).await;
-                        tracing::info!("[IntegrationManager] ✅ 回复已发送");
-
-                        // 发送完成消息
-                        let elapsed = start_time.elapsed();
-                        let complete_msg = format!("✅ 处理完成（⏰ {:.1}s）", elapsed.as_secs_f32());
-                        Self::send_reply(&task_adapters, platform, &task_conversation_id, &complete_msg).await;
-                    } else {
-                        tracing::warn!("[IntegrationManager] ⚠️ AI 返回空文本，不发送回复");
+                        // 从活跃会话中移除
+                        let mut sessions = task_active_sessions.lock().await;
+                        sessions.remove(&task_conversation_id);
+                        return;
                     }
                 }
-                Err(e) => {
-                    tracing::error!("[IntegrationManager] AI 会话创建失败: {:?}", e);
-                    let _ = task_app_handle.emit("integration:ai:error", serde_json::json!({
-                        "conversationId": task_conversation_id,
-                        "error": e.to_string()
-                    }));
-                    Self::send_reply(&task_adapters, platform, &task_conversation_id, &format!("❌ AI 调用失败: {}", e)).await;
+            } else {
+                // 创建新会话
+                tracing::info!("[IntegrationManager] 🆕 创建新会话");
+
+                let result = {
+                    let mut registry = task_engine_registry.lock().await;
+                    let mut options = SessionOptions::new(callback)
+                        .with_system_prompt(&system_prompt)
+                        .with_on_complete(complete_callback);
+
+                    if let Some(ref dir) = work_dir {
+                        options = options.with_work_dir(dir);
+                    }
+
+                    registry.start_session(Some(engine_id), &message, options)
+                };
+
+                match result {
+                    Ok(session_id) => {
+                        tracing::info!("[IntegrationManager] AI 会话创建: session_id={}", session_id);
+                        session_id_for_response = session_id.clone();
+
+                        // 保存会话 ID
+                        {
+                            let mut states = task_conversation_states.lock().await;
+                            states.set_ai_session(&task_conversation_id, session_id);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("[IntegrationManager] 创建会话失败: {:?}", e);
+                        let _ = task_app_handle.emit("integration:ai:error", serde_json::json!({
+                            "conversationId": task_conversation_id,
+                            "error": e.to_string()
+                        }));
+                        Self::send_reply(&task_adapters, platform, &task_conversation_id, &format!("❌ AI 调用失败: {}", e)).await;
+
+                        // 从活跃会话中移除
+                        let mut sessions = task_active_sessions.lock().await;
+                        sessions.remove(&task_conversation_id);
+                        return;
+                    }
                 }
+            }
+
+            // 等待进程完成
+            tracing::info!("[IntegrationManager] ⏳ 等待 AI 进程完成...");
+            let _ = complete_rx.await;
+
+            // 获取完整回复文本
+            let final_text = accumulated_text.lock().await.clone();
+            tracing::info!("[IntegrationManager] 📝 回复文本长度: {}", final_text.len());
+
+            // 发送完整回复事件到前端
+            let _ = task_app_handle.emit("integration:ai:complete", serde_json::json!({
+                "conversationId": task_conversation_id,
+                "sessionId": session_id_for_response,
+                "text": final_text
+            }));
+
+            // 发送回复到平台
+            if !final_text.is_empty() {
+                Self::send_reply(&task_adapters, platform, &task_conversation_id, &final_text).await;
+                tracing::info!("[IntegrationManager] ✅ 回复已发送");
+
+                // 发送完成消息
+                let elapsed = start_time.elapsed();
+                let complete_msg = format!("✅ 处理完成（⏰ {:.1}s）", elapsed.as_secs_f32());
+                Self::send_reply(&task_adapters, platform, &task_conversation_id, &complete_msg).await;
+            } else {
+                tracing::warn!("[IntegrationManager] ⚠️ AI 返回空文本，不发送回复");
             }
 
             // 从活跃会话中移除
