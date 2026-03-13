@@ -406,20 +406,20 @@ impl OpenAIProxyService {
                     }),
                 },
             },
-            ToolDefinition {
-                tool_type: "function".to_string(),
-                function: FunctionDefinition {
-                    name: "run_shell_command".to_string(),
-                    description: "执行 Shell 命令（与 execute_bash 等价）".to_string(),
-                    parameters: serde_json::json!({
-                        "type": "object",
-                        "properties": {
-                            "command": { "type": "string", "description": "要执行的命令" }
-                        },
-                        "required": ["command"]
-                    }),
-                },
-            },
+            // ToolDefinition {
+            //     tool_type: "function".to_string(),
+            //     function: FunctionDefinition {
+            //         name: "run_shell_command".to_string(),
+            //         description: "执行 Shell 命令（与 execute_bash 等价）".to_string(),
+            //         parameters: serde_json::json!({
+            //             "type": "object",
+            //             "properties": {
+            //                 "command": { "type": "string", "description": "要执行的命令" }
+            //             },
+            //             "required": ["command"]
+            //         }),
+            //     },
+            // },
             // Shell 执行工具
             ToolDefinition {
                 tool_type: "function".to_string(),
@@ -1194,27 +1194,27 @@ impl OpenAIProxyService {
                     "Error: missing text parameter".to_string()
                 }
             }
-            "run_shell_command" => {
-                if let Some(command) = args.get("command").and_then(|c| c.as_str()) {
-                    #[cfg(windows)]
-                    let output = StdCommand::new("cmd")
-                        .args(["/C", command])
-                        .creation_flags(CREATE_NO_WINDOW)
-                        .output();
-                    #[cfg(not(windows))]
-                    let output = StdCommand::new("sh").args(["-c", command]).output();
-                    match output {
-                        Ok(output) => {
-                            let stdout = String::from_utf8_lossy(&output.stdout);
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            if stderr.is_empty() { stdout.to_string() } else { format!("{}\n{}", stdout, stderr) }
-                        }
-                        Err(e) => format!("Error executing command: {}", e),
-                    }
-                } else {
-                    "Error: missing command parameter".to_string()
-                }
-            }
+            // "run_shell_command" => {
+            //     if let Some(command) = args.get("command").and_then(|c| c.as_str()) {
+            //         #[cfg(windows)]
+            //         let output = StdCommand::new("cmd")
+            //             .args(["/C", command])
+            //             .creation_flags(CREATE_NO_WINDOW)
+            //             .output();
+            //         #[cfg(not(windows))]
+            //         let output = StdCommand::new("sh").args(["-c", command]).output();
+            //         match output {
+            //             Ok(output) => {
+            //                 let stdout = String::from_utf8_lossy(&output.stdout);
+            //                 let stderr = String::from_utf8_lossy(&output.stderr);
+            //                 if stderr.is_empty() { stdout.to_string() } else { format!("{}\n{}", stdout, stderr) }
+            //             }
+            //             Err(e) => format!("Error executing command: {}", e),
+            //         }
+            //     } else {
+            //         "Error: missing command parameter".to_string()
+            //     }
+            // }
             "web_fetch" => {
                 if let Some(url) = args.get("url").and_then(|u| u.as_str()) {
                     match self.client.get(url).send().await {

@@ -306,24 +306,24 @@ const BASH_TOOL: DeepSeekToolSchema = {
 /**
  * 运行 Shell 命令工具（别名）
  */
-const RUN_SHELL_COMMAND_TOOL: DeepSeekToolSchema = {
-  type: 'function',
-  function: {
-    name: 'run_shell_command',
-    description: '执行 shell 命令（与 bash 等价）',
-    parameters: {
-      type: 'object',
-      properties: {
-        command: {
-          type: 'string',
-          description: '命令内容',
-        },
-      },
-      required: ['command'],
-      additionalProperties: false,
-    },
-  },
-}
+// const RUN_SHELL_COMMAND_TOOL: DeepSeekToolSchema = {
+//   type: 'function',
+//   function: {
+//     name: 'run_shell_command',
+//     description: '执行 shell 命令（与 bash 等价）',
+//     parameters: {
+//       type: 'object',
+//       properties: {
+//         command: {
+//           type: 'string',
+//           description: '命令内容',
+//         },
+//       },
+//       required: ['command'],
+//       additionalProperties: false,
+//     },
+//   },
+// }
 
 /**
  * Git 状态工具
@@ -843,7 +843,7 @@ export const TOOL_SCHEMAS: DeepSeekToolSchema[] = [
 
   // ===== Bash 工具 =====
   BASH_TOOL,
-  RUN_SHELL_COMMAND_TOOL,
+  // RUN_SHELL_COMMAND_TOOL,
 
   // ===== Git 工具 =====
   GIT_STATUS_TOOL,
@@ -903,7 +903,7 @@ export function generateToolSchemasForIntent(requiredTools: string[]): Array<any
     'multi_edit',
     'list_directory',
     'xml_escape',
-    'run_shell_command',
+    // 'run_shell_command',
     'todo_read',
     'todo_write',
     'search_file_content',
