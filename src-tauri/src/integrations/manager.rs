@@ -136,7 +136,29 @@ impl IntegrationManager {
                             tracing::info!("[IntegrationManager] ✅ 消息已发送到前端");
                         }
 
-                        // 2. 调用 AI 生成回复
+                        // 2. 立即发送确认消息
+                        let platform = msg.platform;
+                        let conversation_id = msg.conversation_id.clone();
+                        let adapters_for_ack = adapters.clone();
+
+                        {
+                            let mut adapters_guard = adapters_for_ack.lock().await;
+                            if let Some(adapter) = adapters_guard.get_mut(&platform) {
+                                let target = SendTarget::Conversation(conversation_id.clone());
+                                let ack_content = MessageContent::text("已收到消息，正在处理...");
+
+                                match adapter.send(target, ack_content).await {
+                                    Ok(_) => {
+                                        tracing::info!("[IntegrationManager] ✅ 确认消息已发送");
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("[IntegrationManager] ❌ 发送确认消息失败: {:?}", e);
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. 调用 AI 生成回复
                         if let Some(ref registry) = engine_registry {
                             tracing::info!("[IntegrationManager] 🔧 engine_registry 存在，准备调用 AI");
                             if let Some(text) = msg.content.as_text() {
