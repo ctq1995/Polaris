@@ -9,7 +9,6 @@ use tauri::State;
 
 use crate::error::Result;
 use crate::integrations::types::*;
-use crate::integrations::manager::IntegrationManager;
 use crate::models::config::QQBotConfig;
 
 /// 启动集成平台

@@ -6,7 +6,6 @@
 use crate::error::{AppError, Result};
 use crate::models::events::StreamEvent;
 use reqwest::Client;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;

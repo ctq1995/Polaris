@@ -11,13 +11,6 @@ use crate::models::AIEvent;
 use tauri::{Emitter, State, Window};
 use tauri_plugin_notification::NotificationExt;
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
-/// Windows 进程创建标志：不创建新窗口
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
 // ============================================================================
 // Tauri Commands - 聊天
 // ============================================================================

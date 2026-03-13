@@ -7,7 +7,7 @@ use crate::error::{AppError, Result};
 use crate::models::config::Config;
 use crate::models::iflow_events::{
     IFlowJsonlEvent, IFlowSessionMeta, IFlowHistoryMessage, IFlowFileContext,
-    IFlowTokenStats, IFlowToolCall, IFlowProjectsConfig,
+    IFlowTokenStats, IFlowToolCall,
 };
 use std::collections::HashMap;
 use std::fs::File;

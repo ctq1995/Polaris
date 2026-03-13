@@ -481,7 +481,6 @@ pub fn git_get_pr_status(
 /// 写入文件内容（用于撤销 AI 修改）
 #[tauri::command]
 pub fn write_file_absolute(path: String, content: String) -> Result<(), GitError> {
-    use std::io::Write;
     use std::path::Path;
 
     let file_path = Path::new(&path);

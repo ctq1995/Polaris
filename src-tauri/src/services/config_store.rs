@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::models::config::{Config, HealthStatus, EngineId, ClaudeCodeConfig};
+use crate::models::config::{Config, HealthStatus, EngineId};
 use std::path::{Path, PathBuf};
 use std::env;
 use std::process::Command;
