@@ -177,6 +177,10 @@ function handleAIEvent(
       state.appendTextBlock(event.value)
       break
 
+    case 'thinking':
+      state.appendThinkingBlock(event.content)
+      break
+
     case 'assistant_message':
       state.appendTextBlock(event.content)
       // 注意：工具调用会通过独立的 tool_call_start 事件处理，不在这里处理
@@ -359,6 +363,8 @@ interface EventChatState {
 
   /** 添加文本块 */
   appendTextBlock: (content: string) => void
+  /** 添加思考过程块 */
+  appendThinkingBlock: (content: string) => void
   /** 添加工具调用块 */
   appendToolCallBlock: (toolId: string, toolName: string, input: Record<string, unknown>) => void
   /** 更新工具调用块状态 */
@@ -708,6 +714,39 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
         get().updateCurrentAssistantMessage(updatedBlocks)
       }
     }
+  },
+
+  /**
+   * 添加思考过程块到当前消息
+   */
+  appendThinkingBlock: (content) => {
+    const { currentMessage } = get()
+
+    const thinkingBlock: ContentBlock = {
+      type: 'thinking',
+      content,
+      collapsed: false,
+    }
+
+    // 如果没有当前消息，创建一个新的
+    if (!currentMessage) {
+      const newMessage: CurrentAssistantMessage = {
+        id: crypto.randomUUID(),
+        blocks: [thinkingBlock],
+        isStreaming: true,
+      }
+      set({
+        currentMessage: newMessage,
+        isStreaming: true,
+      })
+      return
+    }
+
+    // 追加思考块到现有消息
+    const updatedBlocks: ContentBlock[] = [...currentMessage.blocks, thinkingBlock]
+    set({
+      currentMessage: { ...currentMessage, blocks: updatedBlocks },
+    })
   },
 
   /**

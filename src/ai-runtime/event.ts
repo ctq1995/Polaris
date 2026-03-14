@@ -15,6 +15,15 @@ export interface TokenEvent {
 }
 
 /**
+ * 思考过程事件
+ */
+export interface ThinkingEvent {
+  type: 'thinking'
+  /** 思考内容 */
+  content: string
+}
+
+/**
  * 工具调用开始事件
  */
 export interface ToolCallStartEvent {
@@ -284,6 +293,7 @@ export interface TodoExecutionCompletedEvent {
  */
 export type AIEvent =
   | TokenEvent
+  | ThinkingEvent
   | ToolCallStartEvent
   | ToolCallEndEvent
   | ProgressEvent
@@ -319,6 +329,13 @@ export type AIEventFilter = (event: AIEvent) => boolean
  */
 export function createTokenEvent(value: string): TokenEvent {
   return { type: 'token', value }
+}
+
+/**
+ * 创建思考过程事件
+ */
+export function createThinkingEvent(content: string): ThinkingEvent {
+  return { type: 'thinking', content }
 }
 
 /**
@@ -410,6 +427,10 @@ export function createAssistantMessageEvent(
  */
 export function isTokenEvent(event: AIEvent): event is TokenEvent {
   return event.type === 'token'
+}
+
+export function isThinkingEvent(event: AIEvent): event is ThinkingEvent {
+  return event.type === 'thinking'
 }
 
 export function isToolCallStartEvent(event: AIEvent): event is ToolCallStartEvent {

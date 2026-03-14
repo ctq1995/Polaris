@@ -77,6 +77,25 @@ impl TokenEvent {
     }
 }
 
+/// 思考过程事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThinkingEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 思考内容
+    pub content: String,
+}
+
+impl ThinkingEvent {
+    pub fn new(content: impl Into<String>) -> Self {
+        Self {
+            event_type: "thinking".to_string(),
+            content: content.into(),
+        }
+    }
+}
+
 /// 工具调用开始事件
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -455,6 +474,7 @@ impl TaskCompletedEvent {
 #[serde(untagged)]
 pub enum AIEvent {
     Token(TokenEvent),
+    Thinking(ThinkingEvent),
     ToolCallStart(ToolCallStartEvent),
     ToolCallEnd(ToolCallEndEvent),
     Progress(ProgressEvent),
@@ -474,6 +494,7 @@ impl AIEvent {
     pub fn event_type(&self) -> &str {
         match self {
             AIEvent::Token(e) => &e.event_type,
+            AIEvent::Thinking(e) => &e.event_type,
             AIEvent::ToolCallStart(e) => &e.event_type,
             AIEvent::ToolCallEnd(e) => &e.event_type,
             AIEvent::Progress(e) => &e.event_type,
@@ -496,6 +517,11 @@ impl AIEvent {
     /// 创建 Token 事件
     pub fn token(value: impl Into<String>) -> Self {
         AIEvent::Token(TokenEvent::new(value.into()))
+    }
+
+    /// 创建思考事件
+    pub fn thinking(content: impl Into<String>) -> Self {
+        AIEvent::Thinking(ThinkingEvent::new(content))
     }
 
     /// 创建工具调用开始事件

@@ -63,12 +63,21 @@ export interface PermissionRequest {
  */
 
 /** 内容块类型 - 用于 Assistant 消息的内容分段 */
-export type ContentBlock = TextBlock | ToolCallBlock;
+export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock;
 
 /** 文本内容块 */
 export interface TextBlock {
   type: 'text';
   content: string;
+}
+
+/** 思考过程内容块 */
+export interface ThinkingBlock {
+  type: 'thinking';
+  /** 思考内容 */
+  content: string;
+  /** 是否已折叠 */
+  collapsed?: boolean;
 }
 
 /** 工具调用内容块 */

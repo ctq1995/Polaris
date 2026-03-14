@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { clsx } from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
-import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, TextBlock, ToolCallBlock } from '../../types';
+import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from '../../types';
 import { useEventChatStore, useGitStore, useWorkspaceStore, useTabStore } from '../../stores';
 import { getToolConfig, extractToolKeyInfo } from '../../utils/toolConfig';
 import { markdownCache } from '../../utils/cache';
@@ -32,7 +32,7 @@ import {
   type GrepMatch,
   type GrepOutputData
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { groupConversationRounds } from '../../utils/conversationRounds';
 import { splitMarkdownWithMermaid } from '../../utils/markdown';
@@ -526,6 +526,42 @@ function getTodoStatusIcon(status: TodoItem['status']): React.ReactElement {
     )} />
   );
 }
+
+// ========================================
+// 思考过程块渲染器
+// ========================================
+
+/** 思考过程块组件 - 可折叠展示 */
+const ThinkingBlockRenderer = memo(function ThinkingBlockRenderer({ block }: { block: ThinkingBlock }) {
+  const [isCollapsed, setIsCollapsed] = useState(block.collapsed ?? true);
+
+  return (
+    <div className="my-2 rounded-lg border border-border-subtle bg-surface-elevated overflow-hidden">
+      {/* 头部 - 可点击折叠 */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover transition-colors"
+      >
+        <Brain className="w-4 h-4 text-primary" />
+        <span className="text-sm font-medium text-text-secondary">思考过程</span>
+        {isCollapsed ? (
+          <ChevronRight className="w-4 h-4 text-text-muted ml-auto" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-text-muted ml-auto" />
+        )}
+      </button>
+
+      {/* 内容 - 折叠时隐藏 */}
+      {!isCollapsed && (
+        <div className="px-3 py-2 border-t border-border-subtle">
+          <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+            {block.content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 // ========================================
 // 工具调用块渲染器
@@ -1082,6 +1118,8 @@ function renderContentBlock(block: ContentBlock, messageId: string, onTranslateA
   switch (block.type) {
     case 'text':
       return <TextBlockRenderer key={`text-${block.content.slice(0, 20)}`} block={block} messageId={messageId} onTranslateAll={onTranslateAll} isStreaming={isStreaming} />;
+    case 'thinking':
+      return <ThinkingBlockRenderer key={`thinking-${block.content.slice(0, 20)}`} block={block} />;
     case 'tool_call':
       return <ToolCallBlockRenderer key={block.id} block={block} />;
     default:

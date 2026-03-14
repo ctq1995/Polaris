@@ -8,8 +8,8 @@
 use crate::models::events::StreamEvent;
 use crate::models::{
     AIEvent, AssistantMessageEvent, ErrorEvent, ProgressEvent,
-    SessionEndEvent, SessionEndReason, SessionStartEvent, ToolCallEndEvent,
-    ToolCallInfo, ToolCallStartEvent, ToolCallStatus, UserMessageEvent,
+    SessionEndEvent, SessionEndReason, SessionStartEvent, ThinkingEvent,
+    ToolCallEndEvent, ToolCallInfo, ToolCallStartEvent, ToolCallStatus, UserMessageEvent,
 };
 use std::collections::HashMap;
 
@@ -123,8 +123,8 @@ impl EventParser {
                 self.parse_tool_start(tool_use_id, tool_name, input)
             }
             StreamEvent::Thinking { thinking, .. } => {
-                // 思考过程作为进度事件
-                vec![AIEvent::Progress(ProgressEvent::new(format!("思考中: {}", thinking)))]
+                // 思考过程发送独立的 Thinking 事件
+                vec![AIEvent::Thinking(ThinkingEvent::new(thinking))]
             }
             StreamEvent::ToolEnd { tool_use_id, tool_name, output } => {
                 self.parse_tool_end(tool_use_id, tool_name, output)
@@ -184,8 +184,16 @@ impl EventParser {
         // 提取文本内容
         let text = self.extract_text_content(&message);
 
+        // 提取思考过程
+        let thinking_blocks = self.extract_thinking_blocks(&message);
+
         // 提取工具调用
         let tool_calls = self.extract_tool_calls(&message);
+
+        // 先发送思考事件（如果有）
+        for thinking in &thinking_blocks {
+            results.push(AIEvent::Thinking(ThinkingEvent::new(thinking.clone())));
+        }
 
         // 发出 AI 消息事件
         if !text.is_empty() || !tool_calls.is_empty() {
@@ -204,6 +212,27 @@ impl EventParser {
         }
 
         results
+    }
+
+    /// 从消息中提取思考过程块
+    fn extract_thinking_blocks(&self, message: &serde_json::Value) -> Vec<String> {
+        let mut thinking_blocks = Vec::new();
+
+        if let Some(content) = message.get("content").and_then(|c| c.as_array()) {
+            for item in content {
+                if let Some(obj) = item.as_object() {
+                    if obj.get("type").and_then(|t| t.as_str()) == Some("thinking") {
+                        if let Some(thinking) = obj.get("thinking").and_then(|t| t.as_str()) {
+                            if !thinking.trim().is_empty() {
+                                thinking_blocks.push(thinking.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        thinking_blocks
     }
 
     /// 解析用户消息事件

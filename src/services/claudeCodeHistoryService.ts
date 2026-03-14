@@ -297,7 +297,7 @@ export class ClaudeCodeHistoryService {
    *
    * 支持的内容类型：
    * - text: 普通文本
-   * - thinking: 思考过程（转换为文本，带折叠标记）
+   * - thinking: 思考过程（ThinkingBlock）
    * - tool_use: 工具调用
    */
   private parseAssistantBlocks(content: unknown): ContentBlock[] {
@@ -321,12 +321,13 @@ export class ClaudeCodeHistoryService {
               content: String(item.text),
             })
           } else if (item.type === 'thinking' && 'thinking' in item) {
-            // 思考块 - 转换为带标记的文本
+            // 思考块 - 使用 ThinkingBlock 类型
             const thinkingContent = String(item.thinking)
             if (thinkingContent.trim()) {
               blocks.push({
-                type: 'text',
-                content: `<details>\n<summary>💭 思考过程</summary>\n\n${thinkingContent}\n\n</details>`,
+                type: 'thinking',
+                content: thinkingContent,
+                collapsed: true,
               })
             }
           } else if (item.type === 'tool_use') {

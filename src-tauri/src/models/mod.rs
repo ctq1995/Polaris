@@ -9,4 +9,5 @@ pub use ai_event::{
     ToolCallStartEvent, ToolCallEndEvent, ProgressEvent,
     ResultEvent, ErrorEvent, SessionStartEvent, SessionEndEvent,
     UserMessageEvent, AssistantMessageEvent, SessionEndReason,
+    ThinkingEvent,
 };
