@@ -1,13 +1,12 @@
 /// OpenAI API 代理服务
 ///
-/// 为 OpenAI 兼容 API 提供后端代理，支持流式响应和工具调用。
+/// 为 OpenAI 兼容 API 提供后端代理，支持工具调用。
 /// 解决前端直接调用 API 的安全问题。
 
 use crate::error::{AppError, Result};
 use crate::models::events::StreamEvent;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::Duration;
 use tauri::{Emitter, Window};
 use tauri_plugin_notification::NotificationExt;
@@ -99,7 +98,7 @@ pub struct FunctionCall {
     pub arguments: String,
 }
 
-/// SSE 流事件
+/// SSE 流事件（已废弃，保留用于兼容性）
 #[derive(Debug, Clone, Deserialize)]
 struct SSEEvent {
     #[serde(default)]
@@ -150,6 +149,42 @@ struct SSEToolCall {
 struct SSEFunctionCall {
     name: Option<String>,
     arguments: Option<String>,
+}
+
+/// 非流式响应
+#[derive(Debug, Clone, Deserialize)]
+struct ChatResponse {
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    object: Option<String>,
+    #[serde(default)]
+    created: Option<i64>,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    choices: Vec<ChatResponseChoice>,
+}
+
+/// 非流式响应选择项
+#[derive(Debug, Clone, Deserialize)]
+struct ChatResponseChoice {
+    index: u32,
+    #[serde(default)]
+    message: Option<ResponseMessage>,
+    #[serde(default)]
+    finish_reason: Option<String>,
+}
+
+/// 响应消息
+#[derive(Debug, Clone, Deserialize)]
+struct ResponseMessage {
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    tool_calls: Option<Vec<ToolCall>>,
 }
 
 /// OpenAI 代理服务
@@ -624,7 +659,7 @@ impl OpenAIProxyService {
                 messages: messages.clone(),
                 temperature: Some(config.temperature),
                 max_tokens: Some(config.max_tokens),
-                stream: Some(true),
+                stream: Some(false),
                 tools,
             };
 
@@ -663,9 +698,9 @@ impl OpenAIProxyService {
                 )));
             }
 
-            // 处理流式响应
+            // 处理非流式响应
             let (content, tool_calls) = self
-                .process_stream(response, &window, &session_id, &context_id, &cancel_token)
+                .process_response(response, &window, &session_id, &context_id)
                 .await?;
 
             // 添加助手消息（无论是否有工具调用，确保对话上下文完整）
@@ -742,163 +777,62 @@ impl OpenAIProxyService {
         Ok(())
     }
 
-    /// 处理 SSE 流
-    async fn process_stream(
+    /// 处理非流式响应
+    async fn process_response(
         &self,
         response: reqwest::Response,
         window: &Window,
         session_id: &str,
         context_id: &Option<String>,
-        cancel_token: &CancellationToken,
     ) -> Result<(String, Vec<ToolCall>)> {
-        use futures_util::StreamExt;
+        tracing::info!("[OpenAIProxy] 开始处理非流式响应");
 
-        tracing::info!("[OpenAIProxy] 开始处理 SSE 流");
+        // 读取响应体
+        let body = response.text().await.map_err(|e| {
+            tracing::error!("[OpenAIProxy] 读取响应失败: {}", e);
+            AppError::NetworkError(format!("读取响应失败: {}", e))
+        })?;
+
+        tracing::info!("[OpenAIProxy] 响应体长度: {} bytes", body.len());
+
+        // 解析响应
+        let chat_response: ChatResponse = serde_json::from_str(&body).map_err(|e| {
+            tracing::error!("[OpenAIProxy] 解析响应失败: {}, body: {}", e, truncate_for_log(&body, 500));
+            AppError::ParseError(format!("解析响应失败: {}", e))
+        })?;
 
         let mut content = String::new();
-        let mut tool_calls: HashMap<u32, ToolCall> = HashMap::new();
+        let mut tool_calls: Vec<ToolCall> = Vec::new();
 
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        let mut chunk_count = 0;
-
-        loop {
-            let chunk_opt = tokio::select! {
-                _ = cancel_token.cancelled() => {
-                    tracing::info!("[OpenAIProxy] SSE 流被取消: session={}", session_id);
-                    self.emit_event(window, session_id, context_id, StreamEvent::SessionEnd);
-                    break;
-                }
-                chunk = stream.next() => chunk,
-            };
-
-            let Some(chunk) = chunk_opt else {
-                break;
-            };
-            let chunk = chunk.map_err(|e| {
-                tracing::error!("[OpenAIProxy] 流读取错误: {}", e);
-                AppError::NetworkError(e.to_string())
-            })?;
-            
-            chunk_count += 1;
-            let chunk_str = String::from_utf8_lossy(&chunk);
-            
-            if chunk_count <= 3 {
-                tracing::info!("[OpenAIProxy] 收到 chunk #{}: {} bytes", chunk_count, chunk.len());
-            }
-            
-            buffer.push_str(&chunk_str);
-
-            // 处理完整的 SSE 事件（支持 \n\n 和 \r\n\r\n 分隔符）
-            while let Some(pos) = buffer.find("\n\n").or_else(|| buffer.find("\r\n\r\n")) {
-                let sep_len = if buffer[pos..].starts_with("\r\n\r\n") { 4 } else { 2 };
-                let event_data = buffer[..pos].to_string();
-                buffer = buffer[pos + sep_len..].to_string();
-
-                // 打印原始事件数据
-                // tracing::info!(
-                //     "[OpenAIProxy] SSE 事件数据: {}",
-                //     truncate_for_log(&event_data, 300)
-                // );
-
-                // 跳过空行
-                if event_data.trim().is_empty() {
-                    continue;
+        // 处理选择项
+        for choice in chat_response.choices {
+            if let Some(message) = choice.message {
+                // 处理内容
+                if let Some(text) = &message.content {
+                    content = text.clone();
+                    // 发送完整的文本内容
+                    self.emit_event(
+                        window,
+                        session_id,
+                        context_id,
+                        StreamEvent::TextDelta { text: text.clone() },
+                    );
                 }
 
-                // 处理 SSE 事件
-                for line in event_data.lines() {
-                    if let Some(data) = line.strip_prefix("data:") {
-                        let data = data.trim_start();
-                        if data == "[DONE]" {
-                            tracing::info!("[OpenAIProxy] SSE 流结束 [DONE]");
-                            continue;
-                        }
-
-                        match serde_json::from_str::<SSEEvent>(data) {
-                            Ok(event) => {
-                                for choice in event.choices {
-                                    if let Some(delta) = choice.delta {
-                                        // 处理内容
-                                        if let Some(text) = &delta.content {
-                                            content.push_str(text);
-                                            self.emit_event(
-                                                window,
-                                                session_id,
-                                                context_id,
-                                                StreamEvent::TextDelta { text: text.clone() },
-                                            );
-                                        }
-
-                                        // 处理工具调用
-                                        if let Some(tc) = &delta.tool_calls {
-                                            for t in tc {
-                                                let entry = tool_calls.entry(t.index).or_insert(ToolCall {
-                                                    id: t.id.clone().unwrap_or_default(),
-                                                    call_type: "function".to_string(),
-                                                    function: FunctionCall {
-                                                        name: String::new(),
-                                                        arguments: String::new(),
-                                                    },
-                                                });
-
-                                                if let Some(id) = &t.id {
-                                                    entry.id = id.clone();
-                                                }
-                                                if let Some(name) = &t.function.as_ref().and_then(|f| f.name.clone()) {
-                                                    entry.function.name = name.clone();
-                                                }
-                                                if let Some(args) = &t.function.as_ref().and_then(|f| f.arguments.clone()) {
-                                                    entry.function.arguments.push_str(args);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "[OpenAIProxy] SSE 解析失败: {}, data: {}",
-                                    e,
-                                    truncate_for_log(data, 200)
-                                );
-                            }
-                        }
-                    }
+                // 处理工具调用
+                if let Some(tc) = &message.tool_calls {
+                    tool_calls = tc.clone();
                 }
             }
         }
 
-        // 检查 buffer 中是否有剩余数据
-        if !buffer.trim().is_empty() {
-            tracing::warn!(
-                "[OpenAIProxy] Buffer 中有未处理的数据: {}",
-                truncate_for_log(&buffer, 200)
-            );
-            
-            // 尝试处理剩余数据
-            for line in buffer.lines() {
-                if let Some(data) = line.strip_prefix("data:") {
-                    let data = data.trim_start();
-                    if data != "[DONE]" {
-                        tracing::info!(
-                            "[OpenAIProxy] 处理剩余数据: {}",
-                            truncate_for_log(data, 100)
-                        );
-                    }
-                }
-            }
-        }
+        tracing::info!(
+            "[OpenAIProxy] 非流式响应处理完成, 内容长度: {}, 工具调用数: {}",
+            content.len(),
+            tool_calls.len()
+        );
 
-        tracing::info!("[OpenAIProxy] SSE 流处理完成, 内容长度: {}, 工具调用数: {}", content.len(), tool_calls.len());
-
-        // 转换工具调用
-        let mut tool_calls_vec: Vec<ToolCall> = tool_calls.into_values().collect();
-        tool_calls_vec.sort_by_key(|tc| {
-            tc.id.parse::<u32>().unwrap_or(0)
-        });
-
-        Ok((content, tool_calls_vec))
+        Ok((content, tool_calls))
     }
 
     /// 执行工具

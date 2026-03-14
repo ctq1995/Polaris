@@ -24,7 +24,6 @@ import {
 } from '../utils/toolSummary'
 import { parseWorkspaceReferences, buildSystemPrompt } from '../services/workspaceReference'
 import { getEventBus } from '../ai-runtime'
-import { TokenBuffer } from '../utils/tokenBuffer'
 import { getIFlowHistoryService } from '../services/iflowHistoryService'
 import { getClaudeCodeHistoryService } from '../services/claudeCodeHistoryService'
 import { extractEditDiff, isEditTool } from '../utils/diffExtractor'
@@ -335,9 +334,6 @@ interface EventChatState {
   /** 工具调用块映射 (toolUseId -> blockIndex) */
   toolBlockMap: Map<string, number>
 
-  /** Token Buffer - 用于批量处理流式 token */
-  tokenBuffer: TokenBuffer | null
-
   /** OpenAI Provider Session 缓存 */
   providerSessionCache: {
     session: any | null
@@ -438,9 +434,8 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   progressMessage: null,
   currentMessage: null,
   toolBlockMap: new Map(),
-  tokenBuffer: null,
   providerSessionCache: null,
-  streamingUpdateCounter: 0, // 🔧 新增：流式更新计数器
+  streamingUpdateCounter: 0,
 
   addMessage: (message) => {
     set((state) => {
@@ -487,13 +482,8 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   },
 
   clearMessages: () => {
-    // 清理 TokenBuffer
-    const { tokenBuffer, providerSessionCache } = get()
-    if (tokenBuffer) {
-      tokenBuffer.destroy()
-    }
-
     // 清理 Provider Session
+    const { providerSessionCache } = get()
     if (providerSessionCache?.session) {
       try {
         providerSessionCache.session.dispose()
@@ -507,12 +497,11 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
       archivedMessages: [],
       isArchiveExpanded: false,
       conversationId: null,
-      currentConversationSeed: null, // 重置对话种子
+      currentConversationSeed: null,
       progressMessage: null,
       currentMessage: null,
       toolBlockMap: new Map(),
-      tokenBuffer: null,
-      providerSessionCache: null, // 清理 session 缓存
+      providerSessionCache: null,
     })
     useToolPanelStore.getState().clearTools()
   },
@@ -548,13 +537,6 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
    * 将 currentMessage 标记为完成，并清空
    */
   finishMessage: () => {
-    const { tokenBuffer } = get()
-
-    // 先刷新并结束缓冲，确保最后一批内容写入 currentMessage
-    if (tokenBuffer) {
-      tokenBuffer.end()
-    }
-
     const { currentMessage, messages } = get()
 
     if (currentMessage) {
@@ -576,8 +558,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
           ),
           currentMessage: null,
           progressMessage: null,
-          tokenBuffer: null,
-          isStreaming: false,  // 修复：一次性设置所有状态，避免覆盖
+          isStreaming: false,
         }))
       } else {
         // 如果消息不在列表中（理论上不应该发生），添加它
@@ -585,8 +566,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
           messages: [...state.messages, completedMessage],
           currentMessage: null,
           progressMessage: null,
-          tokenBuffer: null,
-          isStreaming: false,  // 修复：一次性设置所有状态，避免覆盖
+          isStreaming: false,
         }))
       }
     } else {
@@ -606,118 +586,49 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   },
 
   /**
-   * 添加文本块到当前消息（使用 TokenBuffer 批量优化）
-   *
-   * 性能优化：使用 TokenBuffer 将多个 token 批量处理，
-   * 减少 90% 的状态更新和重渲染次数。
+   * 添加文本块到当前消息（直接追加）
    */
   appendTextBlock: (content) => {
-    const { currentMessage, tokenBuffer } = get()
+    const { currentMessage } = get()
 
-    // 🔍 强制诊断日志（确保在控制台能看到）
-    console.log('🔍 [appendTextBlock] ==================== 开始 ====================')
-    console.log('🔍 [appendTextBlock] currentMessage 存在:', !!currentMessage)
-    console.log('🔍 [appendTextBlock] tokenBuffer 存在:', !!tokenBuffer)
-    console.log('🔍 [appendTextBlock] content 长度:', content.length)
-    console.log('🔍 [appendTextBlock] content 预览:', content.slice(0, 100))
-    console.log('🔍 [appendTextBlock] 时间:', new Date().toISOString())
-    console.log('🔍 [appendTextBlock] isStreaming:', get().isStreaming)
-
-    // 如果没有当前消息，创建一个新的（首次调用）
+    // 如果没有当前消息，创建一个新的
     if (!currentMessage) {
-      console.log('[appendTextBlock] 创建新消息')
-      const textBlock: ContentBlock = { type: 'text', content }
       const newMessage: CurrentAssistantMessage = {
         id: crypto.randomUUID(),
-        blocks: [textBlock],
+        blocks: [{ type: 'text', content }],
         isStreaming: true,
       }
       set({
         currentMessage: newMessage,
         isStreaming: true,
       })
-      // 注意：不再调用 addMessage，由 displayMessages 统一处理
-      // 避免与 displayMessages 的 useMemo 产生竞争条件导致消息重复
+      return
+    }
 
-      // 创建 TokenBuffer 用于后续的批量处理
-      const newBuffer = new TokenBuffer((batchedContent) => {
-        // 🔍 强制诊断日志
-        console.log('🔍 [TokenBuffer.flush()] ==================== 刷新 ====================')
-        console.log('🔍 [TokenBuffer.flush()] batchedContent 长度:', batchedContent.length)
-        console.log('🔍 [TokenBuffer.flush()] batchedContent 预览:', batchedContent.slice(0, 100))
-        console.log('🔍 [TokenBuffer.flush()] 时间:', new Date().toISOString())
-
-        // TokenBuffer 刷新时的回调 - 批量更新内容
-        // 性能优化：流式阶段只更新 currentMessage，不更新 messages 数组
-        // 避免 50ms 一次的整个消息列表重渲染
-        const state = get()
-        const msg = state.currentMessage
-        if (!msg) {
-          console.log('⚠️ [TokenBuffer.flush()] 没有找到 currentMessage，跳过更新')
-          return
-        }
-
-        const lastBlock = msg.blocks[msg.blocks.length - 1]
-        if (lastBlock && lastBlock.type === 'text') {
-          // 追加到现有文本块
-          const updatedBlocks: ContentBlock[] = [...msg.blocks]
-          updatedBlocks[updatedBlocks.length - 1] = {
-            type: 'text',
-            content: (lastBlock as any).content + batchedContent,
-          }
-          console.log('✅ [TokenBuffer.flush()] 更新文本块，新总长度:', (updatedBlocks[updatedBlocks.length - 1] as any).content.length)
-          set((state) => ({
-            currentMessage: state.currentMessage
-              ? { ...state.currentMessage, blocks: updatedBlocks }
-              : null,
-            streamingUpdateCounter: (state.streamingUpdateCounter || 0) + 1, // 🔧 强制触发更新
-          }))
-          // 注意：流式阶段不调用 updateCurrentAssistantMessage
-          // 让组件从 currentMessage 读取流式内容，避免频繁更新 messages 数组
-        } else {
-          // 最后一块不是文本块（如 tool_call），创建新的文本块
-          // 这处理了工具调用后继续有文本的场景
-          const textBlock: ContentBlock = { type: 'text', content: batchedContent }
-          const updatedBlocks: ContentBlock[] = [...msg.blocks, textBlock]
-          set((state) => ({
-            currentMessage: state.currentMessage
-              ? { ...state.currentMessage, blocks: updatedBlocks }
-              : null,
-            streamingUpdateCounter: (state.streamingUpdateCounter || 0) + 1, // 🔧 强制触发更新
-          }))
-          // 注意：流式阶段不调用 updateCurrentAssistantMessage
-        }
-      }, { maxDelay: 50, maxSize: 500 })
-
-      set({ tokenBuffer: newBuffer })
-    } else if (tokenBuffer) {
-      // 有 TokenBuffer，使用批量处理
-      tokenBuffer.append(content)
-    } else {
-      // 降级：直接更新（用于非流式场景）
-      const lastBlock = currentMessage.blocks[currentMessage.blocks.length - 1]
-      if (lastBlock && lastBlock.type === 'text') {
-        const updatedBlocks: ContentBlock[] = [...currentMessage.blocks]
-        updatedBlocks[updatedBlocks.length - 1] = {
-          type: 'text',
-          content: (lastBlock as any).content + content,
-        }
-        set((state) => ({
-          currentMessage: state.currentMessage
-            ? { ...state.currentMessage, blocks: updatedBlocks }
-            : null,
-        }))
-        get().updateCurrentAssistantMessage(updatedBlocks)
-      } else {
-        const textBlock: ContentBlock = { type: 'text', content }
-        const updatedBlocks: ContentBlock[] = [...currentMessage.blocks, textBlock]
-        set((state) => ({
-          currentMessage: state.currentMessage
-            ? { ...state.currentMessage, blocks: updatedBlocks }
-            : null,
-        }))
-        get().updateCurrentAssistantMessage(updatedBlocks)
+    // 追加到最后一个文本块
+    const lastBlock = currentMessage.blocks[currentMessage.blocks.length - 1]
+    if (lastBlock && lastBlock.type === 'text') {
+      const updatedBlocks: ContentBlock[] = [...currentMessage.blocks]
+      updatedBlocks[updatedBlocks.length - 1] = {
+        type: 'text',
+        content: (lastBlock as any).content + content,
       }
+      set((state) => ({
+        currentMessage: state.currentMessage
+          ? { ...state.currentMessage, blocks: updatedBlocks }
+          : null,
+        streamingUpdateCounter: (state.streamingUpdateCounter || 0) + 1,
+      }))
+    } else {
+      // 最后一个块不是文本，创建新的文本块
+      const textBlock: ContentBlock = { type: 'text', content }
+      const updatedBlocks: ContentBlock[] = [...currentMessage.blocks, textBlock]
+      set((state) => ({
+        currentMessage: state.currentMessage
+          ? { ...state.currentMessage, blocks: updatedBlocks }
+          : null,
+        streamingUpdateCounter: (state.streamingUpdateCounter || 0) + 1,
+      }))
     }
   },
 
@@ -1165,16 +1076,10 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
         }
       }
     } catch (e) {
-      const { tokenBuffer } = get()
-      if (tokenBuffer) {
-        tokenBuffer.destroy()
-      }
-
       set({
         error: e instanceof Error ? e.message : '发送消息失败',
         isStreaming: false,
         currentMessage: null,
-        tokenBuffer: null,
         progressMessage: null,
       })
 
@@ -1320,16 +1225,10 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
         }
       }
     } catch (e) {
-      const { tokenBuffer } = get()
-      if (tokenBuffer) {
-        tokenBuffer.destroy()
-      }
-
       set({
         error: e instanceof Error ? e.message : '发送消息失败',
         isStreaming: false,
         currentMessage: null,
-        tokenBuffer: null,
         progressMessage: null,
       })
 
@@ -1378,16 +1277,10 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
         engineId: currentEngine,
       })
     } catch (e) {
-      const { tokenBuffer } = get()
-      if (tokenBuffer) {
-        tokenBuffer.destroy()
-      }
-
       set({
         error: e instanceof Error ? e.message : '继续对话失败',
         isStreaming: false,
         currentMessage: null,
-        tokenBuffer: null,
         progressMessage: null,
       })
 
@@ -1396,12 +1289,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
   },
 
   interruptChat: async () => {
-    const { conversationId, tokenBuffer, providerSessionCache } = get()
-
-    // 修复：使用 destroy() 而不是 end()，确保释放 TokenBuffer 资源
-    if (tokenBuffer) {
-      tokenBuffer.destroy()
-    }
+    const { conversationId, providerSessionCache } = get()
 
     const config = useConfigStore.getState().config
     const currentEngine = config?.defaultEngine || 'claude-code'
@@ -1414,7 +1302,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
           console.warn('[EventChatStore] Abort provider session failed:', e)
         }
       }
-      set({ isStreaming: false, tokenBuffer: null })
+      set({ isStreaming: false })
       get().finishMessage()
       return
     }
@@ -1424,7 +1312,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('interrupt_chat', { sessionId: conversationId, engineId: currentEngine })
-      set({ isStreaming: false, tokenBuffer: null }) // 同时清空 tokenBuffer 引用
+      set({ isStreaming: false })
       get().finishMessage()
     } catch (e) {
       console.error('[EventChatStore] Interrupt failed:', e)
