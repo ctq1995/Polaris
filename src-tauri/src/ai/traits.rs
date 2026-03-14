@@ -9,33 +9,79 @@ use crate::models::AIEvent;
 use std::sync::Arc;
 
 /// 引擎 ID
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EngineId {
     ClaudeCode,
     IFlow,
     Codex,
-    OpenAI,
+    /// OpenAI 兼容引擎，可选指定具体的 provider_id
+    OpenAI {
+        /// Provider ID，None 表示使用激活的 provider
+        provider_id: Option<String>,
+    },
 }
 
 impl EngineId {
     /// 从字符串解析
+    ///
+    /// 支持格式：
+    /// - "claude", "claude-code", "claudecode" → ClaudeCode
+    /// - "iflow" → IFlow
+    /// - "codex" → Codex
+    /// - "openai" → OpenAI { provider_id: None }
+    /// - "provider-xxx" → OpenAI { provider_id: Some("xxx") }
     pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
+        let lower = s.to_lowercase();
+        match lower.as_str() {
             "claude" | "claude-code" | "claudecode" => Some(Self::ClaudeCode),
             "iflow" => Some(Self::IFlow),
             "codex" => Some(Self::Codex),
-            "openai" => Some(Self::OpenAI),
-            _ => None,
+            "openai" => Some(Self::OpenAI { provider_id: None }),
+            _ => {
+                // 尝试解析 provider-xxx 格式
+                if lower.starts_with("provider-") {
+                    let provider_id = lower.strip_prefix("provider-").unwrap();
+                    Some(Self::OpenAI {
+                        provider_id: Some(provider_id.to_string()),
+                    })
+                } else {
+                    None
+                }
+            }
         }
     }
 
     /// 转换为字符串
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> String {
         match self {
-            Self::ClaudeCode => "claude",
-            Self::IFlow => "iflow",
-            Self::Codex => "codex",
-            Self::OpenAI => "openai",
+            Self::ClaudeCode => "claude".to_string(),
+            Self::IFlow => "iflow".to_string(),
+            Self::Codex => "codex".to_string(),
+            Self::OpenAI { provider_id: None } => "openai".to_string(),
+            Self::OpenAI { provider_id: Some(id) } => format!("provider-{}", id),
+        }
+    }
+
+    /// 获取简短显示名称（用于日志和 UI）
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::ClaudeCode => "Claude Code",
+            Self::IFlow => "IFlow",
+            Self::Codex => "Codex",
+            Self::OpenAI { .. } => "OpenAI",
+        }
+    }
+
+    /// 是否是 OpenAI 引擎
+    pub fn is_openai(&self) -> bool {
+        matches!(self, Self::OpenAI { .. })
+    }
+
+    /// 获取 OpenAI provider_id（如果是 OpenAI 引擎）
+    pub fn provider_id(&self) -> Option<&str> {
+        match self {
+            Self::OpenAI { provider_id } => provider_id.as_deref(),
+            _ => None,
         }
     }
 }
@@ -60,6 +106,8 @@ pub struct SessionOptions {
     pub on_error: Option<Arc<dyn Fn(String) + Send + Sync>>,
     /// Session ID 更新回调（当引擎返回真实 session_id 时调用）
     pub on_session_id_update: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    /// OpenAI Provider ID（用于 OpenAI 引擎选择具体的 Provider）
+    pub openai_provider_id: Option<String>,
 }
 
 impl SessionOptions {
@@ -75,6 +123,7 @@ impl SessionOptions {
             on_complete: None,
             on_error: None,
             on_session_id_update: None,
+            openai_provider_id: None,
         }
     }
 
@@ -114,6 +163,12 @@ impl SessionOptions {
         F: Fn(String) + Send + Sync + 'static,
     {
         self.on_session_id_update = Some(Arc::new(callback));
+        self
+    }
+
+    /// 设置 OpenAI Provider ID
+    pub fn with_openai_provider_id(mut self, provider_id: impl Into<String>) -> Self {
+        self.openai_provider_id = Some(provider_id.into());
         self
     }
 }

@@ -10,4 +10,4 @@ mod openai;
 pub use claude::ClaudeEngine;
 pub use iflow::IFlowEngine;
 pub use codex::CodexEngine;
-pub use openai::{OpenAIEngine, OpenAIProviderConfig, ChatMessage};
+pub use openai::{OpenAIEngine, OpenAIProviderConfig, ChatMessage, StreamResponse, StreamChoice, Delta};

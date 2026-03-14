@@ -223,6 +223,17 @@ pub fn run() {
     engine_registry.register(ai::IFlowEngine::new(config.clone()));
     engine_registry.register(ai::CodexEngine::new(config.clone()));
 
+    // 注册 OpenAI 引擎（如果配置了 Provider）
+    if !config.openai_providers.is_empty() {
+        let mut openai_engine = ai::OpenAIEngine::new();
+        openai_engine.set_providers(
+            config.openai_providers.clone(),
+            config.active_provider_id.clone(),
+        );
+        engine_registry.register(openai_engine);
+        tracing::info!("[EngineRegistry] OpenAI 引擎已注册，共 {} 个 Provider", config.openai_providers.len());
+    }
+
     // 设置默认引擎
     let default_engine = ai::EngineId::from_str(&config.default_engine)
         .unwrap_or(ai::EngineId::ClaudeCode);

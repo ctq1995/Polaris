@@ -101,9 +101,10 @@ impl CommandParser {
                 })
             }
             "openai" => {
-                let (custom_prompt, replace_mode) = Self::parse_switch_args(&parts[1..]);
+                // 解析参数：支持 /openai [provider_id] [-r] [自定义提示词]
+                let (provider_id, custom_prompt, replace_mode) = Self::parse_openai_args(&parts[1..]);
                 Some(BotCommand::SwitchProvider {
-                    provider: EngineId::OpenAI,
+                    provider: EngineId::OpenAI { provider_id },
                     custom_prompt,
                     replace_mode,
                 })
@@ -176,6 +177,38 @@ impl CommandParser {
 
         (custom_prompt, replace_mode)
     }
+
+    /// 解析 OpenAI 切换命令的参数
+    /// 格式: [provider_id] [-r] [自定义提示词]
+    ///
+    /// 示例:
+    /// - `/openai` → (None, None, false) 使用激活的 provider
+    /// - `/openai qwen` → (Some("qwen"), None, false) 使用 id 包含 "qwen" 的 provider
+    /// - `/openai qwen -r 你是专家` → (Some("qwen"), Some("你是专家"), true)
+    fn parse_openai_args(parts: &[&str]) -> (Option<String>, Option<String>, bool) {
+        let mut replace_mode = false;
+        let mut provider_id: Option<String> = None;
+        let mut prompt_parts = Vec::new();
+
+        for part in parts {
+            if *part == "-r" {
+                replace_mode = true;
+            } else if provider_id.is_none() && !part.starts_with('-') {
+                // 第一个非 -r 参数视为 provider_id
+                provider_id = Some(part.to_string());
+            } else {
+                prompt_parts.push(*part);
+            }
+        }
+
+        let custom_prompt = if prompt_parts.is_empty() {
+            None
+        } else {
+            Some(prompt_parts.join(" "))
+        };
+
+        (provider_id, custom_prompt, replace_mode)
+    }
 }
 
 /// 会话状态
@@ -240,8 +273,8 @@ impl ConversationState {
     }
 
     /// 设置引擎
-    pub fn set_engine(&mut self, engine_id: EngineId) {
-        self.engine_id = engine_id.as_str().to_string();
+    pub fn set_engine(&mut self, engine_id: &EngineId) {
+        self.engine_id = engine_id.as_str();
     }
 }
 
@@ -259,10 +292,12 @@ pub fn get_help_text() -> String {
 `/claude [提示词]` - 切换到 Claude
 `/iflow [提示词]` - 切换到 IFlow
 `/codex [提示词]` - 切换到 Codex
-`/openai [提示词]` - 切换到 OpenAI
+`/openai [provider_id] [提示词]` - 切换到 OpenAI
 `/agent [提示词]` - 切换到 Agent
+• OpenAI 支持 provider_id 参数指定具体模型
 • 添加 `-r` 参数替换默认提示词
 • 示例: `/claude 你是Python专家`
+• 示例: `/openai qwen 你是专家`
 
 **会话控制**
 `/stop` - 中断当前对话
@@ -309,9 +344,20 @@ mod tests {
         assert!(matches!(
             cmd,
             Some(BotCommand::SwitchProvider {
-                provider: EngineId::OpenAI,
+                provider: EngineId::OpenAI { provider_id: None },
                 custom_prompt: Some(_),
                 replace_mode: true
+            })
+        ));
+
+        // OpenAI 带 provider_id
+        let cmd = CommandParser::parse("/openai qwen");
+        assert!(matches!(
+            cmd,
+            Some(BotCommand::SwitchProvider {
+                provider: EngineId::OpenAI { provider_id: Some(_) },
+                custom_prompt: None,
+                replace_mode: false
             })
         ));
     }

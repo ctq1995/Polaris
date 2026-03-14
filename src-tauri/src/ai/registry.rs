@@ -2,6 +2,7 @@
  * 引擎注册表
  *
  * 管理所有注册的 AI 引擎，提供统一的访问接口。
+ * 支持 OpenAI 引擎的模糊匹配（provider_id 匹配）。
  */
 
 use std::collections::HashMap;
@@ -50,28 +51,69 @@ impl EngineRegistry {
 
     /// 获取默认引擎 ID
     pub fn default_engine_id(&self) -> EngineId {
-        self.default_engine
+        self.default_engine.clone()
     }
 
     /// 获取引擎
-    pub fn get(&self, id: EngineId) -> Option<&(dyn AIEngine + '_)> {
-        self.engines.get(&id).map(|e| e.as_ref())
+    pub fn get(&self, id: &EngineId) -> Option<&(dyn AIEngine + '_)> {
+        // 先尝试精确匹配
+        if let Some(engine) = self.engines.get(id) {
+            return Some(engine.as_ref());
+        }
+
+        // 对于 OpenAI 引擎，尝试模糊匹配
+        if id.is_openai() {
+            // 尝试使用通用的 OpenAI 引擎
+            let generic_id = EngineId::OpenAI { provider_id: None };
+            if let Some(engine) = self.engines.get(&generic_id) {
+                return Some(engine.as_ref());
+            }
+        }
+
+        None
     }
 
     /// 获取可变引擎
-    pub fn get_mut(&mut self, id: EngineId) -> Option<&mut (dyn AIEngine + '_)> {
-        let engine = self.engines.get_mut(&id)?;
+    pub fn get_mut(&mut self, id: &EngineId) -> Option<&mut (dyn AIEngine + '_)> {
+        // 对于 OpenAI 引擎，先尝试精确匹配，再尝试模糊匹配
+        if id.is_openai() {
+            // 先尝试精确匹配
+            if self.engines.contains_key(id) {
+                let engine = self.engines.get_mut(id)?;
+                return Some(engine.as_mut());
+            }
+            // 尝试使用通用的 OpenAI 引擎
+            let generic_id = EngineId::OpenAI { provider_id: None };
+            if self.engines.contains_key(&generic_id) {
+                let engine = self.engines.get_mut(&generic_id)?;
+                return Some(engine.as_mut());
+            }
+            return None;
+        }
+
+        // 非 OpenAI 引擎直接精确匹配
+        let engine = self.engines.get_mut(id)?;
         Some(engine.as_mut())
     }
 
     /// 检查引擎是否存在
-    pub fn contains(&self, id: EngineId) -> bool {
-        self.engines.contains_key(&id)
+    pub fn contains(&self, id: &EngineId) -> bool {
+        if self.engines.contains_key(id) {
+            return true;
+        }
+
+        // 对于 OpenAI 引擎，检查通用引擎是否存在
+        if id.is_openai() {
+            let generic_id = EngineId::OpenAI { provider_id: None };
+            return self.engines.contains_key(&generic_id);
+        }
+
+        false
     }
 
     /// 检查引擎是否可用
-    pub fn is_available(&self, id: EngineId) -> bool {
-        self.engines.get(&id).map(|e| e.is_available()).unwrap_or(false)
+    pub fn is_available(&self, id: &EngineId) -> bool {
+        self.get(id).map(|e| e.is_available()).unwrap_or(false)
     }
 
     /// 列出所有可用引擎
@@ -79,7 +121,7 @@ impl EngineRegistry {
         self.engines
             .iter()
             .filter(|(_, e)| e.is_available())
-            .map(|(id, _)| *id)
+            .map(|(id, _)| id.clone())
             .collect()
     }
 
@@ -96,11 +138,16 @@ impl EngineRegistry {
         &mut self,
         engine_id: Option<EngineId>,
         message: &str,
-        options: SessionOptions,
+        mut options: SessionOptions,
     ) -> Result<String> {
-        let id = engine_id.unwrap_or(self.default_engine);
+        let id = engine_id.unwrap_or_else(|| self.default_engine.clone());
 
-        let engine = self.engines.get_mut(&id)
+        // 对于 OpenAI 引擎，将 provider_id 传递给 SessionOptions
+        if let Some(ref provider_id) = id.provider_id() {
+            options.openai_provider_id = Some(provider_id.to_string());
+        }
+
+        let engine = self.get_mut(&id)
             .ok_or_else(|| AppError::ValidationError(format!("引擎 {} 未注册", id)))?;
 
         if !engine.is_available() {
@@ -118,20 +165,36 @@ impl EngineRegistry {
         engine_id: EngineId,
         session_id: &str,
         message: &str,
-        options: SessionOptions,
+        mut options: SessionOptions,
     ) -> Result<()> {
-        let engine = self.engines.get_mut(&engine_id)
+        // 对于 OpenAI 引擎，将 provider_id 传递给 SessionOptions
+        if let Some(ref provider_id) = engine_id.provider_id() {
+            options.openai_provider_id = Some(provider_id.to_string());
+        }
+
+        let engine = self.get_mut(&engine_id)
             .ok_or_else(|| AppError::ValidationError(format!("引擎 {} 未注册", engine_id)))?;
 
         engine.continue_session(session_id, message, options)
     }
 
     /// 中断会话
-    pub fn interrupt(&mut self, engine_id: EngineId, session_id: &str) -> Result<()> {
-        let engine = self.engines.get_mut(&engine_id)
+    pub fn interrupt(&mut self, engine_id: &EngineId, session_id: &str) -> Result<()> {
+        let engine = self.get_mut(engine_id)
             .ok_or_else(|| AppError::ValidationError(format!("引擎 {} 未注册", engine_id)))?;
 
         engine.interrupt(session_id)
+    }
+
+    /// 遍历所有引擎尝试中断会话
+    pub fn try_interrupt_all(&mut self, session_id: &str) -> bool {
+        for (id, engine) in &mut self.engines {
+            if let Ok(()) = engine.interrupt(session_id) {
+                tracing::info!("[EngineRegistry] 在引擎 {} 中成功中断会话", id);
+                return true;
+            }
+        }
+        false
     }
 }
 

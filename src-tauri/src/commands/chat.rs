@@ -144,22 +144,10 @@ pub async fn interrupt_chat(
     let mut registry = state.engine_registry.lock().await;
 
     if let Some(engine) = engine {
-        registry.interrupt(engine, &session_id)?;
+        registry.interrupt(&engine, &session_id)?;
     } else {
-        // 按优先级尝试所有引擎
-        let engines = [EngineId::ClaudeCode, EngineId::IFlow, EngineId::Codex, EngineId::OpenAI];
-        let mut found = false;
-
-        for e in engines {
-            if registry.contains(e) {
-                if let Ok(()) = registry.interrupt(e, &session_id) {
-                    found = true;
-                    break;
-                }
-            }
-        }
-
-        if !found {
+        // 遍历所有已注册的引擎尝试中断
+        if !registry.try_interrupt_all(&session_id) {
             return Err(AppError::ProcessError(format!("未找到会话: {}", session_id)));
         }
     }

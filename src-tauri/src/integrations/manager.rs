@@ -262,7 +262,7 @@ impl IntegrationManager {
                 // 检查引擎是否可用
                 if let Some(registry) = engine_registry {
                     let registry = registry.lock().await;
-                    if !registry.is_available(provider) {
+                    if !registry.is_available(&provider) {
                         return Some(format!("❌ {} 引擎不可用", provider));
                     }
                 }
@@ -270,7 +270,7 @@ impl IntegrationManager {
                 // 更新会话状态
                 let mut states = conversation_states.lock().await;
                 let state = states.get_or_create(conversation_id);
-                state.set_engine(provider);
+                state.set_engine(&provider);
                 state.custom_prompt = custom_prompt.clone();
                 state.prompt_mode = if replace_mode { PromptMode::Replace } else { PromptMode::Append };
 
@@ -316,7 +316,7 @@ impl IntegrationManager {
                     lines.push("\n**可用引擎**:".to_string());
                     let registry = registry.lock().await;
                     for engine_id in registry.list_available() {
-                        let status = if registry.is_available(engine_id) { "✅" } else { "❌" };
+                        let status = if registry.is_available(&engine_id) { "✅" } else { "❌" };
                         lines.push(format!("  {} {}", status, engine_id));
                     }
                 }
@@ -457,7 +457,7 @@ impl IntegrationManager {
         // 检查引擎可用性
         {
             let registry = engine_registry.lock().await;
-            if !registry.is_available(engine_id) {
+            if !registry.is_available(&engine_id) {
                 tracing::error!("[IntegrationManager] ❌ {} 引擎不可用", engine_id);
                 Self::send_reply(&adapters, platform, &conversation_id, &format!("❌ {} 引擎不可用", engine_id)).await;
                 return;

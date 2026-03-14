@@ -70,7 +70,7 @@ impl ConversationStore {
     /// 设置会话的引擎
     pub fn set_engine(&mut self, conversation_id: &str, engine_id: EngineId) {
         if let Some(state) = self.states.get_mut(conversation_id) {
-            state.set_engine(engine_id);
+            state.set_engine(&engine_id);
         }
     }
 
