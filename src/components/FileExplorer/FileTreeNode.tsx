@@ -1,11 +1,12 @@
 import { memo, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ChevronDown, Folder, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, Loader2, Copy, FolderOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import { FileIcon } from './FileIcon';
 import { ContextMenu, isHtmlFile, type ContextMenuItem } from './ContextMenu';
 import { useFileExplorerStore, useFileEditorStore } from '../../stores';
 import { openInDefaultApp } from '../../services/tauri';
+import { openPath } from '@tauri-apps/plugin-opener';
 import { InputDialog } from '../Common/InputDialog';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { IconFile, IconFolder, IconEdit, IconTrash, IconExternalLink, IconOpen } from '../Common/Icons';
@@ -28,7 +29,13 @@ function isValidFileName(name: string): boolean {
     return false;
   }
 
-  if (trimmed.startsWith('.') || trimmed.startsWith(' ') || trimmed.endsWith(' ') || trimmed.endsWith('.')) {
+  // 禁止 . 和 .. 这两个特殊目录名
+  if (trimmed === '.' || trimmed === '..') {
+    return false;
+  }
+
+  // 允许以 . 开头的文件（如 .env, .gitignore）
+  if (trimmed.startsWith(' ') || trimmed.endsWith(' ') || trimmed.endsWith('.')) {
     return false;
   }
 
@@ -188,6 +195,36 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
 
     items.push({ id: 'separator-1', label: '-', icon: undefined, action: () => {} });
 
+    // 复制文件路径
+    items.push({
+      id: 'copy-path',
+      label: t('contextMenu.copyPath'),
+      icon: <Copy size={14} />,
+      action: async () => {
+        await navigator.clipboard.writeText(file.path);
+      },
+    });
+
+    // 在外部文件管理器打开
+    items.push({
+      id: 'open-in-explorer',
+      label: file.is_dir ? t('contextMenu.openInExplorer') : t('contextMenu.openFolderInExplorer'),
+      icon: <FolderOpen size={14} />,
+      action: async () => {
+        if (file.is_dir) {
+          await openPath(file.path);
+        } else {
+          // 对于文件，打开其所在目录
+          const parentPath = file.path.substring(0, file.path.lastIndexOf(/[\/\\]/.test(file.path) ? (file.path.includes('\\') ? '\\' : '/') : '/'));
+          if (parentPath) {
+            await openPath(parentPath);
+          }
+        }
+      },
+    });
+
+    items.push({ id: 'separator-2', label: '-', icon: undefined, action: () => {} });
+
     items.push({
       id: 'rename',
       label: t('contextMenu.rename'),
@@ -217,7 +254,7 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
     });
 
     if (isHtmlFile(file)) {
-      items.push({ id: 'separator-2', label: '-', icon: undefined, action: () => {} });
+      items.push({ id: 'separator-3', label: '-', icon: undefined, action: () => {} });
       items.push({
         id: 'open-in-browser',
         label: t('contextMenu.openInBrowser'),

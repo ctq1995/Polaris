@@ -122,7 +122,13 @@ export function FileExplorer() {
     if (reservedNames.test(trimmed)) {
       return false;
     }
-    if (trimmed.startsWith('.') || trimmed.startsWith(' ') || trimmed.endsWith(' ') || trimmed.endsWith('.')) {
+    // 禁止 . 和 .. 这两个特殊目录名
+    if (trimmed === '.' || trimmed === '..') {
+      return false;
+    }
+    // 允许以 . 开头的文件（如 .env, .gitignore）
+    // 只禁止前后空格和以 . 结尾
+    if (trimmed.startsWith(' ') || trimmed.endsWith(' ') || trimmed.endsWith('.')) {
       return false;
     }
     return true;

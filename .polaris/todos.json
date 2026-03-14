@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-03-14T18:55:26.683Z",
+  "updatedAt": "2026-03-14T19:19:38.892Z",
   "todos": [
     {
       "id": "d64fe89c-dfae-43b7-b816-0e3543b32176",
@@ -13,23 +13,31 @@
       "updatedAt": "2026-03-14T18:08:34.658Z"
     },
     {
-      "id": "b1c05ceb-d554-491b-aacc-acea05f025de",
-      "content": "代码块渲染bug",
-      "description": "__CODE_BLOCK_0__",
+      "id": "48df3d9e-64b1-4a17-8eef-534c0a0c4826",
+      "content": "claude code原生命令兼容",
       "status": "pending",
       "priority": "normal",
       "subtasks": [],
-      "createdAt": "2026-03-14T18:26:29.374Z",
-      "updatedAt": "2026-03-14T18:26:29.374Z"
+      "createdAt": "2026-03-14T18:23:59.614Z",
+      "updatedAt": "2026-03-14T18:23:59.614Z"
     },
     {
-      "id": "eeaa335d-0d80-4642-b677-473801069850",
-      "content": "新增不了.env文件",
+      "id": "a3bb7600-0908-4190-bdf7-28dd1b494a12",
+      "content": "cmd控制台",
       "status": "pending",
       "priority": "normal",
       "subtasks": [],
-      "createdAt": "2026-03-14T18:55:26.683Z",
-      "updatedAt": "2026-03-14T18:55:26.683Z"
+      "createdAt": "2026-03-14T19:15:40.481Z",
+      "updatedAt": "2026-03-14T19:15:40.481Z"
+    },
+    {
+      "id": "c931c023-db01-4cf7-b28a-eebbb32db1bd",
+      "content": "文件路径联动",
+      "status": "pending",
+      "priority": "normal",
+      "subtasks": [],
+      "createdAt": "2026-03-14T19:19:38.892Z",
+      "updatedAt": "2026-03-14T19:19:38.892Z"
     }
   ]
 }
