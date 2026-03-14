@@ -65,6 +65,11 @@ export interface FileExplorerState {
   loading_folders: Set<string>;
   /** 是否正在刷新 */
   is_refreshing: boolean;
+  /** 剪贴板（复制/剪切） */
+  clipboard: {
+    mode: 'copy' | 'cut';
+    paths: string[];
+  } | null;
 }
 
 export interface FileExplorerActions {
@@ -100,6 +105,12 @@ export interface FileExplorerActions {
   get_file_content: (path: string) => Promise<string>;
   /** 清除错误 */
   clear_error: () => void;
+  /** 设置剪贴板 */
+  set_clipboard: (mode: 'copy' | 'cut', items: FileInfo[]) => void;
+  /** 清空剪贴板 */
+  clear_clipboard: () => void;
+  /** 粘贴到指定目录 */
+  paste_to: (targetDir: string) => Promise<void>;
 }
 
 export type FileExplorerStore = FileExplorerState & FileExplorerActions;

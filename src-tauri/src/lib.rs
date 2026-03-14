@@ -26,11 +26,11 @@ use commands::window::{
     show_floating_window, show_main_window, toggle_floating_window,
     is_floating_window_visible, set_floating_window_position, get_floating_window_position,
     toggle_devtools
-};
-use commands::file_explorer::{
+  };
+  use commands::file_explorer::{
     read_directory, get_file_content, create_file, create_directory,
-    delete_file, rename_file, path_exists, read_commands, search_files
-};
+    delete_file, rename_file, copy_path, move_path, path_exists, read_commands, search_files
+  };
 use commands::context::{
     context_upsert, context_upsert_many, context_query, context_get_all,
     context_remove, context_clear,
@@ -312,6 +312,8 @@ pub fn run() {
             create_directory,
             delete_file,
             rename_file,
+            copy_path,
+            move_path,
             path_exists,
             read_commands,
             search_files,

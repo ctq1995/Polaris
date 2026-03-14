@@ -6,7 +6,7 @@ import { SearchBar } from './SearchBar';
 import { GitStatusIndicator } from './GitStatusIndicator';
 import { ContextMenu } from './ContextMenu';
 import { InputDialog } from '../Common/InputDialog';
-import { IconPlus, IconFile, IconFolder } from '../Common/Icons';
+import { IconPlus, IconFile, IconFolder, IconCopy } from '../Common/Icons';
 import type { ContextMenuItem } from './ContextMenu';
 
 export function FileExplorer() {
@@ -37,6 +37,8 @@ export function FileExplorer() {
     clear_error,
     create_file,
     create_directory,
+    paste_to,
+    clipboard,
   } = useFileExplorerStore();
 
   const {
@@ -176,6 +178,17 @@ export function FileExplorer() {
           closeContextMenu();
         },
       },
+      ...(clipboard?.paths?.length ? [{
+        id: 'paste',
+        label: t('contextMenu.paste'),
+        icon: <IconCopy size={14} />,
+        action: async () => {
+          if (current_path) {
+            await paste_to(current_path);
+          }
+          closeContextMenu();
+        },
+      }] : []),
       { id: 'separator', label: '-', icon: undefined, action: () => {} },
       {
         id: 'refresh',

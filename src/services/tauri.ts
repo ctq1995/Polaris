@@ -242,6 +242,16 @@ export async function renameFile(oldPath: string, newName: string) {
   return invoke('rename_file', { oldPath, newName });
 }
 
+/** 复制文件或目录 */
+export async function copyPath(sourcePath: string, targetPath: string) {
+  return invoke('copy_path', { sourcePath, targetPath });
+}
+
+/** 移动文件或目录 */
+export async function movePath(sourcePath: string, targetPath: string) {
+  return invoke('move_path', { sourcePath, targetPath });
+}
+
 /** 检查路径是否存在 */
 export async function pathExists(path: string) {
   return invoke('path_exists', { path });

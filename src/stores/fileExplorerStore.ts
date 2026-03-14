@@ -9,6 +9,37 @@ import * as tauri from '../services/tauri';
 // 搜索取消令牌（用于取消正在进行的搜索）
 let searchAbortController: AbortController | null = null;
 
+function getBaseName(path: string): string {
+  const normalized = path.replace(/[\\/]+$/, '');
+  const parts = normalized.split(/[/\\]/);
+  return parts[parts.length - 1] || normalized;
+}
+
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+function isSubPath(parent: string, child: string): boolean {
+  const parentNorm = normalizePath(parent);
+  const childNorm = normalizePath(child);
+  return childNorm === parentNorm || childNorm.startsWith(`${parentNorm}/`);
+}
+
+function getParentPath(path: string): string {
+  const normalized = path.replace(/[\\/]+$/, '');
+  const parts = normalized.split(/[/\\]/);
+  if (parts.length <= 1) {
+    return '';
+  }
+  parts.pop();
+  return parts.join('/');
+}
+
+function joinPath(basePath: string, name: string): string {
+  const cleanBase = basePath.replace(/[\/\\]+$/, '');
+  return `${cleanBase}/${name}`;
+}
+
 // 辅助函数：更新文件树中的子节点
 function updateFolderChildren(tree: FileInfo[], folderPath: string, children: FileInfo[]): FileInfo[] {
   return tree.map(file => {
@@ -85,6 +116,7 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
   folder_cache: new Map(), // 文件夹内容缓存
   loading_folders: new Set(), // 正在加载的文件夹
   is_refreshing: false, // 是否正在刷新
+  clipboard: null,
 
   // 加载目录内容
   load_directory: async (path: string) => {
@@ -457,5 +489,61 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
   // 清除错误
   clear_error: () => {
     set({ error: null });
+  },
+
+  set_clipboard: (mode, items) => {
+    const paths = items.map(item => item.path);
+    set({ clipboard: { mode, paths } });
+  },
+
+  clear_clipboard: () => {
+    set({ clipboard: null });
+  },
+
+  paste_to: async (targetDir: string) => {
+    const { clipboard } = get();
+    if (!clipboard || clipboard.paths.length === 0) {
+      return;
+    }
+
+    try {
+      for (const sourcePath of clipboard.paths) {
+        const name = getBaseName(sourcePath);
+        const targetPath = joinPath(targetDir, name);
+
+        if (sourcePath === targetPath) {
+          continue;
+        }
+
+        if (isSubPath(sourcePath, targetPath)) {
+          set({ error: '不能粘贴到自身或子目录' });
+          continue;
+        }
+
+        const exists = await tauri.pathExists(targetPath);
+        if (exists) {
+          set({ error: '目标已存在' });
+          continue;
+        }
+
+        if (clipboard.mode === 'copy') {
+          await tauri.copyPath(sourcePath, targetPath);
+        } else {
+          await tauri.movePath(sourcePath, targetPath);
+          const parentPath = getParentPath(sourcePath);
+          if (parentPath) {
+            await get().refresh_folder(parentPath);
+          }
+        }
+      }
+
+      await get().refresh_folder(targetDir);
+
+      if (clipboard.mode === 'cut') {
+        set({ clipboard: null });
+      }
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : '复制失败' });
+    }
   },
 }));

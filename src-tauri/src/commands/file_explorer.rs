@@ -207,6 +207,82 @@ pub async fn rename_file(old_path: String, new_name: String) -> Result<()> {
     Ok(())
 }
 
+fn copy_dir_all(source: &Path, destination: &Path) -> Result<()> {
+    if destination.exists() {
+        return Err(AppError::InvalidPath("目标已存在".to_string()));
+    }
+
+    fs::create_dir_all(destination)?;
+
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let src_path = entry.path();
+        let dest_path = destination.join(entry.file_name());
+
+        if file_type.is_dir() {
+            copy_dir_all(&src_path, &dest_path)?;
+        } else {
+            fs::copy(&src_path, &dest_path)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// 复制文件或目录
+#[tauri::command]
+pub async fn copy_path(source_path: String, target_path: String) -> Result<()> {
+    let source = Path::new(&source_path);
+    let target = Path::new(&target_path);
+
+    if !source.exists() {
+        return Err(AppError::InvalidPath("源路径不存在".to_string()));
+    }
+
+    if target.exists() {
+        return Err(AppError::InvalidPath("目标已存在".to_string()));
+    }
+
+    if source.is_dir() {
+        copy_dir_all(source, target)?;
+    } else {
+        if let Some(parent) = target.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)?;
+            }
+        }
+        fs::copy(source, target)?;
+    }
+
+    Ok(())
+}
+
+/// 移动文件或目录
+#[tauri::command]
+pub async fn move_path(source_path: String, target_path: String) -> Result<()> {
+    let source = Path::new(&source_path);
+    let target = Path::new(&target_path);
+
+    if !source.exists() {
+        return Err(AppError::InvalidPath("源路径不存在".to_string()));
+    }
+
+    if target.exists() {
+        return Err(AppError::InvalidPath("目标已存在".to_string()));
+    }
+
+    if let Some(parent) = target.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
+    fs::rename(source, target)?;
+
+    Ok(())
+}
+
 /// 检查路径是否存在
 #[tauri::command]
 pub async fn path_exists(path: String) -> Result<bool> {

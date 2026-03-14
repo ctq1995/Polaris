@@ -8,7 +8,7 @@ import { useFileExplorerStore, useFileEditorStore } from '../../stores';
 import { openInDefaultApp } from '../../services/tauri';
 import { InputDialog } from '../Common/InputDialog';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
-import { IconFile, IconFolder, IconEdit, IconTrash, IconExternalLink, IconOpen } from '../Common/Icons';
+import { IconFile, IconFolder, IconEdit, IconTrash, IconExternalLink, IconOpen, IconCopy } from '../Common/Icons';
 import type { FileInfo } from '../../types';
 
 function isValidFileName(name: string): boolean {
@@ -58,7 +58,19 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
   loadingFolders,
 }) => {
   const { t } = useTranslation('fileExplorer');
-  const { load_folder_content, get_cached_folder_content, toggle_folder, select_file, create_file, create_directory, delete_file, rename_file } = useFileExplorerStore();
+  const {
+    load_folder_content,
+    get_cached_folder_content,
+    toggle_folder,
+    select_file,
+    create_file,
+    create_directory,
+    delete_file,
+    rename_file,
+    set_clipboard,
+    paste_to,
+    clipboard
+  } = useFileExplorerStore();
   const { openFile } = useFileEditorStore();
 
   const [contextMenu, setContextMenu] = useState<{
@@ -182,6 +194,33 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
             defaultValue: '',
             action: 'create-folder',
           });
+        },
+      });
+    }
+
+    items.push({
+      id: 'cut',
+      label: t('contextMenu.cut'),
+      action: () => {
+        set_clipboard('cut', [file]);
+      },
+    });
+
+    items.push({
+      id: 'copy',
+      label: t('contextMenu.copy'),
+      icon: <IconCopy size={14} />,
+      action: () => {
+        set_clipboard('copy', [file]);
+      },
+    });
+
+    if (file.is_dir && clipboard?.paths?.length) {
+      items.push({
+        id: 'paste',
+        label: t('contextMenu.paste'),
+        action: async () => {
+          await paste_to(file.path);
         },
       });
     }
