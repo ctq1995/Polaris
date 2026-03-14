@@ -1,12 +1,18 @@
 use tauri::{AppHandle, Manager};
 
 /// 切换 DevTools（F12 快捷键调用）
+///
+/// Tauri v2 说明：
+/// - DevTools 方法在 WebviewWindow 上（内部委托给 Webview）
+/// - 需要使用 `app.get_webview_window()` 获取 WebviewWindow
+/// - release 构建需要在 Cargo.toml 中启用 `devtools` feature：
+///   tauri = { version = "2.0", features = ["devtools"] }
 #[tauri::command]
 pub async fn toggle_devtools(app: AppHandle, window_label: Option<String>) -> Result<(), String> {
     let label = window_label.unwrap_or_else(|| "main".to_string());
 
     if let Some(window) = app.get_webview_window(&label) {
-        // Tauri v2: is_devtools_open 返回 bool，open/close_devtools 不返回值
+        // 检查 DevTools 是否已打开
         if window.is_devtools_open() {
             window.close_devtools();
         } else {
