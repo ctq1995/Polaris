@@ -152,7 +152,7 @@ const PreviewTextContent = memo(function PreviewTextContent({ content }: { conte
 
   return (
     <div
-      className="whitespace-pre-wrap break-words"
+      className="break-words"
       dangerouslySetInnerHTML={{ __html: formattedHTML }}
     />
   );
@@ -291,7 +291,7 @@ const TextPartRenderer = memo(function TextPartRenderer({
 
   return (
     <div
-      className="whitespace-pre-wrap break-words"
+      className="break-words"
       dangerouslySetInnerHTML={{ __html: formattedHTML }}
     />
   );
