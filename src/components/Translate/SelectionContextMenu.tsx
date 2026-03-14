@@ -140,10 +140,7 @@ export function SelectionContextMenu() {
   const handleSearch = async () => {
     if (!selection) return;
     const query = encodeURIComponent(selection.text);
-    const isChinese = containsChinese(selection.text);
-    const searchUrl = isChinese
-      ? `https://www.baidu.com/s?wd=${query}`
-      : `https://www.google.com/search?q=${query}`;
+    const searchUrl = `https://www.bing.com/search?q=${query}`;
 
     // 在 Webview 标签页中打开搜索
     await openWebviewTab(searchUrl);
