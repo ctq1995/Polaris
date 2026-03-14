@@ -15,6 +15,9 @@
   "translateResult": "Translation",
   "translateToEn": "Translate to English",
   "translateToZh": "Translate to Chinese",
+  "search": "Search",
+  "copyQuote": "Copy as Quote",
+  "askAI": "Ask AI",
   "errors": {
     "notConfigured": "Please configure Baidu Translate API in settings",
     "failed": "Translation failed",

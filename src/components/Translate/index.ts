@@ -1,2 +1,2 @@
 export { TranslatePanel } from './TranslatePanel';
-export { GlobalTranslateMenu } from './GlobalTranslateMenu';
+export { SelectionContextMenu } from './SelectionContextMenu';
