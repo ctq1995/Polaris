@@ -45,20 +45,10 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     }
   }
 
-  // 滚动加载更多
-  const handleScroll = useCallback(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
-
-    const { scrollTop, scrollHeight, clientHeight } = container
-    // 距离底部100px时加载更多
-    if (scrollHeight - scrollTop - clientHeight < 100) {
-      const filteredCount = filteredHistory.length
-      if (displayCount < filteredCount) {
-        setDisplayCount(prev => Math.min(prev + PAGE_SIZE, filteredCount))
-      }
-    }
-  }, [displayCount])
+  // 加载更多
+  const handleLoadMore = useCallback(() => {
+    setDisplayCount(prev => Math.min(prev + PAGE_SIZE, filteredHistory.length))
+  }, [displayCount, allHistory, filter, searchQuery])
 
   // 恢复会话
   const handleRestore = async (sessionId: string, engineId: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`) => {
@@ -274,7 +264,6 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       {/* 会话列表 */}
       <div
         ref={scrollContainerRef}
-        onScroll={handleScroll}
         className="flex-1 overflow-y-auto min-h-0"
       >
         {displayedHistory.length === 0 ? (
@@ -361,11 +350,16 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           </ul>
         )}
 
-        {/* 加载更多提示 */}
+        {/* 加载更多按钮 */}
         {hasMore && (
-          <div className="flex items-center justify-center py-3 text-text-tertiary">
-            <ChevronDown className="w-4 h-4 animate-bounce mr-2" />
-            <span className="text-xs">向下滚动加载更多 ({filteredHistory.length - displayCount} 条未显示)</span>
+          <div className="flex items-center justify-center py-3">
+            <button
+              onClick={handleLoadMore}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-background-hover rounded-md transition-colors"
+            >
+              <ChevronDown className="w-4 h-4" />
+              <span>加载更多 ({filteredHistory.length - displayCount} 条未显示)</span>
+            </button>
           </div>
         )}
       </div>
