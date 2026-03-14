@@ -34,9 +34,9 @@ export interface UnifiedSessionMeta {
   /** 文件大小（字节） */
   fileSize: number
   /** 创建时间 */
-  createdAt: string
+  createdAt?: string
   /** 更新时间 */
-  updatedAt: string
+  updatedAt?: string
   /** 文件路径（仅 Codex 需要） */
   filePath?: string
   /** 项目路径（仅 Claude Code 需要） */
@@ -109,7 +109,9 @@ export class UnifiedHistoryService {
 
     // 按更新时间排序
     allSessions.sort((a, b) => {
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      return timeB - timeA
     })
 
     return allSessions
@@ -252,6 +254,7 @@ export class UnifiedHistoryService {
     const allSessions = await this.listAllSessions(options)
 
     return allSessions.filter(session => {
+      if (!session.createdAt) return false
       const sessionDate = new Date(session.createdAt)
       return sessionDate >= startDate && sessionDate <= endDate
     })

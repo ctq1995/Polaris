@@ -1559,8 +1559,8 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
           if (!items.find(item => item.id === session.sessionId)) {
             items.push({
               id: session.sessionId,
-              title: session.firstPrompt,
-              timestamp: session.modified,
+              title: session.firstPrompt || '无标题会话',
+              timestamp: session.modified || session.created || new Date().toISOString(),
               messageCount: session.messageCount,
               engineId: 'claude-code',
               source: 'claude-code-native',

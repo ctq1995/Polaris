@@ -398,8 +398,12 @@ use std::io::{BufRead, BufReader};
 pub struct ClaudeSessionMeta {
     pub session_id: String,
     pub project_path: String,
-    pub created_at: Option<String>,
-    pub message_count: Option<usize>,
+    pub first_prompt: Option<String>,
+    pub message_count: usize,
+    pub created: Option<String>,
+    pub modified: Option<String>,
+    pub file_path: String,
+    pub file_size: u64,
 }
 
 /// Claude Code 历史消息
@@ -410,6 +414,49 @@ pub struct ClaudeHistoryMessage {
     /// 内容可能是字符串或数组（包含 text、tool_use、tool_result 等）
     pub content: serde_json::Value,
     pub timestamp: Option<String>,
+}
+
+/// 解析会话文件获取元数据
+fn parse_session_metadata(file_path: &PathBuf) -> (Option<String>, usize, Option<String>) {
+    let mut first_prompt: Option<String> = None;
+    let mut message_count = 0usize;
+    let mut created: Option<String> = None;
+
+    if let Ok(file) = std::fs::File::open(file_path) {
+        let reader = BufReader::new(file);
+        for line in reader.lines().flatten() {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(msg_type) = json.get("type").and_then(|t| t.as_str()) {
+                    if msg_type == "user" {
+                        message_count += 1;
+                        // 获取第一条用户消息作为标题
+                        if first_prompt.is_none() {
+                            if let Some(content) = json.get("message")
+                                .and_then(|m| m.get("content"))
+                                .and_then(|c| c.as_str())
+                            {
+                                // 截取前 100 个字符作为标题
+                                let title = if content.len() > 100 {
+                                    format!("{}...", &content[..100])
+                                } else {
+                                    content.to_string()
+                                };
+                                first_prompt = Some(title);
+                            }
+                        }
+                        // 获取创建时间（第一条消息的时间戳）
+                        if created.is_none() {
+                            created = json.get("timestamp").and_then(|t| t.as_str()).map(|s| s.to_string());
+                        }
+                    } else if msg_type == "assistant" {
+                        message_count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    (first_prompt, message_count, created)
 }
 
 /// 列出 Claude Code 会话（旧接口）
@@ -444,11 +491,31 @@ pub async fn list_claude_code_sessions(
                                 .map(|s| s.to_string_lossy().to_string())
                                 .unwrap_or_default();
 
+                            // 获取文件元数据
+                            let file_size = std::fs::metadata(&path)
+                                .map(|m| m.len())
+                                .unwrap_or(0);
+
+                            let modified = std::fs::metadata(&path)
+                                .ok()
+                                .and_then(|m| m.modified().ok())
+                                .map(|t| {
+                                    let datetime: chrono::DateTime<chrono::Utc> = t.into();
+                                    datetime.to_rfc3339()
+                                });
+
+                            // 解析会话内容获取详细信息
+                            let (first_prompt, message_count, created) = parse_session_metadata(&path);
+
                             sessions.push(ClaudeSessionMeta {
                                 session_id,
                                 project_path: project_name.clone(),
-                                created_at: None,
-                                message_count: None,
+                                first_prompt,
+                                message_count,
+                                created,
+                                modified,
+                                file_path: path.to_string_lossy().to_string(),
+                                file_size,
                             });
                         }
                     }
@@ -456,6 +523,13 @@ pub async fn list_claude_code_sessions(
             }
         }
     }
+
+    // 按修改时间排序（最新的在前）
+    sessions.sort_by(|a, b| {
+        let time_a = a.modified.as_ref().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
+        let time_b = b.modified.as_ref().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
+        time_b.cmp(&time_a)
+    });
 
     Ok(sessions)
 }

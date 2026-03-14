@@ -17,10 +17,11 @@ import type { Message, ChatMessage, ContentBlock, UserChatMessage, AssistantChat
  */
 export interface ClaudeCodeSessionMeta {
   sessionId: string
-  firstPrompt: string
+  projectPath: string
+  firstPrompt?: string
   messageCount: number
-  created: string
-  modified: string
+  created?: string
+  modified?: string
   filePath: string
   fileSize: number
 }
