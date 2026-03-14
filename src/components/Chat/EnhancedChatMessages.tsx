@@ -37,14 +37,9 @@ import { ChatNavigator } from './ChatNavigator';
 import { groupConversationRounds } from '../../utils/conversationRounds';
 import { splitMarkdownWithMermaid } from '../../utils/markdown';
 import { MermaidDiagram } from './MermaidDiagram';
-import { extractCodeBlocks, replaceCodeBlocksWithPlaceholders } from '../../utils/markdown-enhanced';
 import { DiffViewer } from '../Diff/DiffViewer';
 import { isEditTool } from '../../utils/diffExtractor';
 import { Button } from '../Common/Button';
-import { BilingualTextRenderer } from './BilingualTextRenderer';
-import { MessageTranslateButton } from './MessageTranslateButton';
-import { useMessageTranslationStore } from '../../stores/messageTranslationStore';
-import { extractTranslatableParagraphsFromMarkdown } from '../../utils/translateUtils';
 import { calculateRenderMode, type MessageRenderMode, DEFAULT_LAYER_CONFIG } from '../../utils/messageLayer';
 
 /** Markdown 渲染器（使用缓存优化） */
@@ -67,7 +62,7 @@ const UserBubble = memo(function UserBubble({ message }: { message: UserChatMess
   );
 });
 
-/** 文本内容块组件（支持 Mermaid 渲染 + 代码高亮 + 双语翻译）
+/** 文本内容块组件（支持 Mermaid 渲染 + 代码高亮）
  *
  * 性能优化策略：
  * 1. 流式输出时使用节流（而非防抖），确保固定间隔渲染，提供更好的实时性
@@ -78,14 +73,10 @@ const UserBubble = memo(function UserBubble({ message }: { message: UserChatMess
  */
 const TextBlockRenderer = memo(function TextBlockRenderer({
   block,
-  messageId,
-  onTranslateAll,
   isStreaming = false,
   renderMode = 'full'
 }: {
   block: TextBlock;
-  messageId: string;
-  onTranslateAll?: () => void;
   isStreaming?: boolean;
   renderMode?: MessageRenderMode;
 }) {
@@ -138,7 +129,7 @@ const TextBlockRenderer = memo(function TextBlockRenderer({
     <div className="prose prose-invert prose-sm max-w-none">
       {parts.map((part, partIndex) => {
         if (part.type === 'text') {
-          return <TextPartRenderer key={`text-${partIndex}`} content={part.content} messageId={messageId} onTranslateAll={onTranslateAll} />;
+          return <TextPartRenderer key={`text-${partIndex}`} content={part.content} />;
         } else {
           return (
             <MermaidDiagram
@@ -289,35 +280,19 @@ const StreamingTextContent = memo(function StreamingTextContent({ content }: { c
 });
 
 /**
- * 文本部分渲染器（支持代码高亮 + 双语翻译）
+ * 文本部分渲染器（支持代码高亮）
  */
-const TextPartRenderer = memo(function TextPartRenderer({ 
-  content,
-  messageId,
-  onTranslateAll
-}: { 
+const TextPartRenderer = memo(function TextPartRenderer({
+  content
+}: {
   content: string;
-  messageId: string;
-  onTranslateAll?: () => void;
 }) {
   const formattedHTML = useMemo(() => formatContent(content), [content]);
 
-  const codeBlocks = useMemo(() => {
-    const blocks = extractCodeBlocks(formattedHTML);
-    return blocks;
-  }, [formattedHTML]);
-
-  const { processedHTML } = useMemo(() => {
-    return replaceCodeBlocksWithPlaceholders(formattedHTML, codeBlocks);
-  }, [formattedHTML, codeBlocks]);
-
   return (
-    <BilingualTextRenderer
-      messageId={messageId}
-      content={content}
-      processedHTML={processedHTML}
-      codeBlocks={codeBlocks}
-      onTranslateAll={onTranslateAll}
+    <div
+      className="whitespace-pre-wrap break-words"
+      dangerouslySetInnerHTML={{ __html: formattedHTML }}
     />
   );
 });
@@ -1155,14 +1130,12 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
 /** 内容块渲染器 */
 function renderContentBlock(
   block: ContentBlock,
-  messageId: string,
-  onTranslateAll?: () => void,
   isStreaming?: boolean,
   renderMode: MessageRenderMode = 'full'
 ): React.ReactNode {
   switch (block.type) {
     case 'text':
-      return <TextBlockRenderer key={`text-${block.content.slice(0, 20)}`} block={block} messageId={messageId} onTranslateAll={onTranslateAll} isStreaming={isStreaming} renderMode={renderMode} />;
+      return <TextBlockRenderer key={`text-${block.content.slice(0, 20)}`} block={block} isStreaming={isStreaming} renderMode={renderMode} />;
     case 'thinking':
       // 归档模式下不渲染思考块
       if (renderMode === 'archive') return null;
@@ -1207,20 +1180,6 @@ const AssistantBubble = memo(function AssistantBubble({
   renderMode?: MessageRenderMode;
 }) {
   const hasBlocks = message.blocks && message.blocks.length > 0;
-  const translateMessage = useMessageTranslationStore((state) => state.translateMessage);
-
-  const handleTranslateAll = useCallback(() => {
-    const translatableContent: Array<{ originalText: string; tagName: string }> = [];
-    for (const block of message.blocks || []) {
-      if (block.type === 'text') {
-        const paragraphs = extractTranslatableParagraphsFromMarkdown(block.content);
-        translatableContent.push(...paragraphs);
-      }
-    }
-    if (translatableContent.length > 0) {
-      translateMessage(message.id, translatableContent);
-    }
-  }, [message.id, message.blocks, translateMessage]);
 
   return (
     <div className="flex gap-3 my-2">
@@ -1238,14 +1197,6 @@ const AssistantBubble = memo(function AssistantBubble({
           <span className="text-xs text-text-tertiary">
             {new Date(message.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          {/* 消息级翻译按钮 - 归档模式不显示 */}
-          {renderMode === 'full' && (
-            <MessageTranslateButton
-              messageId={message.id}
-              blocks={message.blocks || []}
-              isStreaming={message.isStreaming}
-            />
-          )}
         </div>
 
         {/* 渲染内容块 */}
@@ -1253,7 +1204,7 @@ const AssistantBubble = memo(function AssistantBubble({
           <div className="space-y-1">
             {message.blocks.map((block, index) => (
               <div key={index}>
-                {renderContentBlock(block, message.id, handleTranslateAll, message.isStreaming, renderMode)}
+                {renderContentBlock(block, message.isStreaming, renderMode)}
               </div>
             ))}
           </div>
