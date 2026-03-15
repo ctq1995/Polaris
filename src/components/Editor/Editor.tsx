@@ -1,5 +1,6 @@
 /**
  * CodeMirror 6 编辑器组件
+ * 支持 LSP 智能功能（TypeScript/JavaScript WASM，Rust rust-analyzer）
  */
 
 import { useEffect, useRef, useMemo } from 'react';
@@ -24,6 +25,9 @@ import { tags } from '@lezer/highlight';
 
 // 现代化主题
 import { modernTheme } from './modernTheme';
+
+// LSP 支持
+import { createLSPExtensions, cleanupAllLSP } from './lsp';
 
 const customHighlightStyle = HighlightStyle.define([
   // 关键字
@@ -106,6 +110,10 @@ interface EditorProps {
   value: string;
   /** 语言类型 */
   language: string;
+  /** 文件路径（用于 LSP） */
+  filePath?: string;
+  /** 工作区根目录（用于 Rust LSP） */
+  workspaceRoot?: string;
   /** 内容变化回调 */
   onChange: (value: string) => void;
   /** 只读模式 */
@@ -114,18 +122,42 @@ interface EditorProps {
   onSave?: () => void;
   /** 是否显示行号 */
   lineNumbers?: boolean;
+  /** 跳转定义回调 */
+  onGotoDefinition?: (uri: string) => void;
 }
 
 export function CodeMirrorEditor({
   value,
   language,
+  filePath,
+  workspaceRoot,
   onChange,
   readOnly = false,
   onSave,
   lineNumbers: showLineNumbers = true,
+  onGotoDefinition,
 }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+
+  // 处理 LSP 跳转定义事件
+  useEffect(() => {
+    const handleGotoDefinition = (event: CustomEvent<{ uri: string; line: number; character: number }>) => {
+      if (onGotoDefinition) {
+        // 转换 file:// URI 为普通路径
+        let uri = event.detail.uri;
+        if (uri.startsWith('file://')) {
+          uri = uri.replace('file://', '');
+        }
+        onGotoDefinition(uri);
+      }
+    };
+
+    window.addEventListener('lsp:goto-definition', handleGotoDefinition as EventListener);
+    return () => {
+      window.removeEventListener('lsp:goto-definition', handleGotoDefinition as EventListener);
+    };
+  }, [onGotoDefinition]);
 
   // 自定义保存快捷键
   const saveKeymap = useMemo(
@@ -201,6 +233,24 @@ export function CodeMirrorEditor({
         console.warn('[Editor] No language extension found for:', language);
       }
 
+      // 加载 LSP 扩展（TypeScript/JavaScript WASM 或 Rust LSP）
+      if (filePath) {
+        try {
+          const lspExtensions = await createLSPExtensions({
+            filePath,
+            content: value,
+            language,
+            workspaceRoot,
+          });
+          if (lspExtensions.length > 0) {
+            console.log('[Editor] LSP extensions loaded for:', language);
+            extensions.push(...lspExtensions);
+          }
+        } catch (error) {
+          console.warn('[Editor] Failed to load LSP extensions:', error);
+        }
+      }
+
       // 创建编辑器状态
       const state = EditorState.create({
         doc: value,
@@ -229,6 +279,8 @@ export function CodeMirrorEditor({
         viewRef.current.destroy();
         viewRef.current = null;
       }
+      // 清理 LSP 资源
+      cleanupAllLSP();
     };
     // 只在组件挂载时执行，props 变化时通过 key 强制重新挂载
     // eslint-disable-next-line react-hooks/exhaustive-deps

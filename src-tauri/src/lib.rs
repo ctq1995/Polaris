@@ -70,6 +70,12 @@ use commands::scheduler::{
     scheduler_run_task, scheduler_get_task_logs, scheduler_get_all_logs,
     scheduler_cleanup_logs, scheduler_validate_trigger, scheduler_parse_interval,
 };
+use commands::lsp::{
+    lsp_check_server, lsp_install_server, lsp_uninstall_server,
+    lsp_start_server, lsp_stop_server, lsp_did_change,
+    lsp_completion, lsp_diagnostics, lsp_goto_definition,
+    lsp_find_references, lsp_hover,
+};
 
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
@@ -432,6 +438,18 @@ pub fn run() {
             scheduler_cleanup_logs,
             scheduler_validate_trigger,
             scheduler_parse_interval,
+            // LSP 相关
+            lsp_check_server,
+            lsp_install_server,
+            lsp_uninstall_server,
+            lsp_start_server,
+            lsp_stop_server,
+            lsp_did_change,
+            lsp_completion,
+            lsp_diagnostics,
+            lsp_goto_definition,
+            lsp_find_references,
+            lsp_hover,
 
         ])
         .run(tauri::generate_context!())

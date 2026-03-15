@@ -81,6 +81,10 @@ pub enum AppError {
     #[error("State error: {0}")]
     StateError(String),
 
+    /// LSP 错误
+    #[error("LSP error: {0}")]
+    LSPError(String),
+
     /// 其他错误
     #[error("Unknown error: {0}")]
     Unknown(String),
@@ -105,6 +109,7 @@ impl AppError {
             AppError::ApiError(e) => format!("API 错误: {}", e),
             AppError::ValidationError(e) => format!("验证错误: {}", e),
             AppError::StateError(e) => format!("状态错误: {}", e),
+            AppError::LSPError(e) => format!("LSP 错误: {}", e),
             AppError::Unknown(e) => format!("未知错误: {}", e),
         }
     }

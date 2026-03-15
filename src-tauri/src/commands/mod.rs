@@ -7,6 +7,7 @@ pub mod git;
 pub mod translate;
 pub mod openai_proxy;
 pub mod integration;
+pub mod lsp;
 pub mod scheduler;
 
 // 重新导出命令函数，确保它们在模块级别可见

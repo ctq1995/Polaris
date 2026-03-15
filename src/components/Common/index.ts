@@ -6,6 +6,7 @@ export { Layout, Header, Sidebar, Main, Aside } from './Layout';
 export { ResizeHandle } from './ResizeHandle';
 export { StatusIndicator } from './StatusIndicator';
 export { Button } from './Button';
+export { Switch } from './Switch';
 export { ConnectingOverlay } from './ConnectingOverlay';
 export { ClaudePathSelector } from './ClaudePathSelector';
 export { ErrorBoundary } from './ErrorBoundary';

@@ -20,6 +20,7 @@ import { QQBotTab } from './tabs/QQBotTab';
 import { FloatingWindowTab } from './tabs/FloatingWindowTab';
 import { AdvancedTab } from './tabs/AdvancedTab';
 import { SchedulerTab } from './tabs/SchedulerTab';
+import { LSPTab } from './tabs/LSPTab';
 import type { Config } from '../../types';
 
 interface SettingsModalProps {
@@ -35,6 +36,7 @@ const TAB_TITLES: Record<SettingsTabId, string> = {
   'qqbot': 'QQ Bot',
   'floating-window': '悬浮窗',
   'scheduler': '定时任务',
+  'lsp': 'LSP',
   'advanced': '高级',
 };
 
@@ -198,6 +200,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               )}
 
               {activeTab === 'scheduler' && <SchedulerTab />}
+
+              {activeTab === 'lsp' && <LSPTab />}
 
               {activeTab === 'advanced' && (
                 <AdvancedTab

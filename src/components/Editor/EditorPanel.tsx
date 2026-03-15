@@ -2,7 +2,8 @@
  * 编辑器面板组件
  */
 
-import { useFileEditorStore } from '../../stores';
+import { useCallback } from 'react';
+import { useFileEditorStore, useWorkspaceStore } from '../../stores';
 import { CodeMirrorEditor } from './Editor';
 import { EditorHeader } from './EditorHeader';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -14,7 +15,18 @@ interface EditorPanelProps {
 }
 
 export function EditorPanel({ className = '', filePath: _filePath }: EditorPanelProps) {
-  const { currentFile, setContent, saveFile, isOpen, status, error } = useFileEditorStore();
+  const { currentFile, setContent, saveFile, isOpen, status, error, openFile } = useFileEditorStore();
+  const currentWorkspace = useWorkspaceStore((state) => state.getCurrentWorkspace());
+
+  // 处理跳转定义
+  const handleGotoDefinition = useCallback((uri: string) => {
+    // 打开目标文件并定位到指定行
+    // 注意：这里简化处理，实际可能需要更精确的定位
+    const fileName = uri.split('/').pop() || uri;
+    openFile(uri, fileName).catch((err) => {
+      console.error('[Editor] Failed to open definition file:', err);
+    });
+  }, [openFile]);
 
   // 显示错误状态
   if (error) {
@@ -61,8 +73,11 @@ export function EditorPanel({ className = '', filePath: _filePath }: EditorPanel
             key={currentFile.path}
             value={currentFile.content}
             language={currentFile.language}
+            filePath={currentFile.path}
+            workspaceRoot={currentWorkspace?.path}
             onChange={setContent}
             onSave={saveFile}
+            onGotoDefinition={handleGotoDefinition}
           />
         )}
       </div>

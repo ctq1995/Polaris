@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::ai::EngineRegistry;
 use crate::commands::context::ContextMemoryStore;
+use crate::commands::lsp::LSPState;
 use crate::integrations::IntegrationManager;
 use crate::services::config_store::ConfigStore;
 use crate::services::scheduler::{TaskStoreService, LogStoreService, SchedulerDispatcher};
@@ -36,6 +37,8 @@ pub struct AppState {
     pub scheduler_log_store: Arc<AsyncMutex<LogStoreService>>,
     /// 定时任务调度器
     pub scheduler_dispatcher: Arc<AsyncMutex<SchedulerDispatcher>>,
+    /// LSP 状态
+    pub lsp_state: LSPState,
 }
 
 /// 创建应用状态
@@ -70,5 +73,6 @@ pub fn create_app_state(
         scheduler_task_store: task_store,
         scheduler_log_store: log_store,
         scheduler_dispatcher: Arc::new(AsyncMutex::new(dispatcher)),
+        lsp_state: LSPState::default(),
     }
 }
