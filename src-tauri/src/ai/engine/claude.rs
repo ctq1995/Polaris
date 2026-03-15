@@ -122,6 +122,7 @@ impl ClaudeEngine {
         message: &str,
         system_prompt: Option<&str>,
         session_id: Option<&str>,
+        cli_args: &[String],
     ) -> Result<Command> {
         #[cfg(windows)]
         {
@@ -141,6 +142,11 @@ impl ClaudeEngine {
                 if !prompt.is_empty() {
                     cmd.arg("--system-prompt").arg(prompt);
                 }
+            }
+
+            // 添加额外的 CLI 参数
+            for arg in cli_args {
+                cmd.arg(arg);
             }
 
             cmd.arg("--print")
@@ -169,6 +175,11 @@ impl ClaudeEngine {
                 if !prompt.is_empty() {
                     cmd.arg("--system-prompt").arg(prompt);
                 }
+            }
+
+            // 添加额外的 CLI 参数
+            for arg in cli_args {
+                cmd.arg(arg);
             }
 
             cmd.arg("--print")
@@ -336,7 +347,7 @@ impl AIEngine for ClaudeEngine {
         message: &str,
         options: SessionOptions,
     ) -> Result<String> {
-        tracing::info!("[ClaudeEngine] 启动会话，消息长度: {}", message.len());
+        tracing::info!("[ClaudeEngine] 启动会话，消息长度: {}, CLI 参数: {:?}", message.len(), options.cli_args);
 
         // 检查 CLI 可用性
         if !self.check_cli_available() {
@@ -344,7 +355,7 @@ impl AIEngine for ClaudeEngine {
         }
 
         // 构建命令
-        let mut cmd = self.build_command(message, options.system_prompt.as_deref(), None)?;
+        let mut cmd = self.build_command(message, options.system_prompt.as_deref(), None, &options.cli_args)?;
         self.configure_command(&mut cmd, options.work_dir.as_deref());
 
         // 启动进程
@@ -371,7 +382,10 @@ impl AIEngine for ClaudeEngine {
         message: &str,
         options: SessionOptions,
     ) -> Result<()> {
-        tracing::info!("[ClaudeEngine] 继续会话: {}, 消息长度: {}", session_id, message.len());
+        tracing::info!("[ClaudeEngine] 继续会话: {}, 消息长度: {}, CLI 参数: {:?}", session_id, message.len(), options.cli_args);
+
+        // 保存 CLI 参数引用
+        let cli_args = options.cli_args.clone();
 
         // 检查 CLI 可用性（确保 node_exe 和 cli_js 已初始化）
         if !self.check_cli_available() {
@@ -399,7 +413,7 @@ impl AIEngine for ClaudeEngine {
         tracing::info!("[ClaudeEngine] 使用 --resume 参数，session_id: {}", real_session_id);
 
         // 构建命令（带 --resume，使用真实 session_id）
-        let mut cmd = self.build_command(message, options.system_prompt.as_deref(), Some(&real_session_id))?;
+        let mut cmd = self.build_command(message, options.system_prompt.as_deref(), Some(&real_session_id), &cli_args)?;
         self.configure_command(&mut cmd, work_dir.as_deref());
 
         tracing::info!("[ClaudeEngine] 命令构建完成，准备启动进程...");

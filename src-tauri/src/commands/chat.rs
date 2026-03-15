@@ -117,8 +117,9 @@ pub async fn start_chat(
     system_prompt: Option<String>,
     context_id: Option<String>,
     attachments: Option<Vec<Attachment>>,
+    cli_args: Option<Vec<String>>,
 ) -> Result<String> {
-    tracing::info!("[start_chat] 收到消息，长度: {} 字符, 附件数: {:?}", message.len(), attachments.as_ref().map(|a| a.len()));
+    tracing::info!("[start_chat] 收到消息，长度: {} 字符, 附件数: {:?}, CLI 参数: {:?}", message.len(), attachments.as_ref().map(|a| a.len()), cli_args);
 
     // 保存附件到工作区
     if let (Some(ref dir), Some(ref atts)) = (&work_dir, &attachments) {
@@ -189,6 +190,10 @@ pub async fn start_chat(
         options = options.with_system_prompt(prompt.clone());
     }
 
+    if let Some(ref args) = cli_args {
+        options = options.with_cli_args(args.clone());
+    }
+
     let mut registry = state.engine_registry.lock().await;
     registry.start_session(Some(engine), &message, options)
 }
@@ -205,8 +210,9 @@ pub async fn continue_chat(
     system_prompt: Option<String>,
     context_id: Option<String>,
     attachments: Option<Vec<Attachment>>,
+    cli_args: Option<Vec<String>>,
 ) -> Result<()> {
-    tracing::info!("[continue_chat] 继续会话: {}, 附件数: {:?}", session_id, attachments.as_ref().map(|a| a.len()));
+    tracing::info!("[continue_chat] 继续会话: {}, 附件数: {:?}, CLI 参数: {:?}", session_id, attachments.as_ref().map(|a| a.len()), cli_args);
 
     // 保存附件到工作区
     if let (Some(dir), Some(atts)) = (&work_dir, &attachments) {
@@ -275,6 +281,10 @@ pub async fn continue_chat(
 
     if let Some(ref prompt) = system_prompt {
         options = options.with_system_prompt(prompt.clone());
+    }
+
+    if let Some(ref args) = cli_args {
+        options = options.with_cli_args(args.clone());
     }
 
     let mut registry = state.engine_registry.lock().await;
