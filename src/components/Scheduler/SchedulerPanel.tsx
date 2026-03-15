@@ -3,8 +3,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSchedulerStore } from '../../stores';
-import type { TaskLog, TriggerType, CreateTaskParams } from '../../types/scheduler';
+import { useSchedulerStore, useToastStore } from '../../stores';
+import type { TaskLog, TriggerType, CreateTaskParams, RunTaskResult } from '../../types/scheduler';
 import type { ScheduledTask } from '../../types/scheduler';
 import { TriggerTypeLabels, IntervalUnitLabels, parseIntervalValue } from '../../types/scheduler';
 
@@ -143,6 +143,7 @@ function TaskEditor({
   onSave: (params: CreateTaskParams) => void;
   onClose: () => void;
 }) {
+  const toast = useToastStore();
   const [name, setName] = useState(task?.name || '');
   const [triggerType, setTriggerType] = useState<TriggerType>(task?.triggerType || 'interval');
   const [triggerValue, setTriggerValue] = useState(task?.triggerValue || '1h');
@@ -172,7 +173,7 @@ function TaskEditor({
 
   const handleSave = () => {
     if (!name.trim() || !prompt.trim()) {
-      alert('请填写任务名称和提示词');
+      toast.warning('请填写任务名称和提示词');
       return;
     }
 
@@ -402,6 +403,7 @@ function LogList({ logs }: { logs: TaskLog[] }) {
 export function SchedulerPanel() {
   const { tasks, logs, loading, loadTasks, loadLogs, createTask, updateTask, deleteTask, toggleTask, runTask } =
     useSchedulerStore();
+  const toast = useToastStore();
 
   const [showEditor, setShowEditor] = useState(false);
   const [editingTask, setEditingTask] = useState<ScheduledTask | undefined>();
@@ -412,12 +414,26 @@ export function SchedulerPanel() {
     loadLogs(50);
   }, [loadTasks, loadLogs]);
 
+  /** 处理立即执行任务 */
+  const handleRunTask = async (task: ScheduledTask) => {
+    try {
+      toast.info('开始执行', `正在执行任务: ${task.name}`);
+      const result: RunTaskResult = await runTask(task.id);
+      toast.success('执行成功', `任务 ${task.name} 已完成，日志ID: ${result.logId.slice(0, 8)}`);
+      // 刷新日志
+      loadLogs(50);
+    } catch (e) {
+      toast.error('执行失败', e instanceof Error ? e.message : '未知错误');
+    }
+  };
+
   const handleCreate = async (params: CreateTaskParams) => {
     try {
       await createTask(params);
+      toast.success('创建成功');
       setShowEditor(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '创建失败');
+      toast.error('创建失败', e instanceof Error ? e.message : '未知错误');
     }
   };
 
@@ -428,10 +444,11 @@ export function SchedulerPanel() {
         ...editingTask,
         ...params,
       });
+      toast.success('更新成功');
       setShowEditor(false);
       setEditingTask(undefined);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '更新失败');
+      toast.error('更新失败', e instanceof Error ? e.message : '未知错误');
     }
   };
 
@@ -439,8 +456,9 @@ export function SchedulerPanel() {
     if (!confirm('确定要删除这个任务吗？')) return;
     try {
       await deleteTask(id);
+      toast.success('删除成功');
     } catch (e) {
-      alert(e instanceof Error ? e.message : '删除失败');
+      toast.error('删除失败', e instanceof Error ? e.message : '未知错误');
     }
   };
 
@@ -509,7 +527,7 @@ export function SchedulerPanel() {
                   }}
                   onDelete={() => handleDelete(task.id)}
                   onToggle={() => toggleTask(task.id, !task.enabled)}
-                  onRun={() => runTask(task.id)}
+                  onRun={() => handleRunTask(task)}
                 />
               ))}
             </div>
