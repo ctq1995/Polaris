@@ -5,6 +5,20 @@ use std::path::PathBuf;
 use uuid::Uuid;
 use chrono::Utc;
 
+/// UTF-8 安全截取字符串（按字节限制，确保不切断多字节字符）
+fn truncate_utf8_safe(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+
+    // 找到不超过 max_bytes 的最大字符边界
+    let mut boundary = max_bytes;
+    while boundary > 0 && !s.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+    &s[..boundary]
+}
+
 /// 任务存储服务
 pub struct TaskStoreService {
     store: TaskStore,
@@ -293,20 +307,22 @@ impl LogStoreService {
             .unwrap_or(finished_at);
         let duration_ms = (finished_at - started_at) * 1000;
 
-        // 截取输出
+        // 截取输出（UTF-8 安全）
         let truncated_output = output.map(|o| {
             if o.len() > self.max_output_length {
+                let truncated = truncate_utf8_safe(&o, self.max_output_length);
                 format!("{}...\n[输出已截断，共 {} 字符]",
-                    &o[..self.max_output_length], o.len())
+                    truncated, o.chars().count())
             } else {
                 o
             }
         });
 
-        // 截取思考摘要
+        // 截取思考摘要（UTF-8 安全）
         let truncated_thinking = thinking_summary.map(|t| {
             if t.len() > 500 {
-                format!("{}...", &t[..500])
+                let truncated = truncate_utf8_safe(&t, 500);
+                format!("{}...", truncated)
             } else {
                 t
             }
