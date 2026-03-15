@@ -5,6 +5,8 @@
  */
 
 use std::sync::Arc;
+use std::path::PathBuf;
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
 
 use crate::ai::{EngineId, Pagination, PagedResult, SessionOptions};
 use crate::ai::{SessionMeta, HistoryMessage, ClaudeHistoryProvider, IFlowHistoryProvider, SessionHistoryProvider};
@@ -12,6 +14,93 @@ use crate::error::{AppError, Result};
 use crate::models::AIEvent;
 use tauri::{Emitter, State, Window};
 use tauri_plugin_notification::NotificationExt;
+
+// ============================================================================
+// 附件相关结构体
+// ============================================================================
+
+/// 附件类型
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    /// 附件类型
+    #[serde(rename = "type")]
+    pub attachment_type: String,
+    /// 文件名
+    pub file_name: String,
+    /// MIME 类型
+    pub mime_type: String,
+    /// 内容 (base64 data URL)
+    pub content: String,
+}
+
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+/// 保存附件到工作区
+fn save_attachments(work_dir: &str, attachments: &[Attachment]) -> Result<()> {
+    let polaris_dir = PathBuf::from(work_dir).join(".polaris");
+
+    // 创建 .polaris 目录（如果不存在）
+    if !polaris_dir.exists() {
+        std::fs::create_dir_all(&polaris_dir)
+            .map_err(|e| AppError::ProcessError(format!("创建 .polaris 目录失败: {}", e)))?;
+    }
+
+    // 保存图片附件
+    let mut image_index = 0;
+    for attachment in attachments {
+        if attachment.attachment_type == "image" {
+            // 从 data URL 中提取 base64 数据
+            let base64_data = if attachment.content.starts_with("data:") {
+                // 格式: data:image/png;base64,xxxxx
+                let parts: Vec<&str> = attachment.content.splitn(2, ",").collect();
+                if parts.len() == 2 {
+                    parts[1]
+                } else {
+                    tracing::warn!("[save_attachments] 无法解析 data URL: {}", &attachment.content[..50.min(attachment.content.len())]);
+                    continue;
+                }
+            } else {
+                // 假设是纯 base64
+                &attachment.content
+            };
+
+            // 解码 base64
+            let decoded = BASE64_STANDARD.decode(base64_data)
+                .map_err(|e| AppError::ProcessError(format!("解码 base64 失败: {}", e)))?;
+
+            // 根据扩展名确定文件名
+            let ext = if attachment.mime_type == "image/png" {
+                "png"
+            } else if attachment.mime_type == "image/jpeg" || attachment.mime_type == "image/jpg" {
+                "jpg"
+            } else if attachment.mime_type == "image/gif" {
+                "gif"
+            } else if attachment.mime_type == "image/webp" {
+                "webp"
+            } else if attachment.mime_type == "image/bmp" {
+                "bmp"
+            } else {
+                // 从文件名提取扩展名
+                attachment.file_name.rsplit('.').next().unwrap_or("png")
+            };
+
+            let file_name = format!("image_{}.{}", image_index, ext);
+            let file_path = polaris_dir.join(&file_name);
+
+            // 写入文件
+            std::fs::write(&file_path, &decoded)
+                .map_err(|e| AppError::ProcessError(format!("写入图片文件失败: {}", e)))?;
+
+            tracing::info!("[save_attachments] 保存图片: {:?}", file_path);
+            image_index += 1;
+        }
+    }
+
+    Ok(())
+}
 
 // ============================================================================
 // Tauri Commands - 聊天
@@ -27,8 +116,16 @@ pub async fn start_chat(
     engine_id: Option<String>,
     system_prompt: Option<String>,
     context_id: Option<String>,
+    attachments: Option<Vec<Attachment>>,
 ) -> Result<String> {
-    tracing::info!("[start_chat] 收到消息，长度: {} 字符", message.len());
+    tracing::info!("[start_chat] 收到消息，长度: {} 字符, 附件数: {:?}", message.len(), attachments.as_ref().map(|a| a.len()));
+
+    // 保存附件到工作区
+    if let (Some(ref dir), Some(ref atts)) = (&work_dir, &attachments) {
+        if !atts.is_empty() {
+            save_attachments(dir, atts)?;
+        }
+    }
 
     let engine = engine_id
         .as_ref()
@@ -107,8 +204,16 @@ pub async fn continue_chat(
     engine_id: Option<String>,
     system_prompt: Option<String>,
     context_id: Option<String>,
+    attachments: Option<Vec<Attachment>>,
 ) -> Result<()> {
-    tracing::info!("[continue_chat] 继续会话: {}", session_id);
+    tracing::info!("[continue_chat] 继续会话: {}, 附件数: {:?}", session_id, attachments.as_ref().map(|a| a.len()));
+
+    // 保存附件到工作区
+    if let (Some(dir), Some(atts)) = (&work_dir, &attachments) {
+        if !atts.is_empty() {
+            save_attachments(dir, atts)?;
+        }
+    }
 
     let engine = engine_id
         .as_ref()
@@ -388,7 +493,6 @@ pub async fn get_iflow_token_stats(
 // Claude Code 会话历史（旧接口，保留向后兼容）
 // ============================================================================
 
-use std::path::PathBuf;
 use std::process::Command;
 use std::io::{BufRead, BufReader};
 

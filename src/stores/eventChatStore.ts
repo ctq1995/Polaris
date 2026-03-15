@@ -1055,6 +1055,14 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
 
         const { invoke } = await import('@tauri-apps/api/core')
 
+        // 准备附件数据（仅包含后端需要的字段）
+        const attachmentsForBackend = attachments?.map(a => ({
+          type: a.type,
+          fileName: a.fileName,
+          mimeType: a.mimeType,
+          content: a.content,
+        }))
+
         if (conversationId) {
           await invoke('continue_chat', {
             sessionId: conversationId,
@@ -1063,6 +1071,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
             workDir: actualWorkspaceDir,
             contextId: 'main',
             engineId: currentEngine,
+            attachments: attachmentsForBackend,
           })
         } else {
           const newSessionId = await invoke<string>('start_chat', {
@@ -1071,6 +1080,7 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
             workDir: actualWorkspaceDir,
             contextId: 'main',
             engineId: currentEngine,
+            attachments: attachmentsForBackend,
           })
           set({ conversationId: newSessionId })
         }
