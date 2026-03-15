@@ -5,7 +5,7 @@
  * 参考 VSCode 的 Activity Bar 设计
  */
 
-import { Files, GitPullRequest, CheckSquare, Settings, Languages } from 'lucide-react'
+import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock } from 'lucide-react'
 import { useViewStore } from '@/stores/viewStore'
 import { ActivityBarIcon } from './ActivityBarIcon'
 import { useTranslation } from 'react-i18next'
@@ -41,6 +41,11 @@ export function ActivityBar({ className, onOpenSettings }: ActivityBarProps) {
       id: 'translate' as const,
       icon: Languages,
       label: t('labels.translatePanel'),
+    },
+    {
+      id: 'scheduler' as const,
+      icon: Clock,
+      label: t('labels.schedulerPanel'),
     },
   ]
 

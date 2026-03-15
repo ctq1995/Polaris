@@ -43,7 +43,8 @@
     "fileExplorer": "File Explorer",
     "gitPanel": "Git Panel",
     "todoPanel": "Todo Panel",
-    "translatePanel": "Translate Panel"
+    "translatePanel": "Translate Panel",
+    "schedulerPanel": "Scheduler"
   },
   "messages": {
     "noWorkspace": "Please open a workspace first",
