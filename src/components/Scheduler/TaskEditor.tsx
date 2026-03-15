@@ -587,26 +587,6 @@ export function TaskEditor({
             </div>
           )}
 
-          {/* 在终端中执行 */}
-          {fullMode && (
-            <div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={runInTerminal}
-                  onChange={(e) => setRunInTerminal(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#2a2a4a] bg-[#1a1a2e] text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
-                />
-                <div>
-                  <span className="text-white text-sm">在终端中执行</span>
-                  <p className="text-xs text-gray-500">
-                    勾选后将在终端窗口中执行任务，便于查看执行过程
-                  </p>
-                </div>
-              </label>
-            </div>
-          )}
-
           {/* AI 引擎 */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">AI 引擎</label>
