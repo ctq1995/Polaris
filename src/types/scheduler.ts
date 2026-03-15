@@ -133,3 +133,17 @@ export interface RunTaskResult {
   /** 提示信息 */
   message: string;
 }
+
+/** 分页日志结果 */
+export interface PaginatedLogs {
+  /** 日志列表 */
+  logs: TaskLog[];
+  /** 总数 */
+  total: number;
+  /** 当前页（1-indexed） */
+  page: number;
+  /** 每页大小 */
+  pageSize: number;
+  /** 总页数 */
+  totalPages: number;
+}

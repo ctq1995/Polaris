@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::models::scheduler::{CreateTaskParams, ScheduledTask, TaskLog, TaskStore, LogStore, TriggerType};
+use crate::models::scheduler::{CreateTaskParams, ScheduledTask, TaskLog, TaskStore, LogStore, TriggerType, PaginatedLogs};
 use std::path::PathBuf;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -355,5 +355,117 @@ impl LogStoreService {
 
         self.save()?;
         Ok(())
+    }
+
+    /// 分页获取日志
+    pub fn get_logs_paginated(
+        &self,
+        task_id: Option<&str>,
+        page: u32,
+        page_size: u32,
+    ) -> PaginatedLogs {
+        let page = page.max(1);
+        let page_size = page_size.max(1).min(100) as usize;
+
+        // 获取要分页的日志
+        let logs_to_page: Vec<&TaskLog> = if let Some(tid) = task_id {
+            self.store.logs.get(tid)
+                .map(|logs| logs.iter().collect())
+                .unwrap_or_default()
+        } else {
+            self.store.all_logs.iter().collect()
+        };
+
+        let total = logs_to_page.len();
+        let total_pages = (total + page_size - 1) / page_size;
+        let skip = ((page - 1) as usize) * page_size;
+
+        let logs: Vec<TaskLog> = logs_to_page
+            .into_iter()
+            .skip(skip)
+            .take(page_size)
+            .cloned()
+            .collect();
+
+        PaginatedLogs {
+            logs,
+            total,
+            page,
+            page_size: page_size as u32,
+            total_pages,
+        }
+    }
+
+    /// 删除单条日志
+    pub fn delete_log(&mut self, log_id: &str) -> Result<bool> {
+        let mut found = false;
+
+        // 从 all_logs 中移除
+        if let Some(pos) = self.store.all_logs.iter().position(|l| l.id == log_id) {
+            let log = self.store.all_logs.remove(pos);
+            found = true;
+
+            // 从任务日志列表中移除
+            if let Some(logs) = self.store.logs.get_mut(&log.task_id) {
+                logs.retain(|l| l.id != log_id);
+            }
+        }
+
+        if found {
+            self.save()?;
+        }
+
+        Ok(found)
+    }
+
+    /// 批量删除日志
+    pub fn delete_logs(&mut self, log_ids: &[String]) -> Result<usize> {
+        let ids_set: std::collections::HashSet<_> = log_ids.iter().map(|s| s.as_str()).collect();
+        let mut count = 0;
+
+        // 从 all_logs 中移除
+        self.store.all_logs.retain(|l| {
+            if ids_set.contains(l.id.as_str()) {
+                count += 1;
+                false
+            } else {
+                true
+            }
+        });
+
+        // 从各任务的日志列表中移除
+        for logs in self.store.logs.values_mut() {
+            logs.retain(|l| !ids_set.contains(l.id.as_str()));
+        }
+
+        if count > 0 {
+            self.save()?;
+        }
+
+        Ok(count)
+    }
+
+    /// 清理指定任务的所有日志
+    pub fn clear_task_logs(&mut self, task_id: &str) -> Result<usize> {
+        let count = self.store.logs.get(task_id)
+            .map(|logs| logs.len())
+            .unwrap_or(0);
+
+        if count > 0 {
+            // 获取要删除的日志 ID
+            let ids_to_remove: std::collections::HashSet<_> = self.store.logs.get(task_id)
+                .map(|logs| logs.iter().map(|l| l.id.as_str()).collect())
+                .unwrap_or_default();
+
+            // 从 all_logs 中移除
+            self.store.all_logs.retain(|l| !ids_to_remove.contains(l.id.as_str()));
+
+            // 移除任务日志列表
+            self.store.logs.remove(task_id);
+
+            self.save()?;
+        }
+
+        Ok(count)
     }
 }

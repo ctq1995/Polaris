@@ -678,7 +678,7 @@ export async function updateIntegrationInstance(
 // 定时任务相关命令
 // ============================================================================
 
-import type { ScheduledTask, TaskLog, TriggerType, CreateTaskParams, LockStatus, RunTaskResult } from '../types/scheduler';
+import type { ScheduledTask, TaskLog, TriggerType, CreateTaskParams, LockStatus, RunTaskResult, PaginatedLogs } from '../types/scheduler';
 
 /** 获取所有任务 */
 export async function schedulerGetTasks(): Promise<ScheduledTask[]> {
@@ -756,4 +756,28 @@ export async function schedulerStart(): Promise<string> {
 /** 停止调度器 */
 export async function schedulerStop(): Promise<string> {
   return invoke<string>('scheduler_stop');
+}
+
+/** 分页获取日志 */
+export async function schedulerGetLogsPaginated(
+  taskId?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedLogs> {
+  return invoke<PaginatedLogs>('scheduler_get_logs_paginated', { taskId, page, pageSize });
+}
+
+/** 删除单条日志 */
+export async function schedulerDeleteLog(logId: string): Promise<boolean> {
+  return invoke<boolean>('scheduler_delete_log', { logId });
+}
+
+/** 批量删除日志 */
+export async function schedulerDeleteLogs(logIds: string[]): Promise<number> {
+  return invoke<number>('scheduler_delete_logs', { logIds });
+}
+
+/** 清理任务的所有日志 */
+export async function schedulerClearTaskLogs(taskId: string): Promise<number> {
+  return invoke<number>('scheduler_clear_task_logs', { taskId });
 }

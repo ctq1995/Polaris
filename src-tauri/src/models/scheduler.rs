@@ -148,6 +148,22 @@ pub struct RunTaskResult {
     pub message: String,
 }
 
+/// 分页日志结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginatedLogs {
+    /// 日志列表
+    pub logs: Vec<TaskLog>,
+    /// 总数
+    pub total: usize,
+    /// 当前页（1-indexed）
+    pub page: u32,
+    /// 每页大小
+    pub page_size: u32,
+    /// 总页数
+    pub total_pages: usize,
+}
+
 /// 任务存储
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TaskStore {

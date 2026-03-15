@@ -71,6 +71,8 @@ use commands::scheduler::{
     scheduler_run_task, scheduler_get_task_logs, scheduler_get_all_logs,
     scheduler_cleanup_logs, scheduler_validate_trigger, scheduler_parse_interval,
     scheduler_get_lock_status, scheduler_start, scheduler_stop,
+    scheduler_get_logs_paginated, scheduler_delete_log, scheduler_delete_logs,
+    scheduler_clear_task_logs,
 };
 
 use std::sync::Arc;
@@ -452,6 +454,10 @@ pub fn run() {
             scheduler_get_lock_status,
             scheduler_start,
             scheduler_stop,
+            scheduler_get_logs_paginated,
+            scheduler_delete_log,
+            scheduler_delete_logs,
+            scheduler_clear_task_logs,
 
         ])
         .run(tauri::generate_context!())

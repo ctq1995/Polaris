@@ -3,7 +3,7 @@
  */
 
 use crate::error::Result;
-use crate::models::scheduler::{CreateTaskParams, ScheduledTask, TaskLog, TriggerType, RunTaskResult};
+use crate::models::scheduler::{CreateTaskParams, ScheduledTask, TaskLog, TriggerType, RunTaskResult, PaginatedLogs};
 use crate::state::AppState;
 use crate::utils::{LockStatus, SchedulerLock};
 
@@ -195,4 +195,46 @@ pub async fn scheduler_stop(
 
     tracing::info!("[Scheduler] 已停止调度器");
     Ok("已停止调度器".to_string())
+}
+
+/// 分页获取日志
+#[tauri::command]
+pub async fn scheduler_get_logs_paginated(
+    task_id: Option<String>,
+    page: Option<u32>,
+    page_size: Option<u32>,
+    state: tauri::State<'_, AppState>,
+) -> Result<PaginatedLogs> {
+    let store = state.scheduler_log_store.lock().await;
+    Ok(store.get_logs_paginated(task_id.as_deref(), page.unwrap_or(1), page_size.unwrap_or(20)))
+}
+
+/// 删除单条日志
+#[tauri::command]
+pub async fn scheduler_delete_log(
+    log_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<bool> {
+    let mut store = state.scheduler_log_store.lock().await;
+    store.delete_log(&log_id)
+}
+
+/// 批量删除日志
+#[tauri::command]
+pub async fn scheduler_delete_logs(
+    log_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<usize> {
+    let mut store = state.scheduler_log_store.lock().await;
+    store.delete_logs(&log_ids)
+}
+
+/// 清理任务的所有日志
+#[tauri::command]
+pub async fn scheduler_clear_task_logs(
+    task_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<usize> {
+    let mut store = state.scheduler_log_store.lock().await;
+    store.clear_task_logs(&task_id)
 }
