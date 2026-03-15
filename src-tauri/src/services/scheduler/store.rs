@@ -92,6 +92,7 @@ impl TaskStoreService {
             updated_at: now,
             max_runs: params.max_runs,
             current_runs: 0,
+            run_in_terminal: params.run_in_terminal,
         };
 
         // 如果是协议模式，创建任务目录结构
@@ -130,6 +131,7 @@ impl TaskStoreService {
             existing.mode = task.mode;
             existing.task_path = task.task_path;
             existing.max_runs = task.max_runs;
+            existing.run_in_terminal = task.run_in_terminal;
             // 保留 current_runs，不更新
             existing.updated_at = now;
 

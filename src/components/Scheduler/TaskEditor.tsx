@@ -170,6 +170,9 @@ export function TaskEditor({
   const [maxRuns, setMaxRuns] = useState<number | undefined>(task?.maxRuns);
   const [currentRuns, setCurrentRuns] = useState<number>(task?.currentRuns || 0);
 
+  // 在终端中执行
+  const [runInTerminal, setRunInTerminal] = useState<boolean>(task?.runInTerminal || false);
+
   // 间隔时间选择
   const [intervalNum, setIntervalNum] = useState(1);
   const [intervalUnit, setIntervalUnit] = useState<'s' | 'm' | 'h' | 'd'>('h');
@@ -269,6 +272,7 @@ export function TaskEditor({
       mode,
       mission: mode === 'protocol' ? mission : undefined,
       maxRuns: maxRuns || undefined,
+      runInTerminal,
       enabled: task?.enabled ?? true,
     });
   };
@@ -580,6 +584,26 @@ export function TaskEditor({
               <p className="mt-1 text-xs text-gray-500">
                 留空表示不限制执行次数
               </p>
+            </div>
+          )}
+
+          {/* 在终端中执行 */}
+          {fullMode && (
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={runInTerminal}
+                  onChange={(e) => setRunInTerminal(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#2a2a4a] bg-[#1a1a2e] text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                />
+                <div>
+                  <span className="text-white text-sm">在终端中执行</span>
+                  <p className="text-xs text-gray-500">
+                    勾选后将在终端窗口中执行任务，便于查看执行过程
+                  </p>
+                </div>
+              </label>
             </div>
           )}
 

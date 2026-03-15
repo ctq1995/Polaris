@@ -27,6 +27,9 @@ pub struct CreateTaskParams {
     pub mission: Option<String>,
     /// 最大执行轮次（可选，None 表示不限）
     pub max_runs: Option<u32>,
+    /// 是否在终端中执行（便于用户查看过程）
+    #[serde(default)]
+    pub run_in_terminal: bool,
 }
 
 fn default_enabled() -> bool {
@@ -88,6 +91,9 @@ pub struct ScheduledTask {
     /// 当前已执行轮次
     #[serde(default)]
     pub current_runs: u32,
+    /// 是否在终端中执行（便于用户查看过程）
+    #[serde(default)]
+    pub run_in_terminal: bool,
 }
 
 impl From<CreateTaskParams> for ScheduledTask {
@@ -110,6 +116,7 @@ impl From<CreateTaskParams> for ScheduledTask {
             updated_at: 0,
             max_runs: params.max_runs,
             current_runs: 0,
+            run_in_terminal: params.run_in_terminal,
         }
     }
 }

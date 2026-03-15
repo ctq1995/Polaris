@@ -47,6 +47,8 @@ export interface ScheduledTask {
   maxRuns?: number;
   /** 当前已执行轮次 */
   currentRuns: number;
+  /** 是否在终端中执行 (便于用户查看过程) */
+  runInTerminal: boolean;
 }
 
 /** 执行日志 */
@@ -98,6 +100,8 @@ export interface CreateTaskParams {
   mission?: string;
   /** 最大执行轮次 (可选，undefined 表示不限) */
   maxRuns?: number;
+  /** 是否在终端中执行 (便于用户查看过程) */
+  runInTerminal?: boolean;
 }
 
 /** 协议任务目录结构 */
