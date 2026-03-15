@@ -748,7 +748,12 @@ export async function schedulerGetLockStatus(): Promise<LockStatus> {
   return invoke<LockStatus>('scheduler_get_lock_status');
 }
 
-/** 重置调度器锁（强制接管） */
-export async function schedulerResetLock(): Promise<string> {
-  return invoke<string>('scheduler_reset_lock');
+/** 启动调度器 */
+export async function schedulerStart(): Promise<string> {
+  return invoke<string>('scheduler_start');
+}
+
+/** 停止调度器 */
+export async function schedulerStop(): Promise<string> {
+  return invoke<string>('scheduler_stop');
 }

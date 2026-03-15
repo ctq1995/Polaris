@@ -142,35 +142,57 @@ pub async fn scheduler_get_lock_status(
     })
 }
 
-/// 重置调度器锁（强制接管）
+/// 启动调度器（尝试获取锁并启动）
 #[tauri::command]
-pub async fn scheduler_reset_lock(
+pub async fn scheduler_start(
     state: tauri::State<'_, AppState>,
 ) -> Result<String> {
-    // 先释放当前持有的锁（如果有）
+    // 检查是否已经持有锁
     {
-        let mut lock = state.scheduler_lock.lock().await;
-        *lock = None; // drop old lock
+        let lock = state.scheduler_lock.lock().await;
+        if lock.is_some() {
+            return Ok("当前实例已在运行调度器".to_string());
+        }
     }
 
-    // 强制清理残留锁（Unix 有效，Windows 会失败）
-    SchedulerLock::force_release()?;
-
-    // 尝试重新获取锁
+    // 尝试获取锁
     match SchedulerLock::try_acquire()? {
         Some(new_lock) => {
-            // 保存新锁
+            // 保存锁
             *state.scheduler_lock.lock().await = Some(new_lock);
 
             // 启动调度器
             state.scheduler_dispatcher.lock().await.start();
 
-            tracing::info!("[Scheduler] 成功重置并接管调度器锁");
-            Ok("成功接管调度器锁".to_string())
+            tracing::info!("[Scheduler] 成功启动调度器");
+            Ok("成功启动调度器".to_string())
         }
         None => {
             tracing::warn!("[Scheduler] 无法获取调度器锁，其他实例可能仍在运行");
-            Ok("无法获取锁，其他实例可能仍在运行".to_string())
+            Err(crate::error::AppError::ValidationError(
+                "其他实例正在运行调度器，请先关闭该实例或在其设置中停止调度".to_string()
+            ))
         }
     }
+}
+
+/// 停止调度器（释放锁）
+#[tauri::command]
+pub async fn scheduler_stop(
+    state: tauri::State<'_, AppState>,
+) -> Result<String> {
+    let mut lock = state.scheduler_lock.lock().await;
+
+    if lock.is_none() {
+        return Ok("当前实例未运行调度器".to_string());
+    }
+
+    // 先停止调度循环
+    state.scheduler_dispatcher.lock().await.stop();
+
+    // 释放锁（drop 会自动释放）
+    *lock = None;
+
+    tracing::info!("[Scheduler] 已停止调度器");
+    Ok("已停止调度器".to_string())
 }

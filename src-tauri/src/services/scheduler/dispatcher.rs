@@ -13,6 +13,7 @@ use super::store::{TaskStoreService, LogStoreService};
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
 use std::collections::HashMap;
+use tokio_util::sync::CancellationToken;
 
 /// 调度执行器
 #[derive(Clone)]
@@ -22,6 +23,8 @@ pub struct SchedulerDispatcher {
     engine_registry: Arc<AsyncMutex<EngineRegistry>>,
     /// 正在执行的任务
     running_tasks: Arc<AsyncMutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
+    /// 调度循环取消令牌
+    cancel_token: Arc<AsyncMutex<Option<CancellationToken>>>,
 }
 
 impl SchedulerDispatcher {
@@ -36,25 +39,68 @@ impl SchedulerDispatcher {
             log_store,
             engine_registry,
             running_tasks: Arc::new(AsyncMutex::new(HashMap::new())),
+            cancel_token: Arc::new(AsyncMutex::new(None)),
         }
     }
 
     /// 启动调度循环
     pub fn start(&self) {
+        // 检查是否已经在运行
+        if let Ok(token) = self.cancel_token.try_lock() {
+            if token.is_some() {
+                tracing::warn!("[Scheduler] 调度器已在运行中");
+                return;
+            }
+        }
+
+        let cancel_token = CancellationToken::new();
+        let token_clone = cancel_token.clone();
+
+        // 保存取消令牌
+        if let Ok(mut token) = self.cancel_token.try_lock() {
+            *token = Some(cancel_token);
+        }
+
         let dispatcher = self.clone();
-        // 使用 tauri::async_runtime 而不是 tokio::spawn，确保在 Tauri 运行时中
         tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
 
             loop {
-                interval.tick().await;
-
-                // 检查并执行待执行任务
-                if let Err(e) = dispatcher.check_and_execute().await {
-                    tracing::error!("[Scheduler] 调度检查失败: {:?}", e);
+                tokio::select! {
+                    _ = token_clone.cancelled() => {
+                        tracing::info!("[Scheduler] 调度器已停止");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        // 检查并执行待执行任务
+                        if let Err(e) = dispatcher.check_and_execute().await {
+                            tracing::error!("[Scheduler] 调度检查失败: {:?}", e);
+                        }
+                    }
                 }
             }
         });
+
+        tracing::info!("[Scheduler] 调度器已启动");
+    }
+
+    /// 停止调度循环
+    pub fn stop(&self) {
+        if let Ok(mut token) = self.cancel_token.try_lock() {
+            if let Some(token) = token.take() {
+                token.cancel();
+                tracing::info!("[Scheduler] 调度器停止信号已发送");
+            }
+        }
+    }
+
+    /// 检查调度器是否在运行
+    pub fn is_running(&self) -> bool {
+        if let Ok(token) = self.cancel_token.try_lock() {
+            token.is_some()
+        } else {
+            true // 如果无法获取锁，假设正在运行
+        }
     }
 
     /// 检查并执行待执行任务

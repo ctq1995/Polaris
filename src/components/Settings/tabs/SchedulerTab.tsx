@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSchedulerStore } from '../../../stores';
-import { schedulerGetLockStatus, schedulerResetLock } from '../../../services/tauri';
+import { schedulerGetLockStatus, schedulerStart, schedulerStop } from '../../../services/tauri';
 import type { ScheduledTask, TriggerType, CreateTaskParams, LockStatus } from '../../../types/scheduler';
 import { TriggerTypeLabels, IntervalUnitLabels, parseIntervalValue } from '../../../types/scheduler';
 
@@ -245,7 +245,7 @@ export function SchedulerTab() {
   const [activeView, setActiveView] = useState<'tasks' | 'logs'>('tasks');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [lockStatus, setLockStatus] = useState<LockStatus | null>(null);
-  const [resetting, setResetting] = useState(false);
+  const [operating, setOperating] = useState(false);
 
   useEffect(() => {
     loadTasks();
@@ -262,18 +262,31 @@ export function SchedulerTab() {
     }
   };
 
-  const handleResetLock = async () => {
-    if (!confirm('确定要重置调度器锁吗？如果其他实例正在运行调度任务，可能会导致重复执行。')) return;
-
-    setResetting(true);
+  const handleStartScheduler = async () => {
+    setOperating(true);
     try {
-      const result = await schedulerResetLock();
+      const result = await schedulerStart();
       alert(result);
       await loadLockStatus();
     } catch (e) {
-      alert(e instanceof Error ? e.message : '重置失败');
+      alert(e instanceof Error ? e.message : '启动失败');
     } finally {
-      setResetting(false);
+      setOperating(false);
+    }
+  };
+
+  const handleStopScheduler = async () => {
+    if (!confirm('确定要停止调度器吗？定时任务将不再自动执行。')) return;
+
+    setOperating(true);
+    try {
+      const result = await schedulerStop();
+      alert(result);
+      await loadLockStatus();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '停止失败');
+    } finally {
+      setOperating(false);
     }
   };
 
@@ -355,30 +368,55 @@ export function SchedulerTab() {
                     : 'text-gray-400'
                 }`}>
                   {lockStatus.isHolder
-                    ? '当前实例负责调度'
+                    ? '调度器运行中'
                     : lockStatus.isLockedByOther
                     ? '其他实例正在调度'
-                    : '无调度器运行'}
+                    : '调度器未运行'}
                 </p>
                 <p className="text-xs text-text-muted">
                   PID: {lockStatus.pid}
+                  {lockStatus.isHolder && (
+                    <span className="ml-2">· 当前实例负责执行定时任务</span>
+                  )}
                   {!lockStatus.isHolder && lockStatus.isLockedByOther && (
-                    <span className="ml-2">· 定时任务将由其他实例执行</span>
+                    <span className="ml-2">· 请在持有锁的实例中停止调度后再启动</span>
                   )}
                 </p>
               </div>
             </div>
-            {!lockStatus.isHolder && (
-              <button
-                onClick={handleResetLock}
-                disabled={resetting}
-                className="px-3 py-1.5 text-sm bg-yellow-500/20 text-yellow-400
-                           hover:bg-yellow-500/30 rounded transition-colors
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {resetting ? '重置中...' : '接管调度'}
-              </button>
-            )}
+            <div className="flex gap-2">
+              {lockStatus.isHolder ? (
+                <button
+                  onClick={handleStopScheduler}
+                  disabled={operating}
+                  className="px-3 py-1.5 text-sm bg-red-500/20 text-red-400
+                             hover:bg-red-500/30 rounded transition-colors
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {operating ? '停止中...' : '停止调度'}
+                </button>
+              ) : lockStatus.isLockedByOther ? (
+                <button
+                  onClick={handleStartScheduler}
+                  disabled={operating}
+                  className="px-3 py-1.5 text-sm bg-yellow-500/20 text-yellow-400
+                             hover:bg-yellow-500/30 rounded transition-colors
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {operating ? '启动中...' : '尝试启动'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartScheduler}
+                  disabled={operating}
+                  className="px-3 py-1.5 text-sm bg-green-500/20 text-green-400
+                             hover:bg-green-500/30 rounded transition-colors
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {operating ? '启动中...' : '启动调度'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
