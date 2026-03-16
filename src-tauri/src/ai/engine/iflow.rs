@@ -73,10 +73,38 @@ impl IFlowEngine {
         let cli_path = self.cli_path.as_ref()
             .ok_or_else(|| AppError::ProcessError("CLI 路径未初始化".to_string()))?;
 
-        // 统一处理：直接使用命令参数传递消息
-        // Rust 的 Command::arg() 会正确处理包含换行符和特殊字符的参数
+        // Windows 上如果是批处理文件，需要使用环境变量传递消息
+        // 避免 bat/cmd 参数解析问题（如包含 "Protocol" 等词被误解为参数）
+        #[cfg(windows)]
+        {
+            if Self::is_batch_file(cli_path) {
+                let mut cmd = Command::new("cmd");
+                cmd.arg("/S").arg("/C");
+
+                let mut cmd_parts = vec![cli_path.to_string(), "--yolo".to_string()];
+
+                if let Some(sid) = session_id {
+                    cmd_parts.push("--resume".to_string());
+                    cmd_parts.push(sid.to_string());
+                }
+
+                cmd_parts.push("--prompt".to_string());
+                cmd_parts.push("%IFLOW_MSG%".to_string());
+
+                cmd.env("IFLOW_MSG", message);
+                cmd.arg(&cmd_parts.join(" "));
+
+                tracing::debug!(
+                    "[IFlowEngine] Windows 批处理命令: cmd /S /C \"{}\"",
+                    cmd_parts.join(" ")
+                );
+                return Ok(cmd);
+            }
+        }
+
+        // 非 Windows 或非批处理文件，使用直接执行方式
         let mut cmd = Command::new(cli_path);
-        cmd.arg("--yolo"); // 自动确认
+        cmd.arg("--yolo");
 
         if let Some(sid) = session_id {
             cmd.arg("--resume").arg(sid);
@@ -92,6 +120,13 @@ impl IFlowEngine {
         );
 
         Ok(cmd)
+    }
+
+    /// 检查是否是批处理文件
+    #[cfg(windows)]
+    fn is_batch_file(path: &str) -> bool {
+        let lower = path.to_lowercase();
+        lower.ends_with(".bat") || lower.ends_with(".cmd")
     }
 
     /// 配置命令
