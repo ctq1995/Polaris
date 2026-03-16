@@ -11,7 +11,7 @@ import {
   ProtocolTemplateCategory,
   TEMPLATE_PLACEHOLDERS,
 } from '../../types/protocolTemplate';
-import type { ProtocolTemplate, CreateProtocolTemplateParams } from '../../types/protocolTemplate';
+import type { ProtocolTemplate, CreateProtocolTemplateParams, TemplateParam } from '../../types/protocolTemplate';
 
 /** 模板编辑器 */
 function TemplateEditor({
@@ -27,20 +27,31 @@ function TemplateEditor({
   const [description, setDescription] = useState(template?.description || '');
   const [category, setCategory] = useState<ProtocolTemplateCategory>(template?.category || 'custom');
   const [missionTemplate, setMissionTemplate] = useState(template?.missionTemplate || '');
+  const [fullTemplate, setFullTemplate] = useState(template?.fullTemplate || '');
+  const [templateParams, setTemplateParams] = useState<TemplateParam[]>(template?.templateParams || []);
   const [defaultTriggerType, setDefaultTriggerType] = useState<'once' | 'cron' | 'interval'>(
     template?.defaultTriggerType || 'interval'
   );
   const [defaultTriggerValue, setDefaultTriggerValue] = useState(template?.defaultTriggerValue || '1h');
   const [defaultEngineId, setDefaultEngineId] = useState(template?.defaultEngineId || 'claude');
+  const [useFullTemplate, setUseFullTemplate] = useState(!!template?.fullTemplate);
 
   const handleSave = () => {
     if (!name.trim()) {
       alert('请填写模板名称');
       return;
     }
-    if (!missionTemplate.trim()) {
-      alert('请填写任务目标模板');
-      return;
+    // 完整模板模式和简单模式验证
+    if (useFullTemplate) {
+      if (!fullTemplate.trim()) {
+        alert('请填写完整文档模板');
+        return;
+      }
+    } else {
+      if (!missionTemplate.trim()) {
+        alert('请填写任务目标模板');
+        return;
+      }
     }
 
     onSave({
@@ -48,10 +59,32 @@ function TemplateEditor({
       description,
       category,
       missionTemplate,
+      fullTemplate: useFullTemplate ? fullTemplate : undefined,
+      templateParams: useFullTemplate ? templateParams : undefined,
       defaultTriggerType,
       defaultTriggerValue,
       defaultEngineId,
     });
+  };
+
+  // 添加模板参数
+  const addTemplateParam = () => {
+    setTemplateParams([
+      ...templateParams,
+      { key: '', label: '', type: 'text', required: false },
+    ]);
+  };
+
+  // 更新模板参数
+  const updateTemplateParam = (index: number, field: keyof TemplateParam, value: string | boolean) => {
+    const updated = [...templateParams];
+    updated[index] = { ...updated[index], [field]: value };
+    setTemplateParams(updated);
+  };
+
+  // 删除模板参数
+  const removeTemplateParam = (index: number) => {
+    setTemplateParams(templateParams.filter((_, i) => i !== index));
   };
 
   return (
@@ -104,34 +137,174 @@ function TemplateEditor({
             </select>
           </div>
 
+          {/* 模板模式选择 */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
-              任务目标模板 <span className="text-red-400">*</span>
-            </label>
-            <textarea
-              value={missionTemplate}
-              onChange={(e) => setMissionTemplate(e.target.value)}
-              rows={8}
-              className="w-full px-3 py-2 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500 resize-none font-mono text-sm"
-              placeholder="输入任务目标模板，支持占位符..."
-            />
-            <div className="mt-2 p-2 bg-[#12122a] rounded text-xs">
-              <p className="text-gray-400 mb-1">支持的占位符：</p>
-              <div className="flex flex-wrap gap-2">
+            <label className="block text-sm text-gray-400 mb-1">模板模式</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="templateMode"
+                  checked={!useFullTemplate}
+                  onChange={() => setUseFullTemplate(false)}
+                  className="w-4 h-4"
+                />
+                <span className="text-white">简单模式</span>
+                <span className="text-xs text-gray-500">仅任务目标模板</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="templateMode"
+                  checked={useFullTemplate}
+                  onChange={() => setUseFullTemplate(true)}
+                  className="w-4 h-4"
+                />
+                <span className="text-white">完整模式</span>
+                <span className="text-xs text-gray-500">完整 task.md 文档模板</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 简单模式：任务目标模板 */}
+          {!useFullTemplate && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">
+                任务目标模板 <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                value={missionTemplate}
+                onChange={(e) => setMissionTemplate(e.target.value)}
+                rows={8}
+                className="w-full px-3 py-2 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500 resize-none font-mono text-sm"
+                placeholder="输入任务目标模板，支持占位符..."
+              />
+            </div>
+          )}
+
+          {/* 完整模式：完整文档模板 */}
+          {useFullTemplate && (
+            <>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">
+                  完整文档模板 <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={fullTemplate}
+                  onChange={(e) => setFullTemplate(e.target.value)}
+                  rows={12}
+                  className="w-full px-3 py-2 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500 resize-none font-mono text-sm"
+                  placeholder={`# 任务协议
+
+> 任务ID: {taskId}
+> 创建时间: {dateTime}
+
+## 任务目标
+
+{task}
+
+## 用户补充
+
+{userSupplement}
+
+## 工作区
+
+\`\`\`
+{workDir}
+\`\`\`
+...`}
+                />
+              </div>
+
+              {/* 模板参数配置 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm text-gray-400">模板参数</label>
+                  <button
+                    type="button"
+                    onClick={addTemplateParam}
+                    className="px-2 py-1 text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded"
+                  >
+                    + 添加参数
+                  </button>
+                </div>
+                {templateParams.length > 0 && (
+                  <div className="space-y-2">
+                    {templateParams.map((param, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-[#12122a] rounded">
+                        <input
+                          type="text"
+                          value={param.key}
+                          onChange={(e) => updateTemplateParam(index, 'key', e.target.value)}
+                          className="flex-1 px-2 py-1 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white text-sm"
+                          placeholder="参数键 (如: task)"
+                        />
+                        <input
+                          type="text"
+                          value={param.label}
+                          onChange={(e) => updateTemplateParam(index, 'label', e.target.value)}
+                          className="flex-1 px-2 py-1 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white text-sm"
+                          placeholder="显示标签"
+                        />
+                        <select
+                          value={param.type}
+                          onChange={(e) => updateTemplateParam(index, 'type', e.target.value)}
+                          className="px-2 py-1 bg-[#1a1a2e] border border-[#2a2a4a] rounded text-white text-sm"
+                        >
+                          <option value="text">文本</option>
+                          <option value="textarea">多行文本</option>
+                          <option value="select">下拉选择</option>
+                        </select>
+                        <label className="flex items-center gap-1 text-xs text-gray-400">
+                          <input
+                            type="checkbox"
+                            checked={param.required}
+                            onChange={(e) => updateTemplateParam(index, 'required', e.target.checked)}
+                          />
+                          必填
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeTemplateParam(index)}
+                          className="px-2 py-1 text-xs text-red-400 hover:text-red-300"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* 占位符说明 */}
+          <div className="p-2 bg-[#12122a] rounded text-xs">
+            <p className="text-gray-400 mb-1">支持的占位符：</p>
+            <div className="grid grid-cols-2 gap-1">
+              <div className="flex gap-2">
                 <code className="text-blue-400">{TEMPLATE_PLACEHOLDERS.dateTime}</code>
                 <span className="text-gray-500">- 当前日期时间</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2">
                 <code className="text-blue-400">{TEMPLATE_PLACEHOLDERS.date}</code>
                 <span className="text-gray-500">- 当前日期</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2">
                 <code className="text-blue-400">{TEMPLATE_PLACEHOLDERS.time}</code>
                 <span className="text-gray-500">- 当前时间</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2">
+                <code className="text-blue-400">{TEMPLATE_PLACEHOLDERS.task}</code>
+                <span className="text-gray-500">- 任务描述</span>
+              </div>
+              <div className="flex gap-2">
                 <code className="text-blue-400">{TEMPLATE_PLACEHOLDERS.mission}</code>
-                <span className="text-gray-500">- 用户输入的任务内容</span>
+                <span className="text-gray-500">- 任务目标</span>
+              </div>
+              <div className="flex gap-2">
+                <code className="text-blue-400">{TEMPLATE_PLACEHOLDERS.userSupplement}</code>
+                <span className="text-gray-500">- 用户补充</span>
               </div>
             </div>
           </div>

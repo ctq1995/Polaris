@@ -344,18 +344,35 @@ export function formatTimeForTemplate(): string {
   });
 }
 
-/** 渲染模板 - 旧版，保持向后兼容 */
+/** 渲染模板的参数 */
+export interface RenderTemplateParams {
+  /** 任务目标/描述 (对应 {mission} 和 {task}) */
+  mission?: string;
+  /** 用户补充内容 (对应 {userSupplement}) */
+  userSupplement?: string;
+}
+
+/** 渲染模板 */
 export function renderProtocolTemplate(
   template: string,
-  mission: string
+  missionOrParams: string | RenderTemplateParams
 ): string {
   let result = template;
 
-  // 替换占位符
+  // 兼容旧的字符串参数形式
+  const params: RenderTemplateParams = typeof missionOrParams === 'string'
+    ? { mission: missionOrParams }
+    : missionOrParams;
+
+  // 替换基础占位符
   result = result.replace(TEMPLATE_PLACEHOLDERS.dateTime, formatDateTimeForTemplate());
   result = result.replace(TEMPLATE_PLACEHOLDERS.date, formatDateForTemplate());
   result = result.replace(TEMPLATE_PLACEHOLDERS.time, formatTimeForTemplate());
-  result = result.replace(TEMPLATE_PLACEHOLDERS.mission, mission);
+
+  // 替换任务相关占位符
+  result = result.replace(TEMPLATE_PLACEHOLDERS.mission, params.mission || '');
+  result = result.replace(TEMPLATE_PLACEHOLDERS.task, params.mission || '');
+  result = result.replace(TEMPLATE_PLACEHOLDERS.userSupplement, params.userSupplement || '');
 
   return result;
 }
