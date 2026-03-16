@@ -335,6 +335,11 @@ impl SchedulerDispatcher {
                                 tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
                             }
 
+                            // 成功后重置重试计数
+                            if let Err(e) = task_store.reset_retry_count(&task_id) {
+                                tracing::error!("[Scheduler] 重置重试计数失败: {:?}", e);
+                            }
+
                             tracing::info!("[Scheduler] 任务执行成功: {}", task_name);
 
                             // 协议模式：处理用户补充文档
@@ -374,11 +379,19 @@ impl SchedulerDispatcher {
                                 tracing::error!("[Scheduler] 更新日志失败: {:?}", e);
                             }
 
-                            if let Err(e) = task_store.update_run_status(&task_id, TaskStatus::Failed) {
-                                tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
-                            }
+                            // 检查是否可以重试
+                            let can_retry = task_store.update_retry_status(&task_id).unwrap_or(false);
 
-                            tracing::error!("[Scheduler] 任务执行失败: {} - {}", task_name, error_msg);
+                            if can_retry {
+                                tracing::info!("[Scheduler] 任务 {} 失败，将自动重试", task_name);
+                                // 不更新状态为 Failed，保持 Running 以便下次执行
+                            } else {
+                                // 不能重试，标记为失败
+                                if let Err(e) = task_store.update_run_status(&task_id, TaskStatus::Failed) {
+                                    tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
+                                }
+                                tracing::error!("[Scheduler] 任务执行失败: {} - {}", task_name, error_msg);
+                            }
                         }
                     }
 
@@ -696,6 +709,11 @@ impl SchedulerDispatcher {
                                 tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
                             }
 
+                            // 成功后重置重试计数
+                            if let Err(e) = task_store.reset_retry_count(&task_id) {
+                                tracing::error!("[Scheduler] 重置重试计数失败: {:?}", e);
+                            }
+
                             tracing::info!("[Scheduler] 任务执行成功: {}", task_name);
 
                             // 协议模式：处理用户补充文档
@@ -715,30 +733,38 @@ impl SchedulerDispatcher {
                                         }
                                     }
                                 }
-                            }
-                        } else {
-                            let error_msg = format!("进程退出码: {}", exit_code);
-                            if let Err(e) = log_store.update_complete(
-                                &log_id,
-                                final_session_id,
-                                Some(final_output),
-                                Some(error_msg.clone()),
-                                if final_thinking.is_empty() { None } else { Some(final_thinking) },
-                                final_tool_count,
-                                None,
-                            ) {
-                                tracing::error!("[Scheduler] 更新日志失败: {:?}", e);
-                            }
-
-                            if let Err(e) = task_store.update_run_status(&task_id, TaskStatus::Failed) {
-                                tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
-                            }
-
-                            tracing::error!("[Scheduler] 任务执行失败: {} - {}", task_name, error_msg);
-                        }
-                    }
-
-                    // 发送任务完成事件到前端
+                                                        }
+                                                    } else {
+                                                        let error_msg = format!("进程退出码: {}", exit_code);
+                                                        if let Err(e) = log_store.update_complete(
+                                                            &log_id,
+                                                            final_session_id,
+                                                            Some(final_output),
+                                                            Some(error_msg.clone()),
+                                                            if final_thinking.is_empty() { None } else { Some(final_thinking) },
+                                                            final_tool_count,
+                                                            None,
+                                                        ) {
+                                                            tracing::error!("[Scheduler] 更新日志失败: {:?}", e);
+                                                        }
+                            
+                                                        // 检查是否可以重试
+                                                        let can_retry = task_store.update_retry_status(&task_id).unwrap_or(false);
+                            
+                                                        if can_retry {
+                                                            tracing::info!("[Scheduler] 任务 {} 失败，将自动重试", task_name);
+                                                            // 不更新状态为 Failed
+                                                        } else {
+                                                            // 不能重试，标记为失败
+                                                            if let Err(e) = task_store.update_run_status(&task_id, TaskStatus::Failed) {
+                                                                tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
+                                                            }
+                                                            tracing::error!("[Scheduler] 任务执行失败: {} - {}", task_name, error_msg);
+                                                        }
+                                                    }
+                                                }
+                            
+                                                // 发送任务完成事件到前端
                     let _ = window.emit("scheduler-event", serde_json::json!({
                         "contextId": ctx_id,
                         "payload": {

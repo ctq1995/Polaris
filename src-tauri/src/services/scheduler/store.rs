@@ -96,6 +96,9 @@ impl TaskStoreService {
             template_id: params.template_id,
             template_param_values: params.template_param_values,
             subscribed_context_id: None,
+            max_retries: params.max_retries,
+            retry_count: 0,
+            retry_interval: params.retry_interval,
         };
 
         // 如果是协议模式，创建任务目录结构
@@ -265,6 +268,80 @@ impl TaskStoreService {
         // 保存
         self.save()?;
         tracing::info!("[Scheduler] 任务 {} 订阅状态已更新: {:?}", task_name, sub_ctx_id);
+        Ok(())
+    }
+
+    /// 更新任务重试状态
+    /// 
+    /// 返回 true 表示可以重试，返回 false 表示不能重试或已达到最大重试次数
+    pub fn update_retry_status(&mut self, id: &str) -> Result<bool> {
+        if let Some(task) = self.store.tasks.iter_mut().find(|t| t.id == id) {
+            // 检查是否配置了重试
+            let max_retries = match task.max_retries {
+                Some(max) if max > 0 => max,
+                _ => return Ok(false), // 未配置重试
+            };
+
+            // 检查是否已达到最大重试次数
+            if task.retry_count >= max_retries {
+                tracing::info!(
+                    "[Scheduler] 任务 {} 已达到最大重试次数 {}/{}，不再重试",
+                    task.name, task.retry_count, max_retries
+                );
+                return Ok(false);
+            }
+
+            // 增加重试计数
+            task.retry_count += 1;
+
+            // 计算下次重试时间
+            let now = chrono::Utc::now().timestamp();
+            let retry_interval = task.retry_interval.as_deref().unwrap_or("5m"); // 默认 5 分钟
+
+            let interval_secs = crate::models::scheduler::parse_interval(retry_interval)
+                .unwrap_or(300); // 默认 300 秒（5 分钟）
+
+            task.next_run_at = Some(now + interval_secs);
+            task.updated_at = now;
+
+            tracing::info!(
+                "[Scheduler] 任务 {} 将在 {} 秒后重试 ({}/{})",
+                task.name, interval_secs, task.retry_count, max_retries
+            );
+
+            self.save()?;
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    /// 重置任务重试计数（任务成功后调用）
+    pub fn reset_retry_count(&mut self, id: &str) -> Result<()> {
+        // 先查找并记录需要重置的任务
+        let (should_save, task_name) = {
+            if let Some(task) = self.store.tasks.iter().find(|t| t.id == id) {
+                if task.retry_count > 0 {
+                    (true, Some(task.name.clone()))
+                } else {
+                    (false, None)
+                }
+            } else {
+                (false, None)
+            }
+        };
+
+        // 如果需要保存，执行更新
+        if should_save {
+            if let Some(task) = self.store.tasks.iter_mut().find(|t| t.id == id) {
+                task.retry_count = 0;
+                task.updated_at = chrono::Utc::now().timestamp();
+            }
+            self.save()?;
+            if let Some(name) = task_name {
+                tracing::info!("[Scheduler] 任务 {} 重试计数已重置", name);
+            }
+        }
         Ok(())
     }
 }

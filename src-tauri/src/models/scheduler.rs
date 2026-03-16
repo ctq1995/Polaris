@@ -34,6 +34,10 @@ pub struct CreateTaskParams {
     pub template_id: Option<String>,
     /// 模板参数值（protocol 模式使用，用于编辑时回显）
     pub template_param_values: Option<HashMap<String, String>>,
+    /// 最大重试次数（None 表示不重试，默认 None）
+    pub max_retries: Option<u32>,
+    /// 重试间隔（如 "30s", "5m", "1h"）
+    pub retry_interval: Option<String>,
 }
 
 fn default_enabled() -> bool {
@@ -107,6 +111,15 @@ pub struct ScheduledTask {
     /// 订阅的上下文 ID（持久化订阅状态，定时执行时会发送事件到该上下文）
     #[serde(default)]
     pub subscribed_context_id: Option<String>,
+    /// 最大重试次数（None 表示不重试，默认 None）
+    #[serde(default)]
+    pub max_retries: Option<u32>,
+    /// 当前已重试次数
+    #[serde(default)]
+    pub retry_count: u32,
+    /// 重试间隔（如 "30s", "5m", "1h"）
+    #[serde(default)]
+    pub retry_interval: Option<String>,
 }
 
 impl From<CreateTaskParams> for ScheduledTask {
@@ -133,6 +146,9 @@ impl From<CreateTaskParams> for ScheduledTask {
             template_id: params.template_id,
             template_param_values: params.template_param_values,
             subscribed_context_id: None,
+            max_retries: params.max_retries,
+            retry_count: 0,
+            retry_interval: params.retry_interval,
         }
     }
 }
