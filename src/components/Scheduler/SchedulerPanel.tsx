@@ -370,6 +370,12 @@ export function SchedulerPanel() {
 
   /** 处理订阅执行任务（在 AI 对话窗口实时显示） */
   const handleSubscribeTask = async (task: ScheduledTask) => {
+    // 防抖：如果已有任务在执行，不允许再次点击
+    if (subscribingTaskId) {
+      toast.warn('请等待', '已有任务在执行中，请等待完成后再试');
+      return;
+    }
+
     try {
       await runTaskWithSubscription(task.id, task.name);
       toast.info('订阅执行', `任务「${task.name}」正在执行，请在 AI 对话窗口查看实时进度`);

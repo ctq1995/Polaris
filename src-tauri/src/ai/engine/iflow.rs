@@ -754,7 +754,7 @@ impl AIEngine for IFlowEngine {
                 }
 
                 wait_count += 1;
-                if wait_count > 100 {
+                if wait_count > 10000 {
                     // 超时后检查进程状态
                     let process_running = Self::is_process_running(cli_pid);
                     tracing::error!(
