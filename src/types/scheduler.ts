@@ -55,6 +55,12 @@ export interface ScheduledTask {
   templateParamValues?: Record<string, string>;
   /** 订阅的上下文 ID（持久化订阅状态，定时执行时会发送事件到该上下文） */
   subscribedContextId?: string;
+  /** 最大重试次数（None 或 0 表示不重试） */
+  maxRetries?: number;
+  /** 当前已重试次数 */
+  retryCount: number;
+  /** 重试间隔（如 "30s", "5m", "1h"） */
+  retryInterval?: string;
 }
 
 /** 执行日志 */
@@ -112,6 +118,10 @@ export interface CreateTaskParams {
   templateId?: string;
   /** 模板参数值 (protocol 模式使用，用于编辑时回显) */
   templateParamValues?: Record<string, string>;
+  /** 最大重试次数（None 或 0 表示不重试） */
+  maxRetries?: number;
+  /** 重试间隔（如 "30s", "5m", "1h"） */
+  retryInterval?: string;
 }
 
 /** 协议任务目录结构 */

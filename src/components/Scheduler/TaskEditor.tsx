@@ -256,6 +256,24 @@ export function TaskEditor({
   const [maxRuns, setMaxRuns] = useState<number | undefined>(task?.maxRuns);
   const [currentRuns] = useState<number>(task?.currentRuns || 0);
 
+  // 重试配置
+  const [maxRetries, setMaxRetries] = useState<number | undefined>(task?.maxRetries);
+  const [retryIntervalNum, setRetryIntervalNum] = useState<number>(() => {
+    if (task?.retryInterval) {
+      const match = task.retryInterval.match(/^(\d+)/);
+      return match ? parseInt(match[1], 10) : 5;
+    }
+    return 5;
+  });
+  const [retryIntervalUnit, setRetryIntervalUnit] = useState<'s' | 'm' | 'h'>(() => {
+    if (task?.retryInterval) {
+      const match = task.retryInterval.match(/[smhd]$/);
+      return (match?.[0] as 's' | 'm' | 'h') || 'm';
+    }
+    return 'm';
+  });
+  const [showRetryConfig, setShowRetryConfig] = useState(!!task?.maxRetries);
+
   // 在终端中执行
   const [runInTerminal] = useState<boolean>(task?.runInTerminal || false);
 
@@ -418,6 +436,9 @@ export function TaskEditor({
       templateParamValues: mode === 'protocol' && selectedTemplate?.fullTemplate
         ? templateParamValues
         : undefined,
+      // 重试配置
+      maxRetries: maxRetries && maxRetries > 0 ? maxRetries : undefined,
+      retryInterval: maxRetries && maxRetries > 0 ? `${retryIntervalNum}${retryIntervalUnit}` : undefined,
     });
   };
 
@@ -790,6 +811,90 @@ export function TaskEditor({
               <p className="mt-1 text-xs text-gray-500">
                 留空表示不限制执行次数
               </p>
+            </div>
+          )}
+
+          {/* 失败重试配置 */}
+          {fullMode && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowRetryConfig(!showRetryConfig)}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                <span className={`transform transition-transform ${showRetryConfig ? 'rotate-90' : ''}`}>▶</span>
+                <span>失败重试配置</span>
+                {maxRetries && maxRetries > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
+                    已启用 (最多 {maxRetries} 次)
+                  </span>
+                )}
+              </button>
+              
+              {showRetryConfig && (
+                <div className="mt-2 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4a] space-y-3">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!maxRetries && maxRetries > 0}
+                        onChange={(e) => setMaxRetries(e.target.checked ? 3 : undefined)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-white text-sm">启用自动重试</span>
+                    </label>
+                  </div>
+                  
+                  {maxRetries && maxRetries > 0 && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400 w-20">最大重试次数</label>
+                        <input
+                          type="number"
+                          value={maxRetries}
+                          onChange={(e) => setMaxRetries(Math.max(1, parseInt(e.target.value) || 1))}
+                          min={1}
+                          max={10}
+                          className="w-20 px-2 py-1 bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500 text-sm"
+                        />
+                        <span className="text-gray-500 text-xs">次</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400 w-20">重试间隔</label>
+                        <input
+                          type="number"
+                          value={retryIntervalNum}
+                          onChange={(e) => setRetryIntervalNum(Math.max(1, parseInt(e.target.value) || 1))}
+                          min={1}
+                          className="w-20 px-2 py-1 bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500 text-sm"
+                        />
+                        <select
+                          value={retryIntervalUnit}
+                          onChange={(e) => setRetryIntervalUnit(e.target.value as 's' | 'm' | 'h')}
+                          className="px-2 py-1 bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500 text-sm"
+                        >
+                          {Object.entries(IntervalUnitLabels).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <p className="text-xs text-gray-500">
+                        任务执行失败后，将等待指定时间后自动重试，最多重试 {maxRetries} 次
+                      </p>
+                      
+                      {task && task.retryCount > 0 && (
+                        <p className="text-xs text-yellow-500">
+                          当前已重试 {task.retryCount} 次
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
