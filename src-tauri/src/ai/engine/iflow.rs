@@ -215,48 +215,55 @@ impl IFlowEngine {
     #[cfg(windows)]
     fn find_npm_cli_js_entry(cmd_path: &str) -> Option<String> {
         // npm 安装的 cmd 文件通常格式：
-        // @ECHO off
-        // SETLOCAL
-        // ...
-        // node "%~dp0\..\包名\bin\cli.js" %*
-        // 或者
-        // node  "${basedir}/../包名/bin/cli.js" "$@"
+        // 格式1: node "%~dp0\..\包名\bin\cli.js"
+        // 格式2: "%_prog%" "%dp0%\node_modules\包名\bundle\entry.js"
+        // 格式3: node "${basedir}/../包名/bin/cli.js"
 
         if let Ok(content) = std::fs::read_to_string(cmd_path) {
             tracing::debug!("[IFlowEngine] cmd 文件内容:\n{}", content);
 
-            // 查找 node 命令行
+            // 获取 cmd 文件所在目录
+            let cmd_dir = PathBuf::from(cmd_path).parent()?.to_string_lossy().to_string();
+            let cmd_dir_normalized = cmd_dir.replace('\\', "/");
+
+            // 查找 .js 文件路径
             for line in content.lines() {
                 let line = line.trim();
 
-                // 查找包含 node 的行
-                if line.contains("node") {
-                    // 尝试提取 JS 文件路径
-                    // 常见格式：
-                    // node "%~dp0\..\包名\bin\cli.js"
-                    // node "${basedir}/../包名/bin/cli.js"
+                // 查找包含 .js 的行
+                if line.contains(".js") {
+                    tracing::debug!("[IFlowEngine] 检查行: {}", line);
 
-                    // 获取 cmd 文件所在目录
-                    let cmd_dir = PathBuf::from(cmd_path).parent()?.to_string_lossy().to_string();
-
-                    // 尝试匹配 %~dp0 模式
-                    if let Some(start) = line.find("\"%~dp0") {
-                        if let Some(end) = line[start..].find("\"") {
-                            let relative_path = &line[start + 6..start + end]; // 跳过 "%~dp0
-                            // 替换 \ 为正确的路径分隔符
-                            let relative_path = relative_path.replace('\\', "/");
-                            let js_path = format!("{}/{}", cmd_dir.replace('\\', "/"), relative_path);
-                            tracing::info!("[IFlowEngine] 解析到 JS 入口: {}", js_path);
+                    // 尝试匹配 "%dp0%\xxx" 模式 (npm 新格式)
+                    // 例如: "%dp0%\node_modules\@iflow-ai\iflow-cli\bundle\entry.js"
+                    if let Some(start) = line.find("\"%dp0%") {
+                        let rest = &line[start + 6..]; // 跳过 "%dp0%
+                        if let Some(end) = rest.find("\"") {
+                            let relative_path = &rest[..end];
+                            let js_path = format!("{}{}", cmd_dir_normalized, relative_path.replace('\\', "/"));
+                            tracing::info!("[IFlowEngine] 解析到 JS 入口 (%dp0%): {}", js_path);
                             return Some(js_path);
                         }
                     }
 
-                    // 尝试匹配 ${basedir} 模式
+                    // 尝试匹配 "%~dp0\xxx" 模式 (传统格式)
+                    if let Some(start) = line.find("\"%~dp0") {
+                        let rest = &line[start + 6..]; // 跳过 "%~dp0
+                        if let Some(end) = rest.find("\"") {
+                            let relative_path = &rest[..end];
+                            let js_path = format!("{}{}", cmd_dir_normalized, relative_path.replace('\\', "/"));
+                            tracing::info!("[IFlowEngine] 解析到 JS 入口 (%~dp0): {}", js_path);
+                            return Some(js_path);
+                        }
+                    }
+
+                    // 尝试匹配 "${basedir}" 模式
                     if let Some(start) = line.find("${basedir}") {
-                        if let Some(end) = line[start..].find("\"") {
-                            let relative_path = &line[start + 11..start + end]; // 跳过 ${basedir}
-                            let js_path = format!("{}/{}", cmd_dir.replace('\\', "/"), relative_path);
-                            tracing::info!("[IFlowEngine] 解析到 JS 入口: {}", js_path);
+                        let rest = &line[start + 11..]; // 跳过 ${basedir}
+                        if let Some(end) = rest.find("\"") {
+                            let relative_path = &rest[..end];
+                            let js_path = format!("{}{}", cmd_dir_normalized, relative_path.replace('\\', "/"));
+                            tracing::info!("[IFlowEngine] 解析到 JS 入口 ($basedir): {}", js_path);
                             return Some(js_path);
                         }
                     }
