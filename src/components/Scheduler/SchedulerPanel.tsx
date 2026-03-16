@@ -372,7 +372,7 @@ export function SchedulerPanel() {
   const handleSubscribeTask = async (task: ScheduledTask) => {
     // 防抖：如果已有任务在执行，不允许再次点击
     if (subscribingTaskId) {
-      toast.warn('请等待', '已有任务在执行中，请等待完成后再试');
+      toast.warning('请等待', '已有任务在执行中，请等待完成后再试');
       return;
     }
 
