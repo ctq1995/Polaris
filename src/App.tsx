@@ -74,7 +74,6 @@ function App() {
     showSessionHistory,
     toggleSessionHistory,
     // 新布局状态
-    leftPanelWidth,
     leftPanelType,
     rightPanelCollapsed,
     toggleRightPanel,
