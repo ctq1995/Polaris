@@ -8,7 +8,7 @@ pub mod scheduler;
 pub use ai_event::{
     AIEvent, ToolCallInfo, ToolCallStatus,
     ToolCallStartEvent, ToolCallEndEvent, ProgressEvent,
-    ResultEvent, ErrorEvent, SessionStartEvent, SessionEndEvent,
+    ResultEvent, ErrorEvent, SessionEndEvent,
     UserMessageEvent, AssistantMessageEvent, SessionEndReason,
     ThinkingEvent,
 };

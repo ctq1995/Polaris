@@ -116,7 +116,7 @@ impl TaskStoreService {
                 &work_dir,
                 &id,
                 &mission,
-            ).map_err(|e| AppError::IoError(e))?;
+            ).map_err(AppError::IoError)?;
 
             task.task_path = Some(task_path);
         }
@@ -428,7 +428,7 @@ impl LogStoreService {
         // 添加到任务日志列表
         self.store.logs
             .entry(task_id.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .insert(0, log.clone());
 
         // 添加到所有日志列表
@@ -492,7 +492,7 @@ impl LogStoreService {
                 log.session_id = session_id.clone();
                 log.finished_at = Some(finished_at);
                 log.duration_ms = Some(duration_ms);
-                log.status = status.clone();
+                log.status = status;
                 log.output = truncated_output.clone();
                 log.error = error.clone();
                 log.thinking_summary = truncated_thinking.clone();
@@ -509,7 +509,7 @@ impl LogStoreService {
                     log.session_id = session_id.clone();
                     log.finished_at = Some(finished_at);
                     log.duration_ms = Some(duration_ms);
-                    log.status = status.clone();
+                    log.status = status;
                     log.output = truncated_output.clone();
                     log.error = error.clone();
                     log.thinking_summary = truncated_thinking.clone();
@@ -613,7 +613,7 @@ impl LogStoreService {
         };
 
         let total = logs_to_page.len();
-        let total_pages = (total + page_size - 1) / page_size;
+        let total_pages = total.div_ceil(page_size);
         let skip = ((page - 1) as usize) * page_size;
 
         let logs: Vec<TaskLog> = logs_to_page

@@ -307,7 +307,7 @@ impl ContextMemoryStore {
         let selected: Vec<ContextEntry> = entries
             .into_iter()
             .take_while(|e| {
-                total_tokens += e.estimated_tokens as u32;
+                total_tokens += e.estimated_tokens;
                 total_tokens <= max_tokens
             })
             .collect();

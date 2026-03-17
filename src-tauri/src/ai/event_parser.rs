@@ -371,7 +371,7 @@ impl EventParser {
         output: Option<String>,
     ) -> Vec<AIEvent> {
         let success = output.is_some();
-        let result = output.map(|s| serde_json::Value::String(s));
+        let result = output.map(serde_json::Value::String);
 
         // 更新工具调用状态
         if let Some(tc) = self.tool_call_manager.end_tool_call(&tool_use_id, result.clone(), success) {

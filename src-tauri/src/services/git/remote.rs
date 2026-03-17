@@ -23,15 +23,13 @@ pub fn get_remotes(path: &Path) -> Result<Vec<GitRemote>, GitServiceError> {
 
     let mut remotes = Vec::new();
 
-    for remote in repo.remotes()?.iter() {
-        if let Some(name) = remote {
-            let remote = repo.find_remote(name)?;
-            remotes.push(GitRemote {
-                name: name.to_string(),
-                fetch_url: remote.url().map(|s: &str| s.to_string()),
-                push_url: remote.pushurl().map(|s: &str| s.to_string()),
-            });
-        }
+    for name in repo.remotes()?.iter().flatten() {
+        let remote = repo.find_remote(name)?;
+        remotes.push(GitRemote {
+            name: name.to_string(),
+            fetch_url: remote.url().map(|s: &str| s.to_string()),
+            push_url: remote.pushurl().map(|s: &str| s.to_string()),
+        });
     }
 
     Ok(remotes)

@@ -63,7 +63,7 @@ impl<T> PagedResult<T> {
     /// 创建分页结果
     pub fn new(items: Vec<T>, total: usize, page: usize, page_size: usize) -> Self {
         let total_pages = if page_size > 0 {
-            (total + page_size - 1) / page_size
+            total.div_ceil(page_size)
         } else {
             1
         };

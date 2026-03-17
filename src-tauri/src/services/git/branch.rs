@@ -43,9 +43,9 @@ pub fn get_branches(path: &Path) -> Result<Vec<GitBranch>, GitServiceError> {
             let commit_oid = branch.get().target().unwrap_or(git2::Oid::zero());
             let commit = repo.find_commit(commit_oid);
 
-            let last_commit_date = commit.ok().and_then(|c| {
+            let last_commit_date = commit.ok().map(|c| {
                 let time = c.time();
-                Some(i64::from(time.seconds()))
+                time.seconds()
             });
 
             branches.push(GitBranch {
@@ -285,7 +285,7 @@ pub fn merge_branch(
         // 快进合并
         info!("执行快进合并");
         let source_commit = repo.find_commit(source_commit_oid)?;
-        repo.checkout_tree(&source_commit.tree()?.as_object(), None)?;
+        repo.checkout_tree(source_commit.tree()?.as_object(), None)?;
         repo.set_head(&format!("refs/heads/{}", current_branch))?;
 
         return Ok(GitMergeResult {
@@ -310,15 +310,13 @@ pub fn merge_branch(
     // 获取冲突文件列表
     let conflicts = if has_conflicts {
         let mut conflict_list = Vec::new();
-        for conflict_result in index.conflicts()? {
-            if let Ok(conflict) = conflict_result {
-                if let Some(our) = conflict.our {
-                    let path = String::from_utf8_lossy(&our.path).to_string();
-                    conflict_list.push(path);
-                } else if let Some(their) = conflict.their {
-                    let path = String::from_utf8_lossy(&their.path).to_string();
-                    conflict_list.push(path);
-                }
+        for conflict in index.conflicts()?.flatten() {
+            if let Some(our) = conflict.our {
+                let path = String::from_utf8_lossy(&our.path).to_string();
+                conflict_list.push(path);
+            } else if let Some(their) = conflict.their {
+                let path = String::from_utf8_lossy(&their.path).to_string();
+                conflict_list.push(path);
             }
         }
         conflict_list

@@ -547,7 +547,7 @@ impl SchedulerDispatcher {
                                     if let Err(e) = app_handle.notification()
                                         .builder()
                                         .title("任务执行超时")
-                                        .body(&format!("「{}」执行超时已被终止", task_name_for_timeout))
+                                        .body(format!("「{}」执行超时已被终止", task_name_for_timeout))
                                         .show()
                                     {
                                         tracing::warn!("[Scheduler] 发送超时通知失败: {:?}", e);
@@ -1040,7 +1040,7 @@ impl SchedulerDispatcher {
                                 if let Err(e) = window_for_timeout.notification()
                                     .builder()
                                     .title("任务执行超时")
-                                    .body(&format!("「{}」执行超时已被终止", task_name_for_timeout))
+                                    .body(format!("「{}」执行超时已被终止", task_name_for_timeout))
                                     .show()
                                 {
                                     tracing::warn!("[Scheduler] 发送超时通知失败: {:?}", e);
@@ -1125,7 +1125,7 @@ impl SchedulerDispatcher {
 
         // 读取协议文档
         let protocol = ProtocolTaskService::read_task_md(work_dir, task_path)
-            .map_err(|e| crate::error::AppError::IoError(e))?;
+            .map_err(crate::error::AppError::IoError)?;
 
         // 读取用户补充
         let supplement = ProtocolTaskService::read_supplement_md(work_dir, task_path)

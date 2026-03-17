@@ -20,18 +20,12 @@ impl Default for ClaudeCodeConfig {
 /// IFlow 引擎配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct IFlowConfig {
     /// IFlow CLI 命令路径（可选，默认为 "iflow"）
     pub cli_path: Option<String>,
 }
 
-impl Default for IFlowConfig {
-    fn default() -> Self {
-        Self {
-            cli_path: None,
-        }
-    }
-}
 
 /// Codex 引擎配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,8 +151,10 @@ impl Default for OpenAIProvider {
 /// 引擎 ID 类型
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
+#[derive(Default)]
 pub enum EngineId {
     /// Claude Code 引擎
+    #[default]
     ClaudeCode,
     /// IFlow 引擎
     IFlow,
@@ -166,11 +162,6 @@ pub enum EngineId {
     Codex,
 }
 
-impl Default for EngineId {
-    fn default() -> Self {
-        Self::ClaudeCode
-    }
-}
 
 impl EngineId {
     /// 转换为字符串
@@ -196,18 +187,15 @@ impl EngineId {
 /// 悬浮窗模式
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
+#[derive(Default)]
 pub enum FloatingWindowMode {
     /// 自动模式：鼠标移出主窗口自动切换到悬浮窗
+    #[default]
     Auto,
     /// 手动模式：需要手动触发悬浮窗
     Manual,
 }
 
-impl Default for FloatingWindowMode {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
 
 impl FloatingWindowMode {
     /// 转换为字符串
@@ -252,6 +240,7 @@ pub struct FloatingWindowConfig {
 /// 百度翻译配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct BaiduTranslateConfig {
     /// 百度翻译 App ID
     #[serde(default)]
@@ -317,14 +306,6 @@ impl Default for QQBotConfig {
     }
 }
 
-impl Default for BaiduTranslateConfig {
-    fn default() -> Self {
-        Self {
-            app_id: String::new(),
-            secret_key: String::new(),
-        }
-    }
-}
 
 fn default_floating_window_enabled() -> bool {
     false

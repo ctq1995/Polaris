@@ -798,7 +798,8 @@ pub fn find_codex_paths() -> Vec<String> {
 
     if cfg!(windows) {
         if let Ok(username) = std::env::var("USERNAME") {
-            for template in [r"C:\Users\{}\AppData\Roaming\npm\codex.cmd"] {
+            {
+                let template = r"C:\Users\{}\AppData\Roaming\npm\codex.cmd";
                 let path = template.replace("{}", &username);
                 if PathBuf::from(&path).exists() {
                     paths.push(path);

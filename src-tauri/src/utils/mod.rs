@@ -110,8 +110,7 @@ impl SchedulerLock {
         let handle = unsafe { create_mutex(ptr::null_mut(), 0, wide_name.as_ptr()) };
 
         if handle.is_null() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "CreateMutex 返回 NULL",
             ));
         }

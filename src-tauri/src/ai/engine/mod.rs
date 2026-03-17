@@ -10,4 +10,4 @@ mod openai;
 pub use claude::ClaudeEngine;
 pub use iflow::IFlowEngine;
 pub use codex::CodexEngine;
-pub use openai::{OpenAIEngine, OpenAIProviderConfig};
+pub use openai::OpenAIEngine;

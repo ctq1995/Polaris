@@ -242,7 +242,7 @@ impl IFlowJsonlEvent {
                         return output.to_string();
                     }
                     // 如果 output 不是字符串，尝试整个 response
-                    if let Some(response_str) = serde_json::to_string(response).ok() {
+                    if let Ok(response_str) = serde_json::to_string(response) {
                         return response_str;
                     }
                 }

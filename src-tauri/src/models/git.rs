@@ -76,6 +76,7 @@ pub struct GitFileChange {
 /// Git 仓库完整状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct GitRepositoryStatus {
     pub exists: bool,
     pub branch: String,
@@ -90,23 +91,6 @@ pub struct GitRepositoryStatus {
     pub is_empty: bool,
 }
 
-impl Default for GitRepositoryStatus {
-    fn default() -> Self {
-        Self {
-            exists: false,
-            branch: String::new(),
-            commit: String::new(),
-            short_commit: String::new(),
-            ahead: 0,
-            behind: 0,
-            staged: Vec::new(),
-            unstaged: Vec::new(),
-            untracked: Vec::new(),
-            conflicted: Vec::new(),
-            is_empty: false,
-        }
-    }
-}
 
 // ============================================================================
 // Git Diff

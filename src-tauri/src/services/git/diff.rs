@@ -169,7 +169,7 @@ fn convert_diff(repo: &Repository, diff: &Diff) -> Result<Vec<GitDiffEntry>, Git
         };
 
         // 计算行数变化
-        let (additions, deletions) = compute_line_stats(&diff, &delta);
+        let (additions, deletions) = compute_line_stats(diff, &delta);
 
         // 检查是否为二进制文件
         let is_binary = delta.new_file().is_binary() || delta.old_file().is_binary();
@@ -178,7 +178,7 @@ fn convert_diff(repo: &Repository, diff: &Diff) -> Result<Vec<GitDiffEntry>, Git
         let (old_content, new_content, content_omitted) = if is_binary {
             (None, None, Some(true))
         } else {
-            get_diff_content(&repo, &delta, &change_type)?
+            get_diff_content(repo, &delta, &change_type)?
         };
 
         // 添加状态提示
@@ -325,7 +325,7 @@ fn get_diff_head_to_workdir_direct(
 
     let old_content: Option<Option<String>> =
         if let Ok(entry) = head_tree.get_path(std::path::Path::new(file_path)) {
-            let obj = entry.to_object(&repo)?;
+            let obj = entry.to_object(repo)?;
             if let Some(blob) = obj.as_blob() {
                 if blob.size() > MAX_INLINE_DIFF_BYTES {
                     Some(None)

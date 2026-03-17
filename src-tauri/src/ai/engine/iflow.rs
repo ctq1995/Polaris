@@ -166,7 +166,7 @@ impl IFlowEngine {
                 cmd_parts.push("%IFLOW_MSG%".to_string());
 
                 cmd.env("IFLOW_MSG", message);
-                cmd.arg(&cmd_parts.join(" "));
+                cmd.arg(cmd_parts.join(" "));
 
                 let full_cmd = format!("cmd /S /C \"{}\"", cmd_parts.join(" "));
                 tracing::info!("[IFlowEngine] 回退到环境变量方案: {}", full_cmd);

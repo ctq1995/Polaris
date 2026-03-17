@@ -42,10 +42,10 @@ pub fn get_tags(path: &Path) -> Result<Vec<GitTag>, GitServiceError> {
                     let tagger = tag_obj
                         .tagger()
                         .and_then(|s| s.name().map(|n| n.to_string()));
-                    let timestamp = tag_obj.tagger().map(|s| {
+                    let timestamp = tag_obj.tagger().and_then(|s| {
                         let time = s.when();
-                        Some(i64::from(time.seconds()))
-                    }).flatten();
+                        Some(time.seconds())
+                    });
                     (commit_oid.to_string(), true, message, tagger, timestamp)
                 } else {
                     // Lightweight 标签
@@ -120,7 +120,7 @@ pub fn create_tag(
     if let Some(msg) = message {
         // 创建 annotated 标签
         let sig = repo.signature()?;
-        let tag_id = repo.tag(name, &target.as_object(), &sig, msg, false)?;
+        let tag_id = repo.tag(name, target.as_object(), &sig, msg, false)?;
 
         // 获取创建的标签信息
         let tag_obj = repo.find_tag(tag_id)?;
@@ -128,7 +128,7 @@ pub fn create_tag(
         let tagger = tag_obj.tagger().and_then(|s| s.name().map(|n| n.to_string()));
         let timestamp = tag_obj.tagger().map(|s| {
             let time = s.when();
-            i64::from(time.seconds())
+            time.seconds()
         });
 
         Ok(GitTag {

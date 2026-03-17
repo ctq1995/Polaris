@@ -1117,13 +1117,13 @@ impl OpenAIProxyService {
             }
             "xml_escape" => {
                 if let Some(text) = args.get("text").and_then(|t| t.as_str()) {
-                    let escaped = text
+                    
+                    text
                         .replace("&", "&amp;")
                         .replace("<", "&lt;")
                         .replace(">", "&gt;")
                         .replace("\"", "&quot;")
-                        .replace("'", "&apos;");
-                    escaped
+                        .replace("'", "&apos;")
                 } else {
                     "Error: missing text parameter".to_string()
                 }

@@ -289,7 +289,7 @@ pub fn scheduler_read_protocol_file(
         ProtocolFileType::MemoryTasks => ProtocolTaskService::read_memory_tasks(&work_dir, &task_path),
     };
 
-    content.map_err(|e| crate::error::AppError::IoError(e))
+    content.map_err(crate::error::AppError::IoError)
 }
 
 /// 写入协议任务文档
@@ -313,7 +313,7 @@ pub fn scheduler_write_protocol_file(
         ProtocolFileType::MemoryTasks => ProtocolTaskService::update_memory_tasks(&work_dir, &task_path, &content),
     };
 
-    result.map_err(|e| crate::error::AppError::IoError(e))
+    result.map_err(crate::error::AppError::IoError)
 }
 
 /// 获取协议任务文档路径
@@ -421,7 +421,7 @@ pub async fn scheduler_export_tasks(
 
             let path_str = path.to_string();
             std::fs::write(&path_str, content)
-                .map_err(|e| crate::error::AppError::IoError(e))?;
+                .map_err(crate::error::AppError::IoError)?;
 
             tracing::info!("[Scheduler] 任务已导出到: {:?}", path);
             Ok(true)
@@ -445,7 +445,7 @@ pub async fn scheduler_import_tasks(
         Some(path) => {
             let path_str = path.to_string();
             let content = std::fs::read_to_string(&path_str)
-                .map_err(|e| crate::error::AppError::IoError(e))?;
+                .map_err(crate::error::AppError::IoError)?;
 
             let data: TaskExportData = serde_json::from_str(&content)
                 .map_err(crate::error::AppError::from)?;

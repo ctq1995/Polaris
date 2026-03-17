@@ -329,7 +329,7 @@ fn parse_command_file(content: &str, path: &Path) -> Result<CommandFile> {
     let lines: Vec<&str> = content.lines().collect();
 
     // 查找 frontmatter 分隔符
-    let frontmatter_start = if lines.first().map_or(false, |l| l.trim() == "---") {
+    let frontmatter_start = if lines.first().is_some_and(|l| l.trim() == "---") {
         1
     } else {
         0

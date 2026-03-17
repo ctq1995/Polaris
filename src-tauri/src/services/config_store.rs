@@ -444,7 +444,7 @@ impl ConfigStore {
         // 2. 检查常见安装路径
         #[cfg(windows)]
         {
-            if let Some(username) = env::var("USERNAME").ok() {
+            if let Ok(username) = env::var("USERNAME") {
                 let common_paths = vec![
                     // npm 全局安装路径
                     format!(r"{}\AppData\Roaming\npm\claude.cmd", username),
@@ -460,11 +460,10 @@ impl ConfigStore {
                 ];
 
                 for path in common_paths {
-                    if Path::new(&path).exists() && Self::validate_path(&path) {
-                        if !paths.contains(&path) {
+                    if Path::new(&path).exists() && Self::validate_path(&path)
+                        && !paths.contains(&path) {
                             paths.push(path);
                         }
-                    }
                 }
             }
         }
@@ -570,7 +569,7 @@ impl ConfigStore {
         // 2. 检查常见安装路径
         #[cfg(windows)]
         {
-            if let Some(username) = env::var("USERNAME").ok() {
+            if let Ok(username) = env::var("USERNAME") {
                 let common_paths = vec![
                     // npm 全局安装路径
                     format!(r"{}\AppData\Roaming\npm\iflow.cmd", username),
@@ -579,11 +578,10 @@ impl ConfigStore {
                 ];
 
                 for path in common_paths {
-                    if Path::new(&path).exists() && Self::validate_iflow_path_exists(&path) {
-                        if !paths.contains(&path) {
+                    if Path::new(&path).exists() && Self::validate_iflow_path_exists(&path)
+                        && !paths.contains(&path) {
                             paths.push(path);
                         }
-                    }
                 }
             }
         }
