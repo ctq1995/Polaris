@@ -306,6 +306,21 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
           // 刷新任务列表和日志
           get().loadTasks();
           get().loadLogs(50);
+
+          // 自动续订优化：更新订阅的 contextId 为当前活动会话
+          // 这样下次定时触发时，事件会发送到用户当前查看的窗口
+          if (success) {
+            // 动态导入 eventChatStore 避免循环依赖
+            import('./eventChatStore').then(({ useEventChatStore }) => {
+              const currentContextId = useEventChatStore.getState().conversationId;
+              if (currentContextId) {
+                console.log('[SchedulerStore] 自动续订：更新 contextId 为当前会话', currentContextId);
+                tauri.schedulerSubscribeTask(taskId, currentContextId).catch((e) => {
+                  console.warn('[SchedulerStore] 更新订阅 contextId 失败:', e);
+                });
+              }
+            });
+          }
         }
       } else if (type === 'task_due') {
         // 任务到期且有订阅，自动调用 runTaskWithSubscription
