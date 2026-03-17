@@ -95,9 +95,14 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
         prompt: params.prompt,
         workDir: params.workDir,
         mode: params.mode,
+        group: params.group,
         mission: params.mission,
         maxRuns: params.maxRuns,
         runInTerminal: params.runInTerminal,
+        templateId: params.templateId,
+        templateParamValues: params.templateParamValues,
+        maxRetries: params.maxRetries,
+        retryInterval: params.retryInterval,
       });
 
       // 刷新列表

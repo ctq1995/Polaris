@@ -136,10 +136,15 @@ impl TaskStoreService {
             existing.prompt = task.prompt;
             existing.work_dir = task.work_dir;
             existing.mode = task.mode;
+            existing.group = task.group;
             existing.task_path = task.task_path;
             existing.max_runs = task.max_runs;
             existing.run_in_terminal = task.run_in_terminal;
-            // 保留 current_runs，不更新
+            existing.template_id = task.template_id;
+            existing.template_param_values = task.template_param_values;
+            existing.max_retries = task.max_retries;
+            existing.retry_interval = task.retry_interval;
+            // 保留 current_runs、retry_count、subscribed_context_id，不更新
             existing.updated_at = now;
 
             // 重新计算下次执行时间
