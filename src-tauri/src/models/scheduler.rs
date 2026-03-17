@@ -25,6 +25,8 @@ pub struct CreateTaskParams {
     pub mode: TaskMode,
     /// 分组名称（可选）
     pub group: Option<String>,
+    /// 任务描述/备注（可选，用于记录任务用途、注意事项等）
+    pub description: Option<String>,
     /// 任务目标（protocol 模式使用）
     pub mission: Option<String>,
     /// 最大执行轮次（可选，None 表示不限）
