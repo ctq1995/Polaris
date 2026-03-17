@@ -63,6 +63,8 @@ export interface ScheduledTask {
   retryCount: number;
   /** 重试间隔（如 "30s", "5m", "1h"） */
   retryInterval?: string;
+  /** 任务完成后是否发送桌面通知 */
+  notifyOnComplete?: boolean;
 }
 
 /** 执行日志 */
@@ -126,6 +128,8 @@ export interface CreateTaskParams {
   maxRetries?: number;
   /** 重试间隔（如 "30s", "5m", "1h"） */
   retryInterval?: string;
+  /** 任务完成后是否发送桌面通知 */
+  notifyOnComplete?: boolean;
 }
 
 /** 协议任务目录结构 */

@@ -100,6 +100,7 @@ impl TaskStoreService {
             max_retries: params.max_retries,
             retry_count: 0,
             retry_interval: params.retry_interval,
+            notify_on_complete: params.notify_on_complete,
         };
 
         // 如果是协议模式，创建任务目录结构
@@ -144,6 +145,7 @@ impl TaskStoreService {
             existing.template_param_values = task.template_param_values;
             existing.max_retries = task.max_retries;
             existing.retry_interval = task.retry_interval;
+            existing.notify_on_complete = task.notify_on_complete;
             // 保留 current_runs、retry_count、subscribed_context_id，不更新
             existing.updated_at = now;
 

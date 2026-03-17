@@ -40,6 +40,13 @@ pub struct CreateTaskParams {
     pub max_retries: Option<u32>,
     /// 重试间隔（如 "30s", "5m", "1h"）
     pub retry_interval: Option<String>,
+    /// 任务完成后是否发送桌面通知
+    #[serde(default = "default_notify_on_complete")]
+    pub notify_on_complete: bool,
+}
+
+fn default_notify_on_complete() -> bool {
+    true
 }
 
 fn default_enabled() -> bool {
@@ -125,6 +132,9 @@ pub struct ScheduledTask {
     /// 重试间隔（如 "30s", "5m", "1h"）
     #[serde(default)]
     pub retry_interval: Option<String>,
+    /// 任务完成后是否发送桌面通知
+    #[serde(default = "default_notify_on_complete")]
+    pub notify_on_complete: bool,
 }
 
 impl From<CreateTaskParams> for ScheduledTask {
@@ -155,6 +165,7 @@ impl From<CreateTaskParams> for ScheduledTask {
             max_retries: params.max_retries,
             retry_count: 0,
             retry_interval: params.retry_interval,
+            notify_on_complete: params.notify_on_complete,
         }
     }
 }

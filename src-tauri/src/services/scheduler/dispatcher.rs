@@ -12,6 +12,7 @@ use super::store::{TaskStoreService, LogStoreService};
 use super::ProtocolTaskService;
 
 use std::sync::Arc;
+use tauri_plugin_notification::NotificationExt;
 use tokio::sync::Mutex as AsyncMutex;
 use std::collections::HashMap;
 use tokio_util::sync::CancellationToken;
@@ -184,6 +185,9 @@ impl SchedulerDispatcher {
         let task_name = task.name.clone();
         let engine_id = task.engine_id.clone();
         let work_dir = task.work_dir.clone();
+        // 克隆 app_handle 用于通知
+        let app_handle_for_notify = self.app_handle.clone();
+        let notify_on_complete = task.notify_on_complete;
 
         // 根据模式构建提示词
         let prompt = self.build_prompt(&task).await?;
@@ -304,6 +308,8 @@ impl SchedulerDispatcher {
                 let task_mode_for_complete = task_for_complete.mode.clone();
                 let task_work_dir_for_complete = task_for_complete.work_dir.clone();
                 let task_task_path_for_complete = task_for_complete.task_path.clone();
+                // 克隆 app_handle 避免在 Fn 闭包中移动
+                let app_handle_for_task = app_handle_for_notify.clone();
 
                 tauri::async_runtime::spawn(async move {
                     let final_output = output.lock().await.clone();
@@ -391,6 +397,26 @@ impl SchedulerDispatcher {
                                     tracing::error!("[Scheduler] 更新任务状态失败: {:?}", e);
                                 }
                                 tracing::error!("[Scheduler] 任务执行失败: {} - {}", task_name, error_msg);
+                            }
+                        }
+                    }
+
+                    // 发送桌面通知
+                    if notify_on_complete {
+                        if let Some(ref app_handle) = app_handle_for_task {
+                            let (title, body) = if is_success {
+                                ("任务执行成功".to_string(), format!("「{}」已完成", task_name))
+                            } else {
+                                ("任务执行失败".to_string(), format!("「{}」执行失败", task_name))
+                            };
+
+                            if let Err(e) = app_handle.notification()
+                                .builder()
+                                .title(&title)
+                                .body(&body)
+                                .show()
+                            {
+                                tracing::warn!("[Scheduler] 发送桌面通知失败: {:?}", e);
                             }
                         }
                     }
@@ -605,6 +631,7 @@ impl SchedulerDispatcher {
             let task_for_complete = task_for_post.clone();
             let window_for_complete = window_clone.clone();
             let ctx_id_for_complete = context_id_clone.clone();
+            let notify_on_complete = task.notify_on_complete;
 
             // 创建会话选项 - 实时发送事件到前端
             let options = SessionOptions::new(move |event: AIEvent| {
@@ -763,8 +790,26 @@ impl SchedulerDispatcher {
                                                         }
                                                     }
                                                 }
-                            
-                                                // 发送任务完成事件到前端
+
+                    // 发送桌面通知
+                    if notify_on_complete {
+                        let (title, body) = if is_success {
+                            ("任务执行成功".to_string(), format!("「{}」已完成", task_name))
+                        } else {
+                            ("任务执行失败".to_string(), format!("「{}」执行失败", task_name))
+                        };
+
+                        if let Err(e) = window.notification()
+                            .builder()
+                            .title(&title)
+                            .body(&body)
+                            .show()
+                        {
+                            tracing::warn!("[Scheduler] 发送桌面通知失败: {:?}", e);
+                        }
+                    }
+
+                    // 发送任务完成事件到前端
                     let _ = window.emit("scheduler-event", serde_json::json!({
                         "contextId": ctx_id,
                         "payload": {

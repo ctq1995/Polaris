@@ -276,6 +276,9 @@ export function TaskEditor({
   });
   const [showRetryConfig, setShowRetryConfig] = useState(!!task?.maxRetries);
 
+  // 任务完成通知
+  const [notifyOnComplete, setNotifyOnComplete] = useState<boolean>(task?.notifyOnComplete ?? true);
+
   // 在终端中执行
   const [runInTerminal] = useState<boolean>(task?.runInTerminal || false);
 
@@ -442,6 +445,8 @@ export function TaskEditor({
       // 重试配置
       maxRetries: maxRetries && maxRetries > 0 ? maxRetries : undefined,
       retryInterval: maxRetries && maxRetries > 0 ? `${retryIntervalNum}${retryIntervalUnit}` : undefined,
+      // 通知配置
+      notifyOnComplete,
     });
   };
 
@@ -917,6 +922,25 @@ export function TaskEditor({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 任务完成通知 */}
+          {fullMode && (
+            <div className="flex items-center gap-3 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4a]">
+              <input
+                type="checkbox"
+                id="notifyOnComplete"
+                checked={notifyOnComplete}
+                onChange={(e) => setNotifyOnComplete(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <label htmlFor="notifyOnComplete" className="text-sm text-gray-300 cursor-pointer">
+                任务完成后发送桌面通知
+              </label>
+              <span className="text-xs text-gray-500">
+                （无论成功或失败都会通知）
+              </span>
             </div>
           )}
 
