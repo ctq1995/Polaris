@@ -410,6 +410,57 @@ function TaskGroup({
   );
 }
 
+/** 任务筛选状态 */
+interface TaskFilter {
+  search: string;
+  enabled: 'all' | 'enabled' | 'disabled';
+  mode: 'all' | 'simple' | 'protocol';
+  engineId: string;
+  triggerType: 'all' | 'once' | 'cron' | 'interval';
+  lastRunStatus: 'all' | 'running' | 'success' | 'failed' | 'none';
+  group: string;
+}
+
+const defaultFilter: TaskFilter = {
+  search: '',
+  enabled: 'all',
+  mode: 'all',
+  engineId: 'all',
+  triggerType: 'all',
+  lastRunStatus: 'all',
+  group: 'all',
+};
+
+/** 筛选任务 */
+function filterTasks(tasks: ScheduledTask[], filter: TaskFilter): ScheduledTask[] {
+  return tasks.filter((task) => {
+    // 搜索任务名称
+    if (filter.search && !task.name.toLowerCase().includes(filter.search.toLowerCase())) {
+      return false;
+    }
+    // 启用状态
+    if (filter.enabled === 'enabled' && !task.enabled) return false;
+    if (filter.enabled === 'disabled' && task.enabled) return false;
+    // 任务模式
+    if (filter.mode !== 'all' && task.mode !== filter.mode) return false;
+    // 引擎
+    if (filter.engineId !== 'all' && task.engineId !== filter.engineId) return false;
+    // 触发类型
+    if (filter.triggerType !== 'all' && task.triggerType !== filter.triggerType) return false;
+    // 执行状态
+    if (filter.lastRunStatus !== 'all') {
+      if (filter.lastRunStatus === 'none') {
+        if (task.lastRunStatus) return false;
+      } else {
+        if (task.lastRunStatus !== filter.lastRunStatus) return false;
+      }
+    }
+    // 分组
+    if (filter.group !== 'all' && (task.group || '默认') !== filter.group) return false;
+    return true;
+  });
+}
+
 /** 主面板 */
 export function SchedulerPanel() {
   const { tasks, logs, loading, subscribingTaskId, loadTasks, loadLogs, createTask, updateTask, deleteTask, toggleTask, runTask, runTaskWithSubscription, clearSubscription, subscribeTask, unsubscribeTask, initSchedulerEventListener } =
@@ -421,9 +472,21 @@ export function SchedulerPanel() {
   const [copyingTask, setCopyingTask] = useState<ScheduledTask | undefined>();
   const [activeTab, setActiveTab] = useState<'tasks' | 'logs'>('tasks');
   const [viewingTask, setViewingTask] = useState<ScheduledTask | undefined>();
+  const [filter, setFilter] = useState<TaskFilter>(defaultFilter);
 
-  // 按分组整理任务
-  const groupedTasks = tasks.reduce((acc, task) => {
+  // 从任务列表提取引擎和分组选项
+  const engineOptions = [...new Set(tasks.map((t) => t.engineId))].sort();
+  const groupOptions = [...new Set(tasks.map((t) => t.group || '默认'))].sort((a, b) => {
+    if (a === '默认') return 1;
+    if (b === '默认') return -1;
+    return a.localeCompare(b);
+  });
+
+  // 应用筛选
+  const filteredTasks = filterTasks(tasks, filter);
+
+  // 按分组整理筛选后的任务
+  const groupedTasks = filteredTasks.reduce((acc, task) => {
     const groupKey = task.group || '默认';
     if (!acc[groupKey]) {
       acc[groupKey] = [];
@@ -629,6 +692,100 @@ export function SchedulerPanel() {
         </div>
       </div>
 
+      {/* 筛选栏 - 仅在任务列表标签页显示 */}
+      {activeTab === 'tasks' && (
+        <div className="p-3 border-b border-[#2a2a4a] bg-[#1a1a2e]">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 搜索框 */}
+            <input
+              type="text"
+              placeholder="搜索任务名称..."
+              value={filter.search}
+              onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+              className="px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-48"
+            />
+            {/* 状态筛选 */}
+            <select
+              value={filter.enabled}
+              onChange={(e) => setFilter({ ...filter, enabled: e.target.value as TaskFilter['enabled'] })}
+              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">全部状态</option>
+              <option value="enabled">已启用</option>
+              <option value="disabled">已禁用</option>
+            </select>
+            {/* 模式筛选 */}
+            <select
+              value={filter.mode}
+              onChange={(e) => setFilter({ ...filter, mode: e.target.value as TaskFilter['mode'] })}
+              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">全部模式</option>
+              <option value="simple">简单模式</option>
+              <option value="protocol">协议模式</option>
+            </select>
+            {/* 引擎筛选 */}
+            <select
+              value={filter.engineId}
+              onChange={(e) => setFilter({ ...filter, engineId: e.target.value })}
+              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">全部引擎</option>
+              {engineOptions.map((engine) => (
+                <option key={engine} value={engine}>{engine}</option>
+              ))}
+            </select>
+            {/* 触发类型筛选 */}
+            <select
+              value={filter.triggerType}
+              onChange={(e) => setFilter({ ...filter, triggerType: e.target.value as TaskFilter['triggerType'] })}
+              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">全部触发</option>
+              <option value="once">一次性</option>
+              <option value="cron">Cron</option>
+              <option value="interval">间隔</option>
+            </select>
+            {/* 执行状态筛选 */}
+            <select
+              value={filter.lastRunStatus}
+              onChange={(e) => setFilter({ ...filter, lastRunStatus: e.target.value as TaskFilter['lastRunStatus'] })}
+              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">全部执行状态</option>
+              <option value="running">执行中</option>
+              <option value="success">成功</option>
+              <option value="failed">失败</option>
+              <option value="none">未执行</option>
+            </select>
+            {/* 分组筛选 */}
+            <select
+              value={filter.group}
+              onChange={(e) => setFilter({ ...filter, group: e.target.value })}
+              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">全部分组</option>
+              {groupOptions.map((group) => (
+                <option key={group} value={group}>{group}</option>
+              ))}
+            </select>
+            {/* 清除筛选 */}
+            <button
+              onClick={() => setFilter(defaultFilter)}
+              className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
+            >
+              清除筛选
+            </button>
+            {/* 筛选结果数量 */}
+            {filteredTasks.length !== tasks.length && (
+              <span className="text-xs text-gray-500 ml-2">
+                显示 {filteredTasks.length}/{tasks.length} 条
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 内容 */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
@@ -651,7 +808,7 @@ export function SchedulerPanel() {
                     <TaskCard
                       key={task.id}
                       task={task}
-                      showGroupTag={tasks.length > groupedTasks[groupName].length}
+                      showGroupTag={groupNames.length > 1}
                       onEdit={() => {
                         setCopyingTask(undefined);
                         setEditingTask(task);
