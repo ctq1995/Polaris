@@ -85,6 +85,7 @@ impl TaskStoreService {
             work_dir: params.work_dir.clone(),
             mode: params.mode.clone(),
             group: params.group,
+            description: params.description,
             task_path: None,
             mission: params.mission,
             last_run_at: None,
@@ -141,6 +142,7 @@ impl TaskStoreService {
             existing.work_dir = task.work_dir;
             existing.mode = task.mode;
             existing.group = task.group;
+            existing.description = task.description;
             existing.task_path = task.task_path;
             existing.max_runs = task.max_runs;
             existing.run_in_terminal = task.run_in_terminal;

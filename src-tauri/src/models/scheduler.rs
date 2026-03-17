@@ -99,6 +99,9 @@ pub struct ScheduledTask {
     /// 分组名称（可选）
     #[serde(default)]
     pub group: Option<String>,
+    /// 任务描述/备注（可选，用于记录任务用途、注意事项等）
+    #[serde(default)]
+    pub description: Option<String>,
     /// 任务路径 (protocol 模式使用，相对于 workDir)
     pub task_path: Option<String>,
     /// 任务目标 (protocol 模式使用，保存协议文档中的任务目标)
@@ -165,6 +168,7 @@ impl From<CreateTaskParams> for ScheduledTask {
             work_dir: params.work_dir,
             mode: params.mode,
             group: params.group,
+            description: params.description,
             task_path: None, // 将在创建任务目录后设置
             mission: params.mission,
             last_run_at: None,
