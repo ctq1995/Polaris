@@ -13,6 +13,7 @@
 import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
 import type { ChatMessage, AssistantChatMessage, UserChatMessage, SystemChatMessage, ContentBlock, ToolCallBlock, ToolStatus } from '../types'
+import { isTextFile } from '../types/attachment'
 import type { AIEvent } from '../ai-runtime'
 import { useToolPanelStore } from './toolPanelStore'
 import { useWorkspaceStore } from './workspaceStore'
@@ -1045,10 +1046,29 @@ export const useEventChatStore = create<EventChatState>((set, get) => ({
         if (attachments && attachments.length > 0) {
           const nonImageAttachments = attachments.filter(a => a.type !== 'image')
           if (nonImageAttachments.length > 0) {
-            const attachmentDescriptions = nonImageAttachments.map(a => {
-              return `[文件: ${a.fileName}]`
-            }).join('\n')
-            messageWithAttachments = `${attachmentDescriptions}\n\n${normalizedMessage}`
+            const attachmentParts = nonImageAttachments.map(a => {
+              const isText = isTextFile(a.mimeType, a.fileName)
+              if (isText && a.content) {
+                // 文本文件：解码并发送完整内容
+                try {
+                  const commaIndex = a.content.indexOf(',')
+                  const base64Content = commaIndex !== -1 ? a.content.slice(commaIndex + 1) : a.content
+                  const binaryString = atob(base64Content)
+                  const bytes = new Uint8Array(binaryString.length)
+                  for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i)
+                  }
+                  const decodedContent = new TextDecoder('utf-8').decode(bytes)
+                  return `\n--- 文件: ${a.fileName} ---\n${decodedContent}\n--- 文件结束 ---`
+                } catch {
+                  return `[文件: ${a.fileName}]`
+                }
+              } else {
+                // 二进制文件：只发送描述
+                return `[文件: ${a.fileName}]`
+              }
+            })
+            messageWithAttachments = `${attachmentParts.join('\n')}\n\n${normalizedMessage}`
           }
         }
 
