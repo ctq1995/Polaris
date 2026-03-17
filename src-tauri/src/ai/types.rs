@@ -72,6 +72,7 @@ impl EngineDescriptor {
 }
 
 /// 从事件中提取文本内容
+#[allow(dead_code)]
 pub fn extract_text_from_event(event: &crate::models::events::StreamEvent) -> Option<String> {
     use crate::models::events::StreamEvent;
 

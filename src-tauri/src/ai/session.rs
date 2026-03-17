@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::{AppError, Result};
 
 /// 会话信息
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SessionInfo {
     /// 会话 ID（真实 ID）

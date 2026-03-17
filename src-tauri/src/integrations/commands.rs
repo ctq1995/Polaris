@@ -275,6 +275,7 @@ fn default_max_history() -> usize {
     20
 }
 
+#[allow(dead_code)]
 impl ConversationState {
     /// 创建新的会话状态
     pub fn new(conversation_id: impl Into<String>) -> Self {

@@ -183,6 +183,7 @@ pub struct ToolCallDelta {
 }
 
 /// 增量函数调用
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct FunctionCallDelta {
     pub name: Option<String>,

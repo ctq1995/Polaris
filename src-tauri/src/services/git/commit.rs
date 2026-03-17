@@ -231,7 +231,8 @@ pub fn batch_stage(path: &Path, file_paths: &[String]) -> Result<BatchStageResul
     })
 }
 
-/// 计算仓库中的跟踪文件数量
+/// 计算仓库中的跟踪文件数量（预留）
+#[allow(dead_code)]
 pub fn count_tracked_files(repo: &Repository) -> Result<usize, GitServiceError> {
     let head = repo.head()?;
     let head_commit = head.peel_to_commit()?;

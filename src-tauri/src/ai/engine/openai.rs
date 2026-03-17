@@ -86,7 +86,8 @@ pub struct StreamChoice {
     pub finish_reason: Option<String>,
 }
 
-/// 增量内容
+/// 增量内容（预留）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct Delta {
     pub role: Option<String>,
@@ -180,6 +181,7 @@ impl OpenAIEngine {
     }
 
     /// 更新单个配置
+    #[allow(dead_code)]
     pub fn set_config(&mut self, config: OpenAIProviderConfig) {
         self.provider_id = Some(config.provider_id.clone());
         self.config = Some(config);
@@ -278,6 +280,7 @@ impl OpenAIEngine {
     }
 
     /// 解析 SSE 行
+    #[allow(dead_code)]
     fn parse_sse_line(&self, line: &str) -> Option<StreamResponse> {
         let line = line.trim();
         if line.is_empty() || !line.starts_with("data:") {

@@ -409,7 +409,8 @@ pub struct IFlowProjectConfig {
     pub last_activity: Option<String>,
 }
 
-/// IFlow projects.json 根结构
+/// IFlow projects.json 根结构（预留功能）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IFlowProjectsConfig {
     #[serde(flatten)]

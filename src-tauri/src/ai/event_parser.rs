@@ -516,6 +516,7 @@ impl EventParser {
     }
 
     /// 重置解析器状态
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.tool_call_manager.clear();
     }

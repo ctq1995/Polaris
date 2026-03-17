@@ -10,6 +10,7 @@ use crate::ai::EngineId;
 use super::super::commands::{ConversationState, PromptMode};
 
 /// 会话状态存储
+#[allow(dead_code)]
 pub struct ConversationStore {
     /// 会话状态映射
     states: HashMap<String, ConversationState>,

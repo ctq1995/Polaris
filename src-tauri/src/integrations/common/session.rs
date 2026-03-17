@@ -9,6 +9,7 @@ use chrono::Utc;
 use super::super::types::IntegrationSession;
 
 /// 会话管理器
+#[allow(dead_code)]
 pub struct SessionManager {
     sessions: HashMap<String, IntegrationSession>,
 }

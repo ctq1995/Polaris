@@ -650,6 +650,7 @@ impl IFlowEngine {
     }
 
     /// 读取 stderr 获取 session_id
+    #[allow(dead_code)]
     fn read_stderr_for_session_id(
         child: &mut Child,
         sessions: Arc<std::sync::Mutex<HashMap<String, crate::ai::session::SessionInfo>>>,

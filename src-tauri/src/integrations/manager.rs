@@ -42,7 +42,8 @@ pub struct IntegrationManager {
     message_task: Option<tokio::task::JoinHandle<()>>,
     /// AI 引擎注册表引用
     engine_registry: Option<Arc<Mutex<EngineRegistry>>>,
-    /// 会话 ID 映射 (conversation_id -> ai_session_id)
+    /// 会话 ID 映射 (conversation_id -> ai_session_id)（预留）
+    #[allow(dead_code)]
     session_map: HashMap<String, String>,
     /// 活跃的 AI 会话句柄（用于中断）
     active_sessions: Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,

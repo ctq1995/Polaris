@@ -100,6 +100,7 @@ pub struct FunctionCall {
 }
 
 /// SSE 流事件（已废弃，保留用于兼容性）
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct SSEEvent {
     #[serde(default)]
@@ -146,6 +147,7 @@ struct SSEToolCall {
 }
 
 /// SSE 函数调用
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct SSEFunctionCall {
     name: Option<String>,
@@ -178,6 +180,7 @@ struct ChatResponseChoice {
 }
 
 /// 响应消息
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct ResponseMessage {
     #[serde(default)]

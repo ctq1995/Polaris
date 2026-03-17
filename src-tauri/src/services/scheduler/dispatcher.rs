@@ -1161,6 +1161,7 @@ impl SchedulerDispatcher {
     }
 
     /// 处理用户补充文档（执行成功后调用）
+    #[allow(dead_code)]
     async fn handle_supplement_post_execution(&self, task: &ScheduledTask) {
         if task.mode != TaskMode::Protocol {
             return;
@@ -1202,6 +1203,7 @@ impl SchedulerDispatcher {
     }
 
     /// 检查文档是否需要备份（超过 800 行）
+    #[allow(dead_code)]
     async fn check_and_backup_documents(&self, task: &ScheduledTask) {
         if task.mode != TaskMode::Protocol {
             return;

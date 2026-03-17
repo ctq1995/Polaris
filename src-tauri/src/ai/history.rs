@@ -163,6 +163,7 @@ pub struct TokenUsage {
 }
 
 /// 会话历史提供者 Trait
+#[allow(dead_code)]
 pub trait SessionHistoryProvider: Send + Sync {
     /// 引擎 ID
     fn engine_id(&self) -> &'static str;

@@ -14,6 +14,7 @@ const TIMESTAMP_FORMAT: &str = "%Y%m%d%H%M%S";
 /// 协议任务服务
 pub struct ProtocolTaskService;
 
+#[allow(dead_code)]
 impl ProtocolTaskService {
     /// 生成当前时间戳
     pub fn generate_timestamp() -> String {

@@ -12,6 +12,7 @@ use crate::error::{AppError, Result};
 use crate::models::config::Config;
 
 /// Claude Code 会话历史提供者
+#[allow(dead_code)]
 pub struct ClaudeHistoryProvider {
     config: Config,
 }

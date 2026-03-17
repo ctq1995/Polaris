@@ -584,7 +584,8 @@ pub struct ConflictedFile {
 // Git 操作结果
 // ============================================================================
 
-/// 统一的 Git 操作结果
+/// 统一的 Git 操作结果（预留）
+#[allow(dead_code)]
 pub type GitResult<T> = Result<T, GitError>;
 
 /// 将 GitServiceError 转换为 GitError

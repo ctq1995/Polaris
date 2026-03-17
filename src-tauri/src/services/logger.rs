@@ -8,6 +8,7 @@ pub struct Logger {
     _guard: Option<non_blocking::WorkerGuard>,
 }
 
+#[allow(dead_code)]
 impl Logger {
     /// 初始化日志系统
     pub fn init(enabled: bool) -> Self {
