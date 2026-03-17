@@ -45,7 +45,11 @@
     "todoPanel": "Todo Panel",
     "translatePanel": "Translate Panel",
     "schedulerPanel": "Scheduler",
-    "terminalPanel": "Terminal"
+    "terminalPanel": "Terminal",
+    "toolPanel": "Tool Panel",
+    "developerPanel": "Developer Panel",
+    "showAIPanel": "Show AI Panel",
+    "hideAIPanel": "Hide AI Panel"
   },
   "messages": {
     "noWorkspace": "Please open a workspace first",

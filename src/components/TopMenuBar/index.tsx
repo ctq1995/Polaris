@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Minus, Square, X, Clock, Download, Copy, MessageSquare } from 'lucide-react';
+import { Minus, Square, X, Clock, Download, Copy, PanelRight } from 'lucide-react';
 import { useWorkspaceStore, useViewStore, useEventChatStore, useConfigStore } from '../../stores';
 import { useFloatingWindowStore } from '../../stores/floatingWindowStore';
 import * as tauri from '../../services/tauri';
@@ -14,10 +14,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 interface TopMenuBarProps {
   onNewConversation: () => void;
   onCreateWorkspace: () => void;
-  onOpenAIPopover?: () => void;
+  onToggleRightPanel?: () => void;
+  rightPanelCollapsed?: boolean;
 }
 
-export function TopMenuBar({ onNewConversation, onCreateWorkspace, onOpenAIPopover }: TopMenuBarProps) {
+export function TopMenuBar({ onNewConversation, onCreateWorkspace, onToggleRightPanel, rightPanelCollapsed }: TopMenuBarProps) {
   const { t } = useTranslation('common');
   const { config } = useConfigStore();
   const { getCurrentWorkspace } = useWorkspaceStore();
@@ -145,14 +146,18 @@ export function TopMenuBar({ onNewConversation, onCreateWorkspace, onOpenAIPopov
         {/* 分隔线 */}
         <div data-tauri-drag-region className="w-px h-4 bg-border-subtle mx-1" />
 
-        {/* AI 对话弹出按钮 */}
+        {/* 右侧 AI 面板切换按钮 */}
         <button
-          onClick={onOpenAIPopover}
-          className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors"
-          title={t('labels.aiChat')}
+          onClick={onToggleRightPanel}
+          className={`p-1.5 rounded-md transition-colors ${
+            rightPanelCollapsed
+              ? 'text-text-tertiary hover:text-text-primary hover:bg-background-hover'
+              : 'text-primary bg-primary/10 hover:bg-primary/20'
+          }`}
+          title={rightPanelCollapsed ? t('labels.showAIPanel') : t('labels.hideAIPanel')}
           data-tauri-drag-region={false}
         >
-          <MessageSquare className="w-4 h-4" />
+          <PanelRight className="w-4 h-4" />
         </button>
 
         {/* 分隔线 */}

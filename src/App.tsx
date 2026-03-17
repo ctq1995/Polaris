@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Layout, FileExplorer, ConnectingOverlay, ErrorBoundary, ToastContainer } from './components/Common';
 import { ConfirmDialog } from './components/Common/ConfirmDialog';
 
-import { AIPopover } from './components/Chat';
 import { ToolPanel } from './components/ToolPanel';
 import { TopMenuBar as TopMenuBarComponent } from './components/TopMenuBar';
 import { GitPanel } from './components/GitPanel';
-import { ActivityBar, LeftPanel, LeftPanelContent, CenterStage } from './components/Layout';
+import { ActivityBar, LeftPanel, LeftPanelContent, CenterStage, RightPanel } from './components/Layout';
+import { EnhancedChatMessages, ChatInput } from './components/Chat';
 import type { SettingsTabId } from './components/Settings/SettingsSidebar';
 import { SimpleTodoPanel } from './components/TodoPanel/SimpleTodoPanel';
 import { TranslatePanel, SelectionContextMenu } from './components/Translate';
@@ -41,6 +41,7 @@ function App() {
     initializeEventListeners,
     messages,
     clearMessages,
+    error,
   } = useEventChatStore();
   const workspaces = useWorkspaceStore(state => state.workspaces);
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace());
@@ -63,7 +64,6 @@ function App() {
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [showEngineSwitchConfirm, setShowEngineSwitchConfirm] = useState(false);
   const [pendingEngineId, setPendingEngineId] = useState<EngineId | null>(null);
-  const [showAIPopover, setShowAIPopover] = useState(false);
   // 使用 ref 确保初始化只执行一次
   const isInitialized = useRef(false);
   const hasCheckedWorkspaces = useRef(false);
@@ -76,6 +76,8 @@ function App() {
     // 新布局状态
     leftPanelWidth,
     leftPanelType,
+    rightPanelCollapsed,
+    toggleRightPanel,
   } = useViewStore();
   const { showFloatingWindow } = useFloatingWindowStore();
   const { openDiffTab, tabs } = useTabStore();
@@ -84,10 +86,12 @@ function App() {
   // 计算各面板的显示状态
   const hasLeftPanel = leftPanelType !== 'none';
   const hasCenterStage = hasOpenTabs;
+  const hasRightPanel = !rightPanelCollapsed;
 
   // 计算各面板是否需要填充剩余空间（只有最后一个显示的面板需要填充）
-  const leftPanelFillRemaining = hasLeftPanel && !hasCenterStage;
-  const centerStageFillRemaining = hasCenterStage;
+  const leftPanelFillRemaining = hasLeftPanel && !hasCenterStage && !hasRightPanel;
+  const centerStageFillRemaining = hasCenterStage && !hasRightPanel;
+  const rightPanelFillRemaining = !hasCenterStage && !hasLeftPanel;
 
   const applyEngineSwitch = useCallback(async (engineId: EngineId) => {
     if (!config) return;
@@ -477,7 +481,8 @@ function App() {
           // 新对话功能直接清空消息
         }}
         onCreateWorkspace={() => setShowCreateWorkspace(true)}
-        onOpenAIPopover={() => setShowAIPopover(true)}
+        onToggleRightPanel={toggleRightPanel}
+        rightPanelCollapsed={rightPanelCollapsed}
       />
 
       {/* 主体内容区域：新布局 */}
@@ -485,7 +490,8 @@ function App() {
         {/* Activity Bar - 始终显示 */}
         <ActivityBar
           onOpenSettings={() => setShowSettings(true)}
-          onOpenAIPopover={() => setShowAIPopover(true)}
+          onToggleRightPanel={toggleRightPanel}
+          rightPanelCollapsed={rightPanelCollapsed}
         />
 
         {/* 左侧可切换面板 (FileExplorer 或 GitPanel 或 TodoPanel 或 ToolPanel 或 DeveloperPanel) - 条件显示 */}
@@ -517,6 +523,29 @@ function App() {
 
         {/* 中间编辑区 (Tab 系统) */}
         <CenterStage fillRemaining={centerStageFillRemaining} />
+
+        {/* 右侧 AI 对话面板 */}
+        {!rightPanelCollapsed && (
+          <RightPanel fillRemaining={rightPanelFillRemaining}>
+            {/* 错误提示 */}
+            {error && (
+              <div className="mx-4 mt-4 p-3 bg-danger-faint border border-danger/30 rounded-xl text-danger text-sm shrink-0">
+                {error}
+              </div>
+            )}
+
+            {/* 消息区域 */}
+            <EnhancedChatMessages />
+
+            {/* 输入区域 */}
+            <ChatInput
+              onSend={sendMessage}
+              onInterrupt={interruptChat}
+              disabled={!currentWorkspace}
+              isStreaming={isStreaming}
+            />
+          </RightPanel>
+        )}
       </div>
 
       {/* 设置模态框 */}
@@ -581,12 +610,6 @@ function App() {
 
       {/* 全局 Toast 通知 */}
       <ToastContainer />
-
-      {/* AI 对话弹出面板 */}
-      <AIPopover
-        isOpen={showAIPopover}
-        onClose={() => setShowAIPopover(false)}
-      />
 
       </Layout>
     </ErrorBoundary>

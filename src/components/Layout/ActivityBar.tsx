@@ -5,7 +5,7 @@
  * 参考 VSCode 的 Activity Bar 设计
  */
 
-import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, Terminal, Wrench, Code2, MessageSquare } from 'lucide-react'
+import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, Terminal, Wrench, Code2, PanelRight } from 'lucide-react'
 import { useViewStore } from '@/stores/viewStore'
 import { ActivityBarIcon } from './ActivityBarIcon'
 import { useTranslation } from 'react-i18next'
@@ -14,11 +14,13 @@ interface ActivityBarProps {
   className?: string
   /** 可选: 打开设置的回调 */
   onOpenSettings?: () => void
-  /** 可选: 打开 AI 对话弹出的回调 */
-  onOpenAIPopover?: () => void
+  /** 可选: 切换右侧面板的回调 */
+  onToggleRightPanel?: () => void
+  /** 右侧面板是否折叠 */
+  rightPanelCollapsed?: boolean
 }
 
-export function ActivityBar({ className, onOpenSettings, onOpenAIPopover }: ActivityBarProps) {
+export function ActivityBar({ className, onOpenSettings, onToggleRightPanel, rightPanelCollapsed }: ActivityBarProps) {
   const { t } = useTranslation('common')
   const leftPanelType = useViewStore((state) => state.leftPanelType)
   const toggleLeftPanel = useViewStore((state) => state.toggleLeftPanel)
@@ -82,12 +84,12 @@ export function ActivityBar({ className, onOpenSettings, onOpenAIPopover }: Acti
 
       <div className="flex-1" />
 
-      {/* AI 对话弹出按钮 */}
+      {/* 右侧 AI 面板切换按钮 */}
       <ActivityBarIcon
-        icon={MessageSquare}
-        label={t('labels.aiChat')}
-        active={false}
-        onClick={onOpenAIPopover || (() => {})}
+        icon={PanelRight}
+        label={rightPanelCollapsed ? t('labels.showAIPanel') : t('labels.hideAIPanel')}
+        active={!rightPanelCollapsed}
+        onClick={onToggleRightPanel || (() => {})}
       />
 
       <ActivityBarIcon
