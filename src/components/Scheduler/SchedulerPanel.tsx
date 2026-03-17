@@ -6,11 +6,14 @@ import { useEffect, useState } from 'react';
 import { useSchedulerStore, useToastStore } from '../../stores';
 import type { TaskLog, CreateTaskParams } from '../../types/scheduler';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
+import { DropdownMenu } from '../Common/DropdownMenu';
+import type { DropdownMenuItem } from '../Common/DropdownMenu';
 import type { ScheduledTask } from '../../types/scheduler';
 import { TriggerTypeLabels, TaskModeLabels } from '../../types/scheduler';
 import * as tauri from '../../services/tauri';
 import type { ProtocolFileType, TaskExportItem } from '../../services/tauri';
 import { TaskEditor } from './TaskEditor';
+import { useContainerSize } from '../../hooks';
 
 /** 格式化时间戳 */
 function formatTime(timestamp: number | undefined): string {
@@ -72,6 +75,7 @@ function TaskCard({
   selectionMode,
   isSelected,
   onSelect,
+  isCompact,
 }: {
   task: ScheduledTask;
   onEdit: () => void;
@@ -94,7 +98,99 @@ function TaskCard({
   isSelected?: boolean;
   /** 选择回调 */
   onSelect?: () => void;
+  /** 是否紧凑模式 */
+  isCompact?: boolean;
 }) {
+  // 构建操作菜单项
+  const actionMenuItems: DropdownMenuItem[] = [
+    { key: 'run', label: '执行', onClick: onRun },
+    { key: 'toggle', label: task.enabled ? '禁用' : '启用', onClick: onToggle },
+    { key: 'edit', label: '编辑', onClick: onEdit },
+    { key: 'copy', label: '复制', onClick: onCopy },
+    { key: 'delete', label: '删除', variant: 'danger', onClick: onDelete },
+  ];
+
+  // 紧凑模式：使用下拉菜单
+  if (isCompact) {
+    return (
+      <div className={`bg-[#1a1a2e] rounded-lg p-3 border ${isSelected ? 'border-blue-500' : 'border-[#2a2a4a]'}`}>
+        <div className="flex items-start justify-between gap-2">
+          {/* 选择模式下显示复选框 */}
+          {selectionMode && (
+            <div className="flex items-center mt-1">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={onSelect}
+                className="w-5 h-5 rounded border-gray-500 bg-[#12122a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${task.enabled ? 'bg-green-500' : 'bg-gray-500'}`} />
+              <h3 className="text-white font-medium truncate">{task.name}</h3>
+              {/* 分组标签 */}
+              {showGroupTag && task.group && (
+                <span className="px-2 py-0.5 rounded text-xs bg-orange-500/20 text-orange-400">
+                  {task.group}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-xs text-gray-400 flex items-center gap-2 flex-wrap">
+              <StatusBadge status={task.lastRunStatus} />
+              {task.enabled && task.nextRunAt && (
+                <span>{formatRelativeTime(task.nextRunAt)}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {/* 订阅状态或按钮 - 紧凑模式 */}
+            {isSubscribing ? (
+              <button
+                onClick={onCancelSubscription}
+                className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                title="停止"
+              >
+                ⏹
+              </button>
+            ) : isSubscribed ? (
+              <span className="px-2 py-1 text-xs bg-cyan-600/30 text-cyan-400 rounded">🔔</span>
+            ) : (
+              <button
+                onClick={onSubscribe}
+                className="p-1.5 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded transition-colors"
+                title="订阅执行"
+              >
+                👁
+              </button>
+            )}
+            {/* 执行按钮 */}
+            <button
+              onClick={onRun}
+              className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              title="执行"
+            >
+              ▶
+            </button>
+            {/* 更多操作下拉菜单 */}
+            <DropdownMenu
+              trigger={
+                <button className="p-1.5 bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors">
+                  ⋯
+                </button>
+              }
+              items={actionMenuItems}
+              align="right"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 正常模式
   return (
     <div className={`bg-[#1a1a2e] rounded-lg p-4 border ${isSelected ? 'border-blue-500' : 'border-[#2a2a4a]'}`}>
       <div className="flex items-start justify-between">
@@ -840,6 +936,10 @@ export function SchedulerPanel() {
     useSchedulerStore();
   const toast = useToastStore();
 
+  // 响应式布局检测
+  const [containerRef, containerSize] = useContainerSize({ compactThreshold: 500, wideThreshold: 800 });
+  const isCompact = containerSize.isCompact;
+
   const [showEditor, setShowEditor] = useState(false);
   const [editingTask, setEditingTask] = useState<ScheduledTask | undefined>();
   const [copyingTask, setCopyingTask] = useState<ScheduledTask | undefined>();
@@ -853,6 +953,8 @@ export function SchedulerPanel() {
   // 批量选择状态
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  // 筛选栏折叠状态
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   // 日志设置状态
   const [logStats, setLogStats] = useState<{
     totalLogs: number;
@@ -1334,7 +1436,7 @@ export function SchedulerPanel() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#12122a]">
+    <div ref={containerRef} className="h-full flex flex-col bg-[#12122a]">
       {/* 头部 */}
       <div className="p-4 border-b border-[#2a2a4a] flex items-center justify-between">
         <h1 className="text-xl font-medium text-white flex items-center gap-2">
@@ -1402,12 +1504,12 @@ export function SchedulerPanel() {
             {/* 搜索框 */}
             <input
               type="text"
-              placeholder="搜索任务名称..."
+              placeholder="搜索..."
               value={filter.search}
               onChange={(e) => setFilter({ ...filter, search: e.target.value })}
-              className="px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-48"
+              className={`px-3 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 ${isCompact ? 'w-24' : 'w-48'}`}
             />
-            {/* 状态筛选 */}
+            {/* 状态筛选 - 核心筛选，始终显示 */}
             <select
               value={filter.enabled}
               onChange={(e) => setFilter({ ...filter, enabled: e.target.value as TaskFilter['enabled'] })}
@@ -1417,92 +1519,113 @@ export function SchedulerPanel() {
               <option value="enabled">已启用</option>
               <option value="disabled">已禁用</option>
             </select>
-            {/* 模式筛选 */}
-            <select
-              value={filter.mode}
-              onChange={(e) => setFilter({ ...filter, mode: e.target.value as TaskFilter['mode'] })}
-              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">全部模式</option>
-              <option value="simple">简单模式</option>
-              <option value="protocol">协议模式</option>
-            </select>
-            {/* 引擎筛选 */}
-            <select
-              value={filter.engineId}
-              onChange={(e) => setFilter({ ...filter, engineId: e.target.value })}
-              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">全部引擎</option>
-              {engineOptions.map((engine) => (
-                <option key={engine} value={engine}>{engine}</option>
-              ))}
-            </select>
-            {/* 触发类型筛选 */}
-            <select
-              value={filter.triggerType}
-              onChange={(e) => setFilter({ ...filter, triggerType: e.target.value as TaskFilter['triggerType'] })}
-              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">全部触发</option>
-              <option value="once">一次性</option>
-              <option value="cron">Cron</option>
-              <option value="interval">间隔</option>
-            </select>
-            {/* 执行状态筛选 */}
-            <select
-              value={filter.lastRunStatus}
-              onChange={(e) => setFilter({ ...filter, lastRunStatus: e.target.value as TaskFilter['lastRunStatus'] })}
-              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">全部执行状态</option>
-              <option value="running">执行中</option>
-              <option value="success">成功</option>
-              <option value="failed">失败</option>
-              <option value="none">未执行</option>
-            </select>
-            {/* 分组筛选 */}
-            <select
-              value={filter.group}
-              onChange={(e) => setFilter({ ...filter, group: e.target.value })}
-              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">全部分组</option>
-              {groupOptions.map((group) => (
-                <option key={group} value={group}>{group}</option>
-              ))}
-            </select>
-            {/* 排序 */}
-            <select
-              value={`${sortState.sortBy}-${sortState.sortOrder}`}
-              onChange={(e) => {
-                const [sortBy, sortOrder] = e.target.value.split('-') as [TaskSortBy, SortOrder];
-                setSortState({ sortBy, sortOrder });
-              }}
-              className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="createdAt-desc">创建时间 ↓</option>
-              <option value="createdAt-asc">创建时间 ↑</option>
-              <option value="name-asc">名称 A-Z</option>
-              <option value="name-desc">名称 Z-A</option>
-              <option value="nextRunAt-asc">下次执行 ↑</option>
-              <option value="nextRunAt-desc">下次执行 ↓</option>
-              <option value="lastRunStatus-asc">执行状态 ↑</option>
-              <option value="lastRunStatus-desc">执行状态 ↓</option>
-              <option value="enabled-asc">启用状态 ↑</option>
-              <option value="enabled-desc">启用状态 ↓</option>
-            </select>
+
+            {/* 紧凑模式：更多筛选按钮 */}
+            {isCompact && (
+              <button
+                onClick={() => setShowMoreFilters(!showMoreFilters)}
+                className={`px-2 py-1.5 text-sm rounded transition-colors ${
+                  showMoreFilters
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
+                }`}
+              >
+                {showMoreFilters ? '收起' : '更多'}
+              </button>
+            )}
+
+            {/* 正常模式或紧凑模式下展开时显示所有筛选 */}
+            {(!isCompact || showMoreFilters) && (
+              <>
+                {/* 模式筛选 */}
+                <select
+                  value={filter.mode}
+                  onChange={(e) => setFilter({ ...filter, mode: e.target.value as TaskFilter['mode'] })}
+                  className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">全部模式</option>
+                  <option value="simple">简单模式</option>
+                  <option value="protocol">协议模式</option>
+                </select>
+                {/* 引擎筛选 */}
+                <select
+                  value={filter.engineId}
+                  onChange={(e) => setFilter({ ...filter, engineId: e.target.value })}
+                  className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">全部引擎</option>
+                  {engineOptions.map((engine) => (
+                    <option key={engine} value={engine}>{engine}</option>
+                  ))}
+                </select>
+                {/* 触发类型筛选 */}
+                <select
+                  value={filter.triggerType}
+                  onChange={(e) => setFilter({ ...filter, triggerType: e.target.value as TaskFilter['triggerType'] })}
+                  className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">全部触发</option>
+                  <option value="once">一次性</option>
+                  <option value="cron">Cron</option>
+                  <option value="interval">间隔</option>
+                </select>
+                {/* 执行状态筛选 */}
+                <select
+                  value={filter.lastRunStatus}
+                  onChange={(e) => setFilter({ ...filter, lastRunStatus: e.target.value as TaskFilter['lastRunStatus'] })}
+                  className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">全部执行状态</option>
+                  <option value="running">执行中</option>
+                  <option value="success">成功</option>
+                  <option value="failed">失败</option>
+                  <option value="none">未执行</option>
+                </select>
+                {/* 分组筛选 */}
+                <select
+                  value={filter.group}
+                  onChange={(e) => setFilter({ ...filter, group: e.target.value })}
+                  className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">全部分组</option>
+                  {groupOptions.map((group) => (
+                    <option key={group} value={group}>{group}</option>
+                  ))}
+                </select>
+                {/* 排序 */}
+                <select
+                  value={`${sortState.sortBy}-${sortState.sortOrder}`}
+                  onChange={(e) => {
+                    const [sortBy, sortOrder] = e.target.value.split('-') as [TaskSortBy, SortOrder];
+                    setSortState({ sortBy, sortOrder });
+                  }}
+                  className="px-2 py-1.5 text-sm bg-[#12122a] border border-[#2a2a4a] rounded text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="createdAt-desc">创建时间 ↓</option>
+                  <option value="createdAt-asc">创建时间 ↑</option>
+                  <option value="name-asc">名称 A-Z</option>
+                  <option value="name-desc">名称 Z-A</option>
+                  <option value="nextRunAt-asc">下次执行 ↑</option>
+                  <option value="nextRunAt-desc">下次执行 ↓</option>
+                  <option value="lastRunStatus-asc">执行状态 ↑</option>
+                  <option value="lastRunStatus-desc">执行状态 ↓</option>
+                  <option value="enabled-asc">启用状态 ↑</option>
+                  <option value="enabled-desc">启用状态 ↓</option>
+                </select>
+              </>
+            )}
+
             {/* 清除筛选 */}
             <button
               onClick={() => setFilter(defaultFilter)}
               className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
             >
-              清除筛选
+              {isCompact ? '重置' : '清除筛选'}
             </button>
             {/* 筛选结果数量 */}
             {filteredTasks.length !== tasks.length && (
               <span className="text-xs text-gray-500 ml-2">
-                显示 {filteredTasks.length}/{tasks.length} 条
+                {filteredTasks.length}/{tasks.length}
               </span>
             )}
             {/* 选择模式切换按钮 */}
@@ -1520,15 +1643,17 @@ export function SchedulerPanel() {
                   : 'bg-gray-600/20 text-gray-400 hover:bg-gray-600/30'
               }`}
             >
-              {selectionMode ? '退出选择' : '批量选择'}
+              {selectionMode ? '退出' : isCompact ? '多选' : '批量选择'}
             </button>
             {/* 导出按钮 */}
-            <button
-              onClick={handleExportTasks}
-              className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
-            >
-              导出
-            </button>
+            {!isCompact && (
+              <button
+                onClick={handleExportTasks}
+                className="px-3 py-1.5 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
+              >
+                导出
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1556,6 +1681,7 @@ export function SchedulerPanel() {
                       key={task.id}
                       task={task}
                       showGroupTag={groupNames.length > 1}
+                      isCompact={isCompact}
                       onEdit={() => {
                         setCopyingTask(undefined);
                         setEditingTask(task);
@@ -1605,39 +1731,39 @@ export function SchedulerPanel() {
 
       {/* 批量操作工具栏 */}
       {selectionMode && activeTab === 'tasks' && (
-        <div className="p-3 border-t border-[#2a2a4a] bg-[#1a1a2e] flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="p-3 border-t border-[#2a2a4a] bg-[#1a1a2e] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">
-              已选择 {selectedTaskIds.size}/{filteredTasks.length} 个任务
+              {isCompact ? `${selectedTaskIds.size}/${filteredTasks.length}` : `已选择 ${selectedTaskIds.size}/${filteredTasks.length} 个任务`}
             </span>
             <button
               onClick={handleSelectAll}
-              className="px-3 py-1 text-sm bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors"
+              className="px-2 py-1 text-sm bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors"
             >
-              {selectedTaskIds.size === filteredTasks.length ? '取消全选' : '全选'}
+              {selectedTaskIds.size === filteredTasks.length ? '取消' : '全选'}
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={handleBatchEnable}
               disabled={selectedTaskIds.size === 0}
-              className="px-3 py-1 text-sm bg-green-600/20 text-green-400 hover:bg-green-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`px-2 py-1 text-sm bg-green-600/20 text-green-400 hover:bg-green-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isCompact ? 'text-xs' : ''}`}
             >
-              批量启用
+              {isCompact ? '启用' : '批量启用'}
             </button>
             <button
               onClick={handleBatchDisable}
               disabled={selectedTaskIds.size === 0}
-              className="px-3 py-1 text-sm bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`px-2 py-1 text-sm bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isCompact ? 'text-xs' : ''}`}
             >
-              批量禁用
+              {isCompact ? '禁用' : '批量禁用'}
             </button>
             <button
               onClick={handleBatchDelete}
               disabled={selectedTaskIds.size === 0}
-              className="px-3 py-1 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`px-2 py-1 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isCompact ? 'text-xs' : ''}`}
             >
-              批量删除
+              {isCompact ? '删除' : '批量删除'}
             </button>
           </div>
         </div>
