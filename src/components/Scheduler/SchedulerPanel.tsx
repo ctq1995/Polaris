@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSchedulerStore, useToastStore } from '../../stores';
-import type { TaskLog, CreateTaskParams } from '../../types/scheduler';
+import type { TaskLog, CreateTaskParams, LockStatus } from '../../types/scheduler';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { DropdownMenu } from '../Common/DropdownMenu';
 import type { DropdownMenuItem } from '../Common/DropdownMenu';
@@ -974,6 +974,9 @@ export function SchedulerPanel() {
     autoCleanupIntervalHours: 24,
   });
   const [cleaning, setCleaning] = useState(false);
+  // 调度器状态
+  const [lockStatus, setLockStatus] = useState<LockStatus | null>(null);
+  const [schedulerOperating, setSchedulerOperating] = useState(false);
   // 确认对话框状态
   const [confirmDialog, setConfirmDialog] = useState<{
     show: boolean;
@@ -1027,7 +1030,55 @@ export function SchedulerPanel() {
 
   useEffect(() => {
     loadTasks();
+    loadLockStatus();
   }, [loadTasks]);
+
+  /** 加载调度器锁状态 */
+  const loadLockStatus = async () => {
+    try {
+      const status = await tauri.schedulerGetLockStatus();
+      setLockStatus(status);
+    } catch (e) {
+      console.error('获取锁状态失败:', e);
+    }
+  };
+
+  /** 启动调度器 */
+  const handleStartScheduler = async () => {
+    setSchedulerOperating(true);
+    try {
+      const result = await tauri.schedulerStart();
+      toast.success(result);
+      await loadLockStatus();
+    } catch (e) {
+      toast.error('启动失败', e instanceof Error ? e.message : '未知错误');
+    } finally {
+      setSchedulerOperating(false);
+    }
+  };
+
+  /** 停止调度器 */
+  const handleStopScheduler = () => {
+    setConfirmDialog({
+      show: true,
+      title: '停止调度器',
+      message: '确定要停止调度器吗？\n定时任务将不再自动执行。',
+      type: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setSchedulerOperating(true);
+        try {
+          const result = await tauri.schedulerStop();
+          toast.success(result);
+          await loadLockStatus();
+        } catch (e) {
+          toast.error('停止失败', e instanceof Error ? e.message : '未知错误');
+        } finally {
+          setSchedulerOperating(false);
+        }
+      }
+    });
+  };
 
   // 切换到日志标签页时加载分页日志
   useEffect(() => {
@@ -1439,15 +1490,50 @@ export function SchedulerPanel() {
     <div ref={containerRef} className="h-full flex flex-col bg-[#12122a]">
       {/* 头部 */}
       <div className="p-4 border-b border-[#2a2a4a] flex items-center justify-between">
-        <h1 className="text-xl font-medium text-white flex items-center gap-2">
-          定时任务
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-medium text-white flex items-center gap-2">
+            定时任务
+          </h1>
+          {/* 调度器状态指示器 */}
+          {lockStatus && (
+            <span className={`px-2 py-0.5 rounded text-xs flex items-center gap-1 ${
+              lockStatus.isHolder
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-red-500/20 text-red-400'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${lockStatus.isHolder ? 'bg-green-500' : 'bg-red-500'}`} />
+              {lockStatus.isHolder ? '调度中' : '已停止'}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
+          {/* 调度器控制按钮 */}
+          {lockStatus && (
+            lockStatus.isHolder ? (
+              <button
+                onClick={handleStopScheduler}
+                disabled={schedulerOperating}
+                className="px-3 py-1.5 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="停止调度器"
+              >
+                {isCompact ? '⏹' : '停止调度'}
+              </button>
+            ) : (
+              <button
+                onClick={handleStartScheduler}
+                disabled={schedulerOperating}
+                className="px-3 py-1.5 text-sm bg-green-600/20 text-green-400 hover:bg-green-600/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="启动调度器"
+              >
+                {isCompact ? '▶' : '启动调度'}
+              </button>
+            )
+          )}
           <button
             onClick={handleImportTasks}
             className="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors text-sm"
           >
-            导入
+            {isCompact ? '↓' : '导入'}
           </button>
           <button
             onClick={() => {
@@ -1456,7 +1542,7 @@ export function SchedulerPanel() {
             }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
           >
-            + 新建任务
+            + 新建
           </button>
         </div>
       </div>
