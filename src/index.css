@@ -22,6 +22,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: rgba(15, 15, 17, var(--window-opacity));
   color: #F8F8F8;
+  /* 透明度变化时的平滑过渡 */
+  transition: background-color 0.3s ease;
 }
 
 #root {
