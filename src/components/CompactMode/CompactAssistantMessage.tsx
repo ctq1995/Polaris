@@ -12,6 +12,7 @@ import { useState, useMemo } from 'react'
 import type { AssistantChatMessage, ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from '../../types/chat'
 import { isTextBlock, isThinkingBlock, isToolCallBlock } from '../../types/chat'
 import { ChevronDown, ChevronRight, Check, X, Loader2, Wrench } from 'lucide-react'
+import { CompactTextContent } from './CompactTextContent'
 
 interface CompactAssistantMessageProps {
   message: AssistantChatMessage
@@ -68,35 +69,6 @@ export function CompactAssistantMessage({ message }: CompactAssistantMessageProp
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-/**
- * 简化的文本内容渲染
- */
-function CompactTextContent({ content }: { content: string }) {
-  // 简单的 Markdown 处理：代码块、行内代码、粗体
-  const rendered = useMemo(() => {
-    // 处理代码块
-    let text = content.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-      return `\n[代码: ${lang || 'text'}]\n${code.trim()}\n`
-    })
-
-    // 处理行内代码
-    text = text.replace(/`([^`]+)`/g, '[$1]')
-
-    // 处理粗体
-    text = text.replace(/\*\*([^*]+)\*\*/g, '$1')
-
-    return text
-  }, [content])
-
-  return (
-    <div className="bg-background-surface/50 rounded-lg px-2.5 py-1.5">
-      <p className="text-sm text-text-primary whitespace-pre-wrap break-words">
-        {rendered}
-      </p>
     </div>
   )
 }
