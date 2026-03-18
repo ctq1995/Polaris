@@ -1022,6 +1022,183 @@ describe('chatExport', () => {
         expect(result).toContain('` `` `');
       });
     });
+
+    describe('formatContent 边界情况', () => {
+      it('应正确处理只有代码块的消息', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: '```typescript\nconst x = 1;\n```',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('```typescript');
+        expect(result).toContain('const x = 1;');
+      });
+
+      it('应正确处理空代码块', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: 'Empty:\n```\n```\nDone.',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('Empty:');
+        expect(result).toContain('Done.');
+      });
+
+      it('应正确处理代码块中的代码块标记', () => {
+        // 这种情况下，内部的 ``` 可能会被误解析
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: '```markdown\nHere is an example:\n```\ncode here\n```\n```',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        // 内容应该被保留
+        expect(result).toContain('Here is an example');
+      });
+
+      it('应正确处理连续多个代码块', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: '```js\ncode1\n```\n```js\ncode2\n```\n```js\ncode3\n```',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('code1');
+        expect(result).toContain('code2');
+        expect(result).toContain('code3');
+      });
+
+      it('应正确处理代码块前后有空行的情况', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: 'Before\n\n```js\ncode\n```\n\nAfter',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('Before');
+        expect(result).toContain('code');
+        expect(result).toContain('After');
+      });
+
+      it('应正确处理代码块语言标识包含特殊字符', () => {
+        // 注意：源代码中的正则 ^```(\w+)? 只匹配单词字符
+        // 对于 '```typescript-jsx'，只匹配 'typescript'
+        // 整个 '```typescript-jsx' 行被视为代码块开始标记，'-jsx' 部分丢失
+        // 这是源代码的已知限制，测试记录此行为
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: '```typescript-jsx\ncode\n```',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        // 实际行为：'typescript' 被识别为语言，'-jsx' 部分丢失
+        expect(result).toContain('```typescript');
+        expect(result).toContain('code');
+        // '-jsx' 不会被保留在输出中（源代码限制）
+      });
+
+      it('应正确处理简单语言标识', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: '```typescript\ncode\n```',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('```typescript');
+        expect(result).toContain('code');
+      });
+    });
+
+    describe('消息 ID 处理', () => {
+      it('应正确处理包含特殊字符的消息 ID', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-with-special-chars-123_456',
+            type: 'user',
+            content: 'Test',
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as UserChatMessage,
+        ];
+
+        const result = exportToJson(messages);
+        const parsed = JSON.parse(result);
+        
+        // JSON 导出中不包含消息 ID，但应该正常处理
+        expect(parsed.messages).toHaveLength(1);
+      });
+    });
   });
 
   describe('一致性验证', () => {
