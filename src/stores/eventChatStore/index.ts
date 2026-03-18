@@ -16,10 +16,10 @@
  * - dependencySlice: 依赖注入（解耦 Store 间依赖）
  *
  * 持久化策略：
- * - 使用 zustand persist 中间件自动持久化会话元数据
- * - 只持久化 conversationId 和 currentConversationSeed
+ * - conversationId 不持久化，因为后端会话信息只在内存中
+ * - 应用重启后，后端的会话信息丢失，使用旧的 conversationId 会导致错误
  * - 消息数据通过 historySlice 的 saveToHistory() 手动保存到历史
- * - 运行时状态（isStreaming, currentMessage 等）不持久化
+ * - 每次应用启动都从新会话开始
  */
 
 import { create } from 'zustand'
@@ -54,10 +54,11 @@ export const useEventChatStore = create<EventChatState>()(
     {
       name: PERSIST_STORAGE_NAME,
       version: PERSIST_VERSION,
-      // 只持久化会话元数据，不持久化消息和运行时状态
-      partialize: (state) => ({
-        conversationId: state.conversationId,
-        currentConversationSeed: state.currentConversationSeed,
+      // 不持久化 conversationId，因为后端会话信息只在内存中
+      // 应用重启后，后端的会话信息丢失，使用旧的 conversationId 会导致 error_during_execution
+      // 每次应用启动都从新会话开始
+      partialize: () => ({
+        // conversationId 和 currentConversationSeed 不持久化
       }),
     }
   )
