@@ -55,7 +55,7 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
 
   clearMessages: () => {
     // 清理 Provider Session
-    const { providerSessionCache, _eventListenersCleanup } = get()
+    const { providerSessionCache } = get()
     if (providerSessionCache?.session) {
       try {
         providerSessionCache.session.dispose()
@@ -64,14 +64,9 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
       }
     }
 
-    // 清理事件监听器（如果存在）
-    if (_eventListenersCleanup) {
-      try {
-        _eventListenersCleanup()
-      } catch (e) {
-        console.warn('[EventChatStore] 清理事件监听器失败:', e)
-      }
-    }
+    // 注意：不清理事件监听器
+    // 事件监听器应该在应用生命周期内保持活跃，而不是与单个对话绑定
+    // 它们由 App.tsx 的 useEffect 管理，只在组件卸载时清理
 
     // 清理文件读取缓存
     clearFileReadCache()
@@ -92,16 +87,7 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
       currentMessage: null,
       toolBlockMap: new Map(),
       providerSessionCache: null,
-      _eventListenersInitialized: false,
-      _eventListenersCleanup: null,
-    })
-
-    // 重新初始化事件监听器
-    // 注意：必须在状态更新后执行，因为 initializeEventListeners 会检查 _eventListenersInitialized
-    get().initializeEventListeners().then(() => {
-      console.log('[EventChatStore] 新对话：事件监听器已重新初始化')
-    }).catch((e) => {
-      console.error('[EventChatStore] 新对话：事件监听器重新初始化失败:', e)
+      // 不重置事件监听器状态，保持其在应用生命周期内活跃
     })
   },
 
