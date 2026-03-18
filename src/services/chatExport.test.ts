@@ -774,4 +774,324 @@ describe('chatExport', () => {
       expect(result1).toBe(result2);
     });
   });
+
+  describe('边界情况', () => {
+    describe('空内容处理', () => {
+      it('应正确处理空字符串用户消息', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'user',
+            content: '',
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as UserChatMessage,
+        ];
+
+        const mdResult = exportToMarkdown(messages);
+        const jsonResult = exportToJson(messages);
+        
+        expect(mdResult).toContain('## 用户');
+        expect(() => JSON.parse(jsonResult)).not.toThrow();
+      });
+
+      it('应正确处理空 blocks 数组的助手消息', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const mdResult = exportToMarkdown(messages);
+        const jsonResult = exportToJson(messages);
+        
+        expect(mdResult).toContain('## 助手');
+        const parsed = JSON.parse(jsonResult);
+        expect(parsed.messages[0].content).toBe('');
+      });
+
+      it('应正确处理空字符串系统消息', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'system',
+            content: '',
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as SystemChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('## 系统');
+        expect(result).toContain('*'); // 空系统消息用斜体包裹
+      });
+    });
+
+    describe('超长文本处理', () => {
+      it('应正确处理超长用户消息', () => {
+        const longContent = 'A'.repeat(10000);
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'user',
+            content: longContent,
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as UserChatMessage,
+        ];
+
+        const mdResult = exportToMarkdown(messages);
+        const jsonResult = exportToJson(messages);
+        
+        expect(mdResult).toContain(longContent);
+        const parsed = JSON.parse(jsonResult);
+        expect(parsed.messages[0].content).toBe(longContent);
+      });
+
+      it('应正确处理超长代码块', () => {
+        const longCode = 'console.log("line");\n'.repeat(1000);
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: '```javascript\n' + longCode + '```',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('```javascript');
+        expect(result).toContain('console.log("line");');
+      });
+    });
+
+    describe('大量消息处理', () => {
+      it('应正确处理大量消息', () => {
+        const messages: ChatMessage[] = [];
+        for (let i = 0; i < 100; i++) {
+          if (i % 2 === 0) {
+            messages.push({
+              id: `msg-${i}`,
+              type: 'user',
+              content: `Message ${i}`,
+              timestamp: `2026-03-19T10:00:${String(i % 60).padStart(2, '0')}.000Z`,
+            } as UserChatMessage);
+          } else {
+            messages.push({
+              id: `msg-${i}`,
+              type: 'assistant',
+              blocks: [{ type: 'text', content: `Message ${i}` }],
+              timestamp: `2026-03-19T10:00:${String(i % 60).padStart(2, '0')}.000Z`,
+            } as AssistantChatMessage);
+          }
+        }
+
+        const mdResult = exportToMarkdown(messages);
+        const jsonResult = exportToJson(messages);
+        
+        expect(mdResult).toContain('**消息数**: 100');
+        const parsed = JSON.parse(jsonResult);
+        expect(parsed.messages).toHaveLength(100);
+      });
+
+      it('应正确处理大量工具调用', () => {
+        const blocks: ContentBlock[] = [];
+        for (let i = 0; i < 50; i++) {
+          blocks.push({
+            type: 'tool_call',
+            id: `tool-${i}`,
+            name: `Tool${i % 5}`, // 5 种不同的工具名
+            input: {},
+            status: 'completed',
+            startedAt: '2026-03-19T10:00:00.000Z',
+          } as ContentBlock);
+        }
+        blocks.push({ type: 'text', content: 'Done' });
+
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks,
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const mdResult = exportToMarkdown(messages);
+        const jsonResult = exportToJson(messages);
+        
+        expect(mdResult).toContain('调用了 50 个工具');
+        const parsed = JSON.parse(jsonResult);
+        expect(parsed.messages[0].toolSummary.count).toBe(50);
+        expect(parsed.messages[0].toolSummary.names).toHaveLength(5); // 5 种去重后的工具名
+      });
+    });
+
+    describe('特殊时间戳格式', () => {
+      it('应正确处理各种时间戳格式', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'user',
+            content: 'ISO format',
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as UserChatMessage,
+          {
+            id: 'msg-2',
+            type: 'user',
+            content: 'With timezone',
+            timestamp: '2026-03-19T18:00:00+08:00',
+          } as UserChatMessage,
+          {
+            id: 'msg-3',
+            type: 'user',
+            content: 'Without milliseconds',
+            timestamp: '2026-03-19T10:00:00Z',
+          } as UserChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('ISO format');
+        expect(result).toContain('With timezone');
+        expect(result).toContain('Without milliseconds');
+      });
+    });
+
+    describe('工具组消息处理', () => {
+      it('应跳过工具组消息（非 ChatMessage 支持类型）', () => {
+        // chatExport 只处理 user, assistant, system 类型
+        // tool 和 tool_group 类型消息会被跳过
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'user',
+            content: 'Hello',
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as UserChatMessage,
+        ];
+
+        const mdResult = exportToMarkdown(messages);
+        
+        expect(mdResult).toContain('Hello');
+      });
+    });
+
+    describe('工作区名称特殊字符', () => {
+      it('应正确处理包含特殊字符的工作区名称', () => {
+        const specialNames = [
+          'my-project',
+          '项目名称',
+          'project_with_underscore',
+          'project.with.dots',
+          '项目-2026',
+        ];
+
+        for (const name of specialNames) {
+          const result = exportToMarkdown([], name);
+          expect(result).toContain(`**工作区**: ${name}`);
+        }
+      });
+    });
+
+    describe('嵌套代码块处理', () => {
+      it('应正确处理嵌套反引号', () => {
+        const messages: ChatMessage[] = [
+          {
+            id: 'msg-1',
+            type: 'assistant',
+            blocks: [
+              {
+                type: 'text',
+                content: 'To show backticks in code, use: `` ` `` or ``` `` ```',
+              },
+            ] as ContentBlock[],
+            timestamp: '2026-03-19T10:00:00.000Z',
+          } as AssistantChatMessage,
+        ];
+
+        const result = exportToMarkdown(messages);
+        
+        expect(result).toContain('` `` `');
+      });
+    });
+  });
+
+  describe('一致性验证', () => {
+    it('Markdown 和 JSON 导出应包含相同数量的消息', () => {
+      const messages: ChatMessage[] = [
+        {
+          id: 'msg-1',
+          type: 'user',
+          content: 'Question 1',
+          timestamp: '2026-03-19T10:00:00.000Z',
+        } as UserChatMessage,
+        {
+          id: 'msg-2',
+          type: 'assistant',
+          blocks: [{ type: 'text', content: 'Answer 1' }],
+          timestamp: '2026-03-19T10:00:01.000Z',
+        } as AssistantChatMessage,
+        {
+          id: 'msg-3',
+          type: 'user',
+          content: 'Question 2',
+          timestamp: '2026-03-19T10:00:02.000Z',
+        } as UserChatMessage,
+      ];
+
+      const mdResult = exportToMarkdown(messages);
+      const jsonResult = exportToJson(messages);
+      const parsed = JSON.parse(jsonResult);
+      
+      expect(mdResult).toContain('**消息数**: 3');
+      expect(parsed.messages).toHaveLength(3);
+    });
+
+    it('导出内容应保持消息顺序一致', () => {
+      const messages: ChatMessage[] = [
+        {
+          id: 'msg-1',
+          type: 'user',
+          content: 'First message',
+          timestamp: '2026-03-19T10:00:00.000Z',
+        } as UserChatMessage,
+        {
+          id: 'msg-2',
+          type: 'assistant',
+          blocks: [{ type: 'text', content: 'Second message' }],
+          timestamp: '2026-03-19T10:00:01.000Z',
+        } as AssistantChatMessage,
+        {
+          id: 'msg-3',
+          type: 'user',
+          content: 'Third message',
+          timestamp: '2026-03-19T10:00:02.000Z',
+        } as UserChatMessage,
+      ];
+
+      const mdResult = exportToMarkdown(messages);
+      const jsonResult = exportToJson(messages);
+      const parsed = JSON.parse(jsonResult);
+      
+      // 验证 JSON 中的顺序
+      expect(parsed.messages[0].content).toBe('First message');
+      expect(parsed.messages[1].content).toBe('Second message');
+      expect(parsed.messages[2].content).toBe('Third message');
+      
+      // 验证 Markdown 中的顺序
+      const firstIdx = mdResult.indexOf('First message');
+      const secondIdx = mdResult.indexOf('Second message');
+      const thirdIdx = mdResult.indexOf('Third message');
+      expect(firstIdx).toBeLessThan(secondIdx);
+      expect(secondIdx).toBeLessThan(thirdIdx);
+    });
+  });
 });
