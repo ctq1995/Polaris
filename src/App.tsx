@@ -478,15 +478,17 @@ function App() {
 
       {/* 主体内容区域：新布局 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Activity Bar - 始终显示 */}
-        <ActivityBar
-          onOpenSettings={() => setShowSettings(true)}
-          onToggleRightPanel={toggleRightPanel}
-          rightPanelCollapsed={rightPanelCollapsed}
-        />
+        {/* Activity Bar - 小屏模式下隐藏 */}
+        {!isCompact && (
+          <ActivityBar
+            onOpenSettings={() => setShowSettings(true)}
+            onToggleRightPanel={toggleRightPanel}
+            rightPanelCollapsed={rightPanelCollapsed}
+          />
+        )}
 
         {/* 左侧可切换面板 (FileExplorer 或 GitPanel 或 TodoPanel 或 ToolPanel 或 DeveloperPanel) - 条件显示 */}
-        {leftPanelType !== 'none' && (
+        {hasLeftPanel && (
           <LeftPanel fillRemaining={leftPanelFillRemaining}>
             <LeftPanelContent
               filesContent={<FileExplorer />}
