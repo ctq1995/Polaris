@@ -5,14 +5,16 @@
  * - 极简顶部：仅引擎选择器
  * - 全屏对话消息区域
  * - 底部固定输入框
+ * - 消息导航功能
  */
 
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Clock } from 'lucide-react'
 import { useConfigStore, useEventChatStore, useWorkspaceStore, useViewStore } from '../../stores'
-import { CompactMessageList } from './CompactMessageList'
+import { CompactMessageList, type CompactMessageListRef } from './CompactMessageList'
 import { CompactChatInput } from './CompactChatInput'
+import { CompactChatNavigator } from './CompactChatNavigator'
 import type { EngineId } from '../../types'
 import type { Attachment } from '../../types/attachment'
 import type { CommandOptionValue } from '../../types/engineCommand'
@@ -30,6 +32,7 @@ export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: Comp
   const { error, clearMessages, messages } = useEventChatStore()
   const currentWorkspace = useWorkspaceStore(state => state.getCurrentWorkspace())
   const { toggleSessionHistory } = useViewStore()
+  const messageListRef = useRef<CompactMessageListRef>(null)
 
   // 引擎选项列表
   const engineOptions = useMemo(() => {
@@ -72,6 +75,16 @@ export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: Comp
     }
   }
 
+  // 滚动到指定消息
+  const handleScrollToMessage = (index: number) => {
+    messageListRef.current?.scrollToMessage(index)
+  }
+
+  // 滚动到底部
+  const handleScrollToBottom = () => {
+    messageListRef.current?.scrollToBottom()
+  }
+
   return (
     <div className="flex flex-col h-full bg-background compact-mode-transition">
       {/* 极简顶部 - 引擎选择器 + 快捷操作 */}
@@ -90,8 +103,16 @@ export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: Comp
           </select>
         </div>
 
-        {/* 右侧：快捷操作 */}
+        {/* 右侧：导航 + 快捷操作 */}
         <div className="flex items-center gap-1">
+          {/* 消息导航 */}
+          {messages.length > 1 && (
+            <CompactChatNavigator
+              onScrollToMessage={handleScrollToMessage}
+              onScrollToBottom={handleScrollToBottom}
+            />
+          )}
+
           {/* 新对话 */}
           <button
             onClick={handleNewChat}
@@ -121,7 +142,7 @@ export function CompactMode({ onSend, onInterrupt, disabled, isStreaming }: Comp
       )}
 
       {/* 对话消息区域 - 占据剩余空间 */}
-      <CompactMessageList />
+      <CompactMessageList ref={messageListRef} />
 
       {/* 底部固定输入框 */}
       <CompactChatInput
