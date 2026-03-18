@@ -249,6 +249,16 @@ describe('statusSlice', () => {
       })
       expect(store.getState().worktreeDiffs).toEqual(mockDiffs)
     })
+
+    it('应处理获取工作区 diff 错误', async () => {
+      mockInvoke.mockRejectedValueOnce(new Error('Worktree error'))
+
+      const store = createTestStore()
+      await store.getState().getWorktreeDiff('/workspace')
+
+      expect(store.getState().worktreeDiffs).toEqual([])
+      expect(store.getState().error).toBe('Worktree error')
+    })
   })
 
   describe('getIndexDiff', () => {
@@ -265,6 +275,54 @@ describe('statusSlice', () => {
         workspacePath: '/workspace',
       })
       expect(store.getState().indexDiffs).toEqual(mockDiffs)
+    })
+
+    it('应处理获取暂存区 diff 错误', async () => {
+      mockInvoke.mockRejectedValueOnce(new Error('Index error'))
+
+      const store = createTestStore()
+      await store.getState().getIndexDiff('/workspace')
+
+      expect(store.getState().indexDiffs).toEqual([])
+      expect(store.getState().error).toBe('Index error')
+    })
+  })
+
+  describe('getIndexFileDiff', () => {
+    it('应获取单个文件的暂存区 diff', async () => {
+      const mockDiff: GitDiffEntry = {
+        path: 'staged-file.ts',
+        status: 'added',
+        hunks: [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 5, content: '@@ -0,0 +1,5 @@' }],
+      }
+      mockInvoke.mockResolvedValueOnce(mockDiff)
+
+      const store = createTestStore()
+      const result = await store.getState().getIndexFileDiff('/workspace', 'staged-file.ts')
+
+      expect(mockInvoke).toHaveBeenCalledWith('git_get_index_file_diff', {
+        workspacePath: '/workspace',
+        filePath: 'staged-file.ts',
+      })
+      expect(result).toEqual(mockDiff)
+    })
+
+    it('应抛出解析后的错误', async () => {
+      mockInvoke.mockRejectedValueOnce(new Error('File not staged'))
+
+      const store = createTestStore()
+      await expect(
+        store.getState().getIndexFileDiff('/workspace', 'not-staged.ts')
+      ).rejects.toThrow('File not staged')
+    })
+
+    it('应处理对象形式的错误', async () => {
+      mockInvoke.mockRejectedValueOnce({ message: 'Unknown error', details: 'extra info' })
+
+      const store = createTestStore()
+      await expect(
+        store.getState().getIndexFileDiff('/workspace', 'file.ts')
+      ).rejects.toThrow('Unknown error (extra info)')
     })
   })
 
@@ -327,6 +385,30 @@ describe('statusSlice', () => {
       expect(files).toContain('unstaged.ts')
       expect(files).toContain('untracked.ts')
       expect(files).toHaveLength(3)
+    })
+
+    it('应正确处理重复文件路径（staged 和 unstaged 同一文件）', () => {
+      const store = createTestStore()
+      store.setState({
+        status: {
+          branch: 'main',
+          ahead: 0,
+          behind: 0,
+          staged: [{ path: 'file.ts', status: 'modified' }],
+          unstaged: [{ path: 'file.ts', status: 'modified' }],
+          untracked: [],
+          conflicts: [],
+          stashes: 0,
+          isRebasing: false,
+          isMerging: false,
+          isCherryPicking: false,
+          isReverting: false,
+        },
+      })
+
+      const files = store.getState().getChangedFiles()
+      // 允许重复（部分暂存的情况）
+      expect(files).toEqual(['file.ts', 'file.ts'])
     })
   })
 
