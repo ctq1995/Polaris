@@ -5,6 +5,9 @@
  */
 
 import type { AITool, AIToolInput, AIToolResult } from './types/tool-types'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('ToolRegistry')
 
 /**
  * 工具注册表接口
@@ -193,12 +196,12 @@ export class ToolRegistryImpl implements ToolRegistry {
 
   unregister(name: string): void {
     this.tools.delete(name)
-    console.log(`[ToolRegistry] Unregistered tool: ${name}`)
+    log.debug(`Unregistered tool: ${name}`)
   }
 
   clear(): void {
     this.tools.clear()
-    console.log('[ToolRegistry] Cleared all tools')
+    log.debug('Cleared all tools')
   }
 }
 

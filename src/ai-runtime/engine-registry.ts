@@ -7,6 +7,9 @@
 
 import type { AIEngine, EngineDescriptor, EngineCapabilities } from './engine'
 import { getEventBus } from './event-bus'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('AIEngineRegistry')
 
 /**
  * Engine 注册信息
@@ -92,7 +95,7 @@ export class AIEngineRegistry {
     // 自动初始化
     if (options.autoInitialize) {
       this.initialize(engineId).catch((err) => {
-        console.error(`[AIEngineRegistry] Failed to initialize "${engineId}":`, err)
+        log.error(`Failed to initialize "${engineId}":`, err)
       })
     }
   }
@@ -343,7 +346,7 @@ export class AIEngineRegistry {
       try {
         await registration.engine.cleanup()
       } catch (error) {
-        console.error(`[AIEngineRegistry] Failed to cleanup "${engineId}":`, error)
+        log.error(`Failed to cleanup "${engineId}":`, error instanceof Error ? error : new Error(String(error)))
       }
     }
 
@@ -432,7 +435,7 @@ export class AIEngineRegistry {
       try {
         listener(event)
       } catch (error) {
-        console.error('[AIEngineRegistry] Listener error:', error)
+        log.error('Listener error:', error instanceof Error ? error : new Error(String(error)))
       }
     })
 

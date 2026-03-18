@@ -8,6 +8,9 @@
 import { invoke } from '@tauri-apps/api/core'
 import { getEventRouter, createContextId } from './eventRouter'
 import type { GitDiffEntry } from '@/types/git'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('CommitMessageGenerator')
 
 export interface GenerateCommitMessageOptions {
   workspacePath: string
@@ -176,7 +179,7 @@ async function callAIForCommitMessage(
                 break
             }
           } catch (e) {
-            console.error('[callAIForCommitMessage] Failed to process event:', e)
+            log.error('Failed to process event:', e instanceof Error ? e : new Error(String(e)))
           }
         })
 

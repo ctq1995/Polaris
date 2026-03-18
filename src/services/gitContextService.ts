@@ -5,6 +5,9 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import type { CommitContextChip, DiffContextChip } from '../types/context';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('GitContextService');
 
 /**
  * Git 提交信息
@@ -124,7 +127,7 @@ export async function getGitStatus(workDir: string): Promise<GitStatus | null> {
     });
     return result;
   } catch (error) {
-    console.error('Failed to get git status:', error);
+    log.error('Failed to get git status:', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 }

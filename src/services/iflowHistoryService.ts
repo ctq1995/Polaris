@@ -6,6 +6,9 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import type { Message, ToolCall } from '../types'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('IFlowHistoryService')
 
 // ============================================================================
 // 类型定义
@@ -128,7 +131,7 @@ export class IFlowHistoryService {
       const stats = await invoke<IFlowTokenStats>('get_iflow_token_stats', { sessionId })
       return stats
     } catch (e) {
-      console.error('[IFlowHistoryService] 获取 Token 统计失败:', e)
+      log.error('获取 Token 统计失败:', e instanceof Error ? e : new Error(String(e)))
       return null
     }
   }

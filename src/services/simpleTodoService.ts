@@ -7,6 +7,9 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import type { TodoItem, TodoCreateParams, TodoUpdateParams } from '@/types'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('SimpleTodoService')
 
 const TODO_FILE = '.polaris/todos.json'
 
@@ -76,7 +79,7 @@ export class SimpleTodoService {
    */
   private async saveToFile(): Promise<void> {
     if (!this.workspacePath) {
-      console.warn('[SimpleTodoService] 未设置工作区,无法保存')
+      log.warn('未设置工作区,无法保存')
       return
     }
 
@@ -93,9 +96,9 @@ export class SimpleTodoService {
         content: JSON.stringify(data, null, 2),
       })
 
-      console.log(`[SimpleTodoService] 已保存 ${this.todos.length} 个待办到 ${filePath}`)
+      log.debug(`已保存 ${this.todos.length} 个待办到 ${filePath}`)
     } catch (error) {
-      console.error('[SimpleTodoService] 保存失败:', error)
+      log.error('保存失败:', error instanceof Error ? error : new Error(String(error)))
       throw error
     }
   }

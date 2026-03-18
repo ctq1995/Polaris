@@ -11,6 +11,9 @@ import { BaseSession } from '../../ai-runtime/base'
 import { createEventIterable } from '../../ai-runtime/base'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('ClaudeCodeSession')
 
 /**
  * Claude Code 会话配置
@@ -127,7 +130,7 @@ export class ClaudeCodeSession extends BaseSession {
         }
       )
     } catch (error) {
-      console.error('[ClaudeCodeSession] Failed to setup event listeners:', error)
+      console.error('[ClaudeCodeSession] Failed to setup event listeners:', error instanceof Error ? error : new Error(String(error)))
       throw error
     }
   }
@@ -149,7 +152,7 @@ export class ClaudeCodeSession extends BaseSession {
     try {
       await invoke('start_chat', args)
     } catch (error) {
-      console.error('[ClaudeCodeSession] Failed to start Claude process:', error)
+      log.error('Failed to start Claude process:', error instanceof Error ? error : new Error(String(error)))
       throw error
     }
   }

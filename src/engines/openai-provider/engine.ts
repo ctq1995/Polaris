@@ -19,6 +19,9 @@ import type {
 } from '../../ai-runtime'
 import { createCapabilities, getEngineRegistry, validateOpenAIProviderConfig } from '../../ai-runtime'
 import { OpenAIProviderSession, type OpenAIProviderSessionConfig } from './session'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('OpenAIProviderEngine')
 
 /**
  * OpenAI Provider Engine 配置
@@ -400,7 +403,7 @@ export async function clearOpenAIProviderEngines(): Promise<void> {
   for (const engineDesc of allEngines) {
     if (engineDesc.id.startsWith('provider-')) {
       await registry.unregister(engineDesc.id)
-      console.log(`[OpenAIProviderEngine] Unregistered engine: ${engineDesc.id}`)
+      log.info(`Unregistered engine: ${engineDesc.id}`)
     }
   }
 
@@ -409,5 +412,5 @@ export async function clearOpenAIProviderEngines(): Promise<void> {
     engine.cleanup()
   })
   engineCache.clear()
-  console.log('[OpenAIProviderEngine] Cleared all engines')
+  log.info('Cleared all engines')
 }

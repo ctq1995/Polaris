@@ -9,6 +9,9 @@ import { simpleTodoService } from '@/services/simpleTodoService'
 import { useWorkspaceStore } from '@/stores'
 import type { TodoPriority, TodoStatus } from '@/types'
 import type { AITool, AIToolInput, AIToolResult } from '../types/tool-types'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('TodoTools')
 
 /**
  * 获取当前工作区路径并确保待办服务已初始化
@@ -44,11 +47,11 @@ async function ensureWorkspace(): Promise<string> {
   if (currentPath !== currentWorkspace.path) {
     // 工作区切换，重新加载
     const todoCount = await simpleTodoService.setWorkspace(currentWorkspace.path)
-    console.log('[ensureWorkspace] 工作区已切换:', currentWorkspace.name, `${currentWorkspace.path} (${todoCount} 个待办)`)
+    log.debug('工作区已切换', { name: currentWorkspace.name, path: currentWorkspace.path, todoCount })
   } else {
     // 工作区未切换，使用内存中的最新数据
     const stats = simpleTodoService.getStats()
-    console.log('[ensureWorkspace] 工作区未切换，使用当前数据:', currentWorkspace.name, `(${stats.total} 个待办)`)
+    log.debug('工作区未切换，使用当前数据', { name: currentWorkspace.name, total: stats.total })
   }
 
   return currentWorkspace.path
@@ -311,7 +314,7 @@ export const updateTodoTool: AITool = {
       // 执行更新
       await simpleTodoService.updateTodo(todoId, updates)
 
-      console.log('[updateTodoTool] 更新待办成功:', todoId, updates)
+      log.debug('更新待办成功', { todoId, updates })
 
       return {
         success: true,
@@ -322,7 +325,7 @@ export const updateTodoTool: AITool = {
         },
       }
     } catch (error) {
-      console.error('[updateTodoTool] 更新失败:', error)
+      log.error('更新失败', error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: `更新待办失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -509,7 +512,7 @@ export const completeTodoTool: AITool = {
       // 标记为完成
       await simpleTodoService.updateTodo(todoId, { status: 'completed' })
 
-      console.log('[completeTodoTool] 完成待办成功:', todoId)
+      log.debug('完成待办成功:', { todoId })
 
       return {
         success: true,
@@ -520,7 +523,7 @@ export const completeTodoTool: AITool = {
         },
       }
     } catch (error) {
-      console.error('[completeTodoTool] 完成待办失败:', error)
+      log.error('完成待办失败:', error instanceof Error ? error : new Error(String(error)))
       return {
         success: false,
         error: `完成待办失败: ${error instanceof Error ? error.message : String(error)}`,

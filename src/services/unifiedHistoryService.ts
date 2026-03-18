@@ -9,6 +9,9 @@ import { getClaudeCodeHistoryService } from './claudeCodeHistoryService'
 import { getIFlowHistoryService } from './iflowHistoryService'
 import { getCodexHistoryService } from './codexHistoryService'
 import type { Message } from '../types'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('UnifiedHistoryService')
 
 // ============================================================================
 // 类型定义
@@ -213,7 +216,7 @@ export class UnifiedHistoryService {
 
       case 'codex': {
         if (!options?.filePath) {
-          console.error('[UnifiedHistoryService] Codex 需要 filePath 参数')
+          log.error('Codex 需要 filePath 参数')
           return []
         }
         const codexMessages = await this.codexService.getSessionHistory(options.filePath)

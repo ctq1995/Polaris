@@ -15,6 +15,9 @@ import { createEventIterable } from '../../ai-runtime/base'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { isTextFile } from '../../types/attachment'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('OpenAIProviderSession')
 
 /**
  * OpenAI Provider 会话配置
@@ -461,7 +464,7 @@ export class OpenAIProviderSession extends BaseSession {
       const decoder = new TextDecoder('utf-8', { fatal: false })
       return decoder.decode(bytes)
     } catch (e) {
-      console.warn('[OpenAIProviderSession] 解码 base64 内容失败:', e)
+      log.warn('解码 base64 内容失败:', { error: String(e) })
       return null
     }
   }

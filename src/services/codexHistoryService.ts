@@ -6,6 +6,9 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import type { Message, ToolCall } from '../types'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('CodexHistoryService')
 
 // ============================================================================
 // 类型定义
@@ -80,7 +83,7 @@ export class CodexHistoryService {
       })
       return messages
     } catch (e) {
-      console.error('[CodexHistoryService] 获取会话历史失败:', e)
+      log.error('获取会话历史失败:', e instanceof Error ? e : new Error(String(e)))
       return []
     }
   }

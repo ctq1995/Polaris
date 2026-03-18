@@ -3,6 +3,9 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('FileSearch');
 
 export interface FileMatch {
   name: string;
@@ -47,7 +50,7 @@ export async function searchFiles(
       extension: r.extension,
     }));
   } catch (error) {
-    console.error('Failed to search files:', error);
+    log.error('Failed to search files:', error instanceof Error ? error : new Error(String(error)));
     return [];
   }
 }

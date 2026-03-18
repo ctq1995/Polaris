@@ -7,6 +7,9 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import type { Message, ChatMessage, ContentBlock, UserChatMessage, AssistantChatMessage, SystemChatMessage, ToolCallBlock } from '../types'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('ClaudeCodeHistoryService')
 
 // ============================================================================
 // 类型定义
@@ -53,7 +56,7 @@ export class ClaudeCodeHistoryService {
       })
       return sessions
     } catch (e) {
-      console.error('[ClaudeCodeHistoryService] 列出会话失败:', e)
+      log.error('列出会话失败:', e instanceof Error ? e : new Error(String(e)))
       return []
     }
   }

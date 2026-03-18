@@ -8,6 +8,9 @@ import { openPath } from '@tauri-apps/plugin-opener';
 import { save } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { Config, HealthStatus } from '../types';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('TauriService');
 
 // 导出 invoke 和 listen 供其他模块使用
 export { invoke, listen };
@@ -462,7 +465,7 @@ export async function saveChatToFile(content: string, defaultFileName: string): 
     }
     return null;
   } catch (e) {
-    console.error('保存文件失败:', e);
+    log.error('保存文件失败:', e instanceof Error ? e : new Error(String(e)));
     throw e;
   }
 }

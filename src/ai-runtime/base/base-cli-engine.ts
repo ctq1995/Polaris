@@ -52,6 +52,9 @@ import type { AITask, AIEvent } from '../index'
 import { BaseSession } from './base-session'
 import { createEventIterable } from './base-session'
 import { validateCLIEngineConfig } from '../config-validator'
+import { createLogger } from '../../utils/logger'
+
+const log = createLogger('BaseCLIEngine')
 
 /**
  * CLI Engine 配置接口
@@ -153,7 +156,7 @@ export abstract class BaseCLISession extends BaseSession {
    */
   protected abortTask(taskId?: string): void {
     if (taskId && taskId !== this.currentTaskId) {
-      console.warn(`[${this.engineId}Session] 任务 ID 不匹配: ${taskId} != ${this.currentTaskId}`)
+      log.warn(`[${this.engineId}Session] 任务 ID 不匹配: ${taskId} != ${this.currentTaskId}`)
       return
     }
 
@@ -161,7 +164,7 @@ export abstract class BaseCLISession extends BaseSession {
       try {
         this.process.kill()
       } catch (e) {
-        console.error(`[${this.engineId}Session] 终止进程失败:`, e)
+        log.error(`[${this.engineId}Session] 终止进程失败:`, e instanceof Error ? e : new Error(String(e)))
       }
       this.process = null
     }
