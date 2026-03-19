@@ -259,7 +259,10 @@ export class ClaudeCodeHistoryService {
   }
 
   /**
-   * 检查消息是否为 tool_result 类型（工具执行结果）
+   * 检查消息是否为纯 tool_result 类型（工具执行结果）
+   *
+   * 只有当消息仅包含 tool_result（没有文本内容）时才返回 true。
+   * 如果消息同时包含文本和 tool_result，则返回 false，由 extractUserContent 提取文本。
    *
    * tool_result 消息格式：
    * {
@@ -281,15 +284,23 @@ export class ClaudeCodeHistoryService {
       return false
     }
 
-    // 检查数组中是否包含 tool_result
+    // 检查数组是否仅包含 tool_result（没有文本内容）
     if (Array.isArray(content)) {
+      let hasToolResult = false
+      let hasText = false
+
       for (const item of content) {
         if (item && typeof item === 'object' && 'type' in item) {
           if (item.type === 'tool_result') {
-            return true
+            hasToolResult = true
+          } else if (item.type === 'text') {
+            hasText = true
           }
         }
       }
+
+      // 只有包含 tool_result 且没有文本内容时才跳过
+      return hasToolResult && !hasText
     }
 
     return false
