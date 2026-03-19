@@ -394,7 +394,7 @@ impl IFlowEngine {
 
         BufReader::new(file)
             .lines()
-            .filter_map(|r| r.ok())
+            .map_while(|r| r.ok())
             .filter(|l| !l.trim().is_empty())
             .count()
     }
@@ -474,7 +474,7 @@ impl IFlowEngine {
             // 读取文件当前内容，帮助调试
             if let Ok(file) = File::open(&path) {
                 let reader = BufReader::new(file);
-                let lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).take(5).collect();
+                let lines: Vec<String> = reader.lines().map_while(|r| r.ok()).take(5).collect();
                 tracing::info!(
                     "[IFlowEngine] 文件当前有 {} 行（显示前5行）: {:?}",
                     lines.len(),
@@ -658,7 +658,7 @@ impl IFlowEngine {
         let stderr = child.stderr.take()?;
         let reader = BufReader::new(stderr);
 
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             tracing::debug!("[iflow stderr] {}", line);
 
             // 从 stderr 提取 session_id
@@ -760,7 +760,7 @@ impl AIEngine for IFlowEngine {
         if let Some(stderr) = stderr {
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
-                for line in reader.lines().filter_map(|r| r.ok()) {
+                for line in reader.lines().map_while(|r| r.ok()) {
                     tracing::info!("[IFlowEngine] CLI stderr: {}", line);
 
                     // 尝试从 stderr 解析 session-id
@@ -793,7 +793,7 @@ impl AIEngine for IFlowEngine {
         if let Some(stdout) = stdout {
             std::thread::spawn(move || {
                 let reader = BufReader::new(stdout);
-                for line in reader.lines().filter_map(|r| r.ok()) {
+                for line in reader.lines().map_while(|r| r.ok()) {
                     tracing::debug!("[IFlowEngine] CLI stdout: {}", line);
                 }
             });
@@ -1059,7 +1059,7 @@ impl AIEngine for IFlowEngine {
         if let Some(stderr) = stderr {
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
-                for line in reader.lines().filter_map(|r| r.ok()) {
+                for line in reader.lines().map_while(|r| r.ok()) {
                     tracing::info!("[IFlowEngine] CLI stderr ({}): {}", temp_id_for_stderr, line);
 
                     // 尝试从 stderr 解析 session-id
@@ -1095,7 +1095,7 @@ impl AIEngine for IFlowEngine {
             let sid = real_session_id.clone();
             std::thread::spawn(move || {
                 let reader = BufReader::new(stdout);
-                for line in reader.lines().filter_map(|r| r.ok()) {
+                for line in reader.lines().map_while(|r| r.ok()) {
                     tracing::debug!("[IFlowEngine] CLI stdout ({}): {}", sid, line);
                 }
             });

@@ -128,7 +128,7 @@ impl IFlowService {
         let mut updated_at: Option<String> = None;
         let mut session_id = String::new();
 
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             let line_trimmed = line.trim();
             if line_trimmed.is_empty() {
                 continue;
@@ -194,7 +194,7 @@ impl IFlowService {
         let reader = BufReader::new(file);
         let mut messages = Vec::new();
 
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             let line_trimmed = line.trim();
             if line_trimmed.is_empty() {
                 continue;
@@ -268,7 +268,7 @@ impl IFlowService {
         let reader = BufReader::new(file);
         let mut file_map: HashMap<String, IFlowFileContext> = HashMap::new();
 
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             let line_trimmed = line.trim();
             if line_trimmed.is_empty() {
                 continue;
@@ -345,7 +345,7 @@ impl IFlowService {
         let mut user_message_count = 0u32;
         let mut assistant_message_count = 0u32;
 
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             let line_trimmed = line.trim();
             if line_trimmed.is_empty() {
                 continue;

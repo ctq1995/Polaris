@@ -575,7 +575,7 @@ fn parse_session_metadata(file_path: &PathBuf) -> (Option<String>, usize, Option
 
     if let Ok(file) = std::fs::File::open(file_path) {
         let reader = BufReader::new(file);
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
                 if let Some(msg_type) = json.get("type").and_then(|t| t.as_str()) {
                     if msg_type == "user" {
@@ -748,7 +748,7 @@ pub async fn get_claude_code_session_history(
 
     if let Ok(file) = std::fs::File::open(&session_file) {
         let reader = BufReader::new(file);
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
                 if let Some(msg_type) = json.get("type").and_then(|t| t.as_str()) {
                     match msg_type {
@@ -957,7 +957,7 @@ pub fn get_codex_session_history(file_path: String) -> Result<Vec<CodexHistoryMe
 
     if let Ok(file) = std::fs::File::open(&path) {
         let reader = BufReader::new(file);
-        for line in reader.lines().filter_map(|r| r.ok()) {
+        for line in reader.lines().map_while(|r| r.ok()) {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
                 if let Some(role) = json.get("role").and_then(|r| r.as_str()) {
                     if let Some(content) = json.get("content").and_then(|c| c.as_str()) {

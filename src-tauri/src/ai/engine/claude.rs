@@ -234,7 +234,7 @@ impl ClaudeEngine {
             // 读取 stderr
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
-                for line in reader.lines().filter_map(|r| r.ok()) {
+                for line in reader.lines().map_while(|r| r.ok()) {
                     // 使用 warn 级别，确保 stderr 错误被记录
                     tracing::warn!("[ClaudeEngine] stderr: {}", line);
                 }

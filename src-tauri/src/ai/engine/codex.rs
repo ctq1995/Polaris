@@ -354,7 +354,7 @@ impl CodexEngine {
             // 读取 stderr
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
-                for line in reader.lines().filter_map(|r| r.ok()) {
+                for line in reader.lines().map_while(|r| r.ok()) {
                     tracing::debug!("[codex stderr] {}", line);
                 }
             });
