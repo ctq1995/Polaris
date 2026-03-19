@@ -8,6 +8,20 @@ use std::sync::{Arc, Mutex};
 use tauri::State;
 
 // ========================================
+// 辅助函数
+// ========================================
+
+/// 获取当前 Unix 时间戳（秒）
+/// 使用 unwrap 是因为 UNIX_EPOCH 是固定的，不会失败
+#[inline]
+fn now_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+// ========================================
 // 类型定义
 // ========================================
 
@@ -449,10 +463,7 @@ pub async fn ide_report_current_file(
             language: context.language,
         }),
         workspace_id: Some(context.workspace_id),
-        created_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        created_at: now_timestamp(),
         expires_at: None,
         estimated_tokens: 500, // 简化估算
     };
@@ -480,10 +491,7 @@ pub async fn ide_report_file_structure(
             summary: None,
         }),
         workspace_id: Some(structure.workspace_id),
-        created_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        created_at: now_timestamp(),
         expires_at: None,
         estimated_tokens: 100,
     };
@@ -511,10 +519,7 @@ pub async fn ide_report_diagnostics(
             summary: None,
         }),
         workspace_id: Some(diagnostics.workspace_id),
-        created_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        created_at: now_timestamp(),
         expires_at: None,
         estimated_tokens: 50,
     };
