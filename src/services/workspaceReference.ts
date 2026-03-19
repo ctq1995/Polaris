@@ -150,9 +150,11 @@ function generateContextHeader(
   if (safeContextWorkspaces.length > 0) {
     header += '\n关联工作区:\n';
     safeContextWorkspaces.forEach(w => {
-      header += `  • ${w.name}\n`;
-      header += `    路径: ${w.path}\n`;
-      header += `    引用语法: @${w.name}:path\n`;
+      if (w && w.name && w.path) {
+        header += `  • ${w.name}\n`;
+        header += `    路径: ${w.path}\n`;
+        header += `    引用语法: @${w.name}:path\n`;
+      }
     });
   }
 
@@ -207,10 +209,12 @@ export function buildWorkspaceContextExtra(
       name: currentWorkspace.name,
       path: currentWorkspace.path,
     },
-    contextWorkspaces: contextWorkspaces.map(w => ({
-      name: w.name,
-      path: w.path,
-    })),
+    contextWorkspaces: contextWorkspaces
+      .filter(w => w && w.name && w.path)
+      .map(w => ({
+        name: w.name,
+        path: w.path,
+      })),
   };
 }
 
