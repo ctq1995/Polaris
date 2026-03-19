@@ -862,4 +862,405 @@ describe('IFlowHistoryService', () => {
       expect(typeof result).toBe('string')
     })
   })
+
+  // ===========================================================================
+  // 并发测试
+  // ===========================================================================
+
+  describe('并发安全性', () => {
+    it('应正确处理并发 listSessions 调用', async () => {
+      const mockSessions: IFlowSessionMeta[] = [
+        { sessionId: 's1', title: 'Session 1', messageCount: 1, fileSize: 100, createdAt: '2026-03-19T10:00:00Z', updatedAt: '2026-03-19T11:00:00Z', inputTokens: 10, outputTokens: 20 },
+      ]
+
+      vi.mocked(invoke).mockResolvedValue(mockSessions)
+
+      const results = await Promise.all([
+        service.listSessions(),
+        service.listSessions(),
+        service.listSessions(),
+      ])
+
+      expect(results[0]).toEqual(results[1])
+      expect(results[1]).toEqual(results[2])
+    })
+
+    it('应正确处理并发 getSessionHistory 调用', async () => {
+      const mockMessages: IFlowHistoryMessage[] = [
+        { uuid: 'msg-1', timestamp: '2026-03-19T10:00:00Z', type: 'user', content: 'Hello', toolCalls: [] },
+      ]
+
+      vi.mocked(invoke).mockResolvedValue(mockMessages)
+
+      const results = await Promise.all([
+        service.getSessionHistory('session-1'),
+        service.getSessionHistory('session-2'),
+        service.getSessionHistory('session-3'),
+      ])
+
+      expect(results[0]).toHaveLength(1)
+      expect(results[1]).toHaveLength(1)
+      expect(results[2]).toHaveLength(1)
+    })
+
+    it('应正确处理并发 getFileContexts 调用', async () => {
+      const mockContexts = [
+        { path: '/test.ts', fileType: 'file' as const, accessCount: 1, firstAccessed: '2026-03-19T10:00:00Z', lastAccessed: '2026-03-19T11:00:00Z' },
+      ]
+
+      vi.mocked(invoke).mockResolvedValue(mockContexts)
+
+      const results = await Promise.all([
+        service.getFileContexts('session-1'),
+        service.getFileContexts('session-2'),
+      ])
+
+      expect(results[0]).toHaveLength(1)
+      expect(results[1]).toHaveLength(1)
+    })
+
+    it('应正确处理并发 getTokenStats 调用', async () => {
+      const mockStats: IFlowTokenStats = {
+        totalInputTokens: 100,
+        totalOutputTokens: 200,
+        totalTokens: 300,
+        messageCount: 10,
+        userMessageCount: 5,
+        assistantMessageCount: 5,
+      }
+
+      vi.mocked(invoke).mockResolvedValue(mockStats)
+
+      const results = await Promise.all([
+        service.getTokenStats('session-1'),
+        service.getTokenStats('session-2'),
+      ])
+
+      expect(results[0]?.totalTokens).toBe(300)
+      expect(results[1]?.totalTokens).toBe(300)
+    })
+
+    it('应正确处理混合并发调用', async () => {
+      const mockSessions: IFlowSessionMeta[] = [
+        { sessionId: 's1', title: 'Session', messageCount: 1, fileSize: 100, createdAt: '2026-03-19T10:00:00Z', updatedAt: '2026-03-19T11:00:00Z', inputTokens: 10, outputTokens: 20 },
+      ]
+      const mockMessages: IFlowHistoryMessage[] = [
+        { uuid: 'msg-1', timestamp: '2026-03-19T10:00:00Z', type: 'user', content: 'Test', toolCalls: [] },
+      ]
+      const mockContexts = [
+        { path: '/test.ts', fileType: 'file' as const, accessCount: 1, firstAccessed: '2026-03-19T10:00:00Z', lastAccessed: '2026-03-19T11:00:00Z' },
+      ]
+      const mockStats: IFlowTokenStats = {
+        totalInputTokens: 100,
+        totalOutputTokens: 200,
+        totalTokens: 300,
+        messageCount: 10,
+        userMessageCount: 5,
+        assistantMessageCount: 5,
+      }
+
+      let callCount = 0
+      vi.mocked(invoke).mockImplementation(async () => {
+        callCount++
+        if (callCount === 1) return mockSessions
+        if (callCount === 2) return mockMessages
+        if (callCount === 3) return mockContexts
+        return mockStats
+      })
+
+      const [sessions, history, contexts, stats] = await Promise.all([
+        service.listSessions(),
+        service.getSessionHistory('session-1'),
+        service.getFileContexts('session-1'),
+        service.getTokenStats('session-1'),
+      ])
+
+      expect(sessions).toHaveLength(1)
+      expect(history).toHaveLength(1)
+      expect(contexts).toHaveLength(1)
+      expect(stats?.totalTokens).toBe(300)
+    })
+  })
+
+  // ===========================================================================
+  // 数据一致性测试
+  // ===========================================================================
+
+  describe('数据一致性', () => {
+    it('listSessions 多次调用应返回相同结果', async () => {
+      const mockSessions: IFlowSessionMeta[] = [
+        { sessionId: 's1', title: 'Session', messageCount: 1, fileSize: 100, createdAt: '2026-03-19T10:00:00Z', updatedAt: '2026-03-19T11:00:00Z', inputTokens: 10, outputTokens: 20 },
+      ]
+
+      vi.mocked(invoke).mockResolvedValue(mockSessions)
+
+      const result1 = await service.listSessions()
+      const result2 = await service.listSessions()
+
+      expect(result1).toEqual(result2)
+    })
+
+    it('getSessionHistory 多次调用应返回相同结果', async () => {
+      const mockMessages: IFlowHistoryMessage[] = [
+        { uuid: 'msg-1', timestamp: '2026-03-19T10:00:00Z', type: 'user', content: 'Test', toolCalls: [] },
+      ]
+
+      vi.mocked(invoke).mockResolvedValue(mockMessages)
+
+      const result1 = await service.getSessionHistory('session-1')
+      const result2 = await service.getSessionHistory('session-1')
+
+      expect(result1).toEqual(result2)
+    })
+
+    it('convertMessagesToFormat 应保持数据完整性', () => {
+      const messages: IFlowHistoryMessage[] = [
+        {
+          uuid: 'msg-1',
+          timestamp: '2026-03-19T10:00:00Z',
+          type: 'user',
+          content: 'Test content with special chars: <>&"\'',
+          toolCalls: [],
+        },
+      ]
+
+      const result = service.convertMessagesToFormat(messages)
+
+      expect(result[0].content).toBe('Test content with special chars: <>&"\'')
+    })
+
+    it('extractToolCalls 应保持工具调用顺序', () => {
+      const messages: IFlowHistoryMessage[] = [
+        {
+          uuid: 'msg-1',
+          timestamp: '2026-03-19T10:00:00Z',
+          type: 'assistant',
+          content: '',
+          toolCalls: [
+            { id: 'tc-1', name: 'tool_a', input: {} },
+            { id: 'tc-2', name: 'tool_b', input: {} },
+            { id: 'tc-3', name: 'tool_c', input: {} },
+          ],
+        },
+      ]
+
+      const result = service.extractToolCalls(messages)
+
+      expect(result[0].name).toBe('tool_a')
+      expect(result[1].name).toBe('tool_b')
+      expect(result[2].name).toBe('tool_c')
+    })
+  })
+
+  // ===========================================================================
+  // 错误恢复测试
+  // ===========================================================================
+
+  describe('错误恢复', () => {
+    it('listSessions 网络错误后应能恢复', async () => {
+      vi.mocked(invoke)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce([{ sessionId: 's1', title: 'Recovered', messageCount: 1, fileSize: 100, createdAt: '2026-03-19T10:00:00Z', updatedAt: '2026-03-19T11:00:00Z', inputTokens: 10, outputTokens: 20 }])
+
+      const result1 = await service.listSessions()
+      expect(result1).toEqual([])
+
+      const result2 = await service.listSessions()
+      expect(result2).toHaveLength(1)
+      expect(result2[0].title).toBe('Recovered')
+    })
+
+    it('getSessionHistory 会话不存在后应能获取其他会话', async () => {
+      vi.mocked(invoke)
+        .mockRejectedValueOnce(new Error('Session not found'))
+        .mockResolvedValueOnce([{ uuid: 'msg-1', timestamp: '2026-03-19T10:00:00Z', type: 'user', content: 'Test', toolCalls: [] }])
+
+      const result1 = await service.getSessionHistory('invalid')
+      expect(result1).toEqual([])
+
+      const result2 = await service.getSessionHistory('valid')
+      expect(result2).toHaveLength(1)
+    })
+
+    it('getTokenStats 部分失败场景', async () => {
+      vi.mocked(invoke)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          totalInputTokens: 100,
+          totalOutputTokens: 200,
+          totalTokens: 300,
+          messageCount: 10,
+          userMessageCount: 5,
+          assistantMessageCount: 5,
+        })
+
+      const result1 = await service.getTokenStats('session-1')
+      expect(result1).toBeNull()
+
+      const result2 = await service.getTokenStats('session-2')
+      expect(result2?.totalTokens).toBe(300)
+    })
+  })
+
+  // ===========================================================================
+  // 复杂场景测试
+  // ===========================================================================
+
+  describe('复杂消息场景', () => {
+    it('应正确处理嵌套工具调用输入', () => {
+      const messages: IFlowHistoryMessage[] = [
+        {
+          uuid: 'msg-1',
+          timestamp: '2026-03-19T10:00:00Z',
+          type: 'assistant',
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-1',
+              name: 'run_command',
+              input: {
+                command: 'npm',
+                args: ['test', '--coverage'],
+                env: { NODE_ENV: 'test' },
+              },
+            },
+          ],
+        },
+      ]
+
+      const result = service.extractToolCalls(messages)
+
+      expect(result[0].input).toEqual({
+        command: 'npm',
+        args: ['test', '--coverage'],
+        env: { NODE_ENV: 'test' },
+      })
+    })
+
+    it('应正确处理包含代码块的消息', () => {
+      const messages: IFlowHistoryMessage[] = [
+        {
+          uuid: 'msg-1',
+          timestamp: '2026-03-19T10:00:00Z',
+          type: 'assistant',
+          content: '这是代码示例：\n```typescript\nconst x = 1;\n```',
+          toolCalls: [],
+        },
+      ]
+
+      const result = service.convertMessagesToFormat(messages)
+
+      expect(result[0].content).toContain('```typescript')
+    })
+
+    it('应正确处理超长消息内容', () => {
+      const longContent = 'A'.repeat(100000)
+      const messages: IFlowHistoryMessage[] = [
+        {
+          uuid: 'msg-1',
+          timestamp: '2026-03-19T10:00:00Z',
+          type: 'user',
+          content: longContent,
+          toolCalls: [],
+        },
+      ]
+
+      const result = service.convertMessagesToFormat(messages)
+
+      expect(result[0].content).toBe(longContent)
+      expect(result[0].content.length).toBe(100000)
+    })
+
+    it('应正确处理 parentUuid 链式关系', async () => {
+      const mockMessages: IFlowHistoryMessage[] = [
+        { uuid: 'msg-1', timestamp: '2026-03-19T10:00:00Z', type: 'user', content: 'Q1', toolCalls: [] },
+        { uuid: 'msg-2', parentUuid: 'msg-1', timestamp: '2026-03-19T10:01:00Z', type: 'assistant', content: 'A1', toolCalls: [] },
+        { uuid: 'msg-3', parentUuid: 'msg-2', timestamp: '2026-03-19T10:02:00Z', type: 'user', content: 'Q2', toolCalls: [] },
+      ]
+
+      vi.mocked(invoke).mockResolvedValue(mockMessages)
+
+      const result = await service.getSessionHistory('session-1')
+
+      expect(result).toHaveLength(3)
+      expect(result[1].parentUuid).toBe('msg-1')
+      expect(result[2].parentUuid).toBe('msg-2')
+    })
+
+    it('应正确处理多条工具调用的去重', () => {
+      const messages: IFlowHistoryMessage[] = [
+        {
+          uuid: 'msg-1',
+          timestamp: '2026-03-19T10:00:00Z',
+          type: 'assistant',
+          content: '',
+          toolCalls: [
+            { id: 'tc-1', name: 'read_file', input: {} },
+            { id: 'tc-2', name: 'read_file', input: {} },
+            { id: 'tc-3', name: 'read_file', input: {} },
+          ],
+        },
+      ]
+
+      const result = service.convertMessagesToFormat(messages)
+
+      expect(result[0].toolSummary?.count).toBe(3)
+      expect(result[0].toolSummary?.names).toEqual(['read_file'])
+    })
+  })
+
+  // ===========================================================================
+  // 大量数据性能测试
+  // ===========================================================================
+
+  describe('大量数据处理', () => {
+    it('应正确处理 100 个会话', async () => {
+      const mockSessions: IFlowSessionMeta[] = Array.from({ length: 100 }, (_, i) => ({
+        sessionId: `session-${i}`,
+        title: `Session ${i}`,
+        messageCount: i + 1,
+        fileSize: (i + 1) * 1024,
+        createdAt: '2026-03-19T10:00:00Z',
+        updatedAt: '2026-03-19T11:00:00Z',
+        inputTokens: (i + 1) * 10,
+        outputTokens: (i + 1) * 20,
+      }))
+
+      vi.mocked(invoke).mockResolvedValue(mockSessions)
+
+      const result = await service.listSessions()
+
+      expect(result).toHaveLength(100)
+    })
+
+    it('应正确处理 1000 条消息', async () => {
+      const mockMessages: IFlowHistoryMessage[] = Array.from({ length: 1000 }, (_, i) => ({
+        uuid: `msg-${i}`,
+        timestamp: '2026-03-19T10:00:00Z',
+        type: i % 2 === 0 ? 'user' as const : 'assistant' as const,
+        content: `Message ${i}`,
+        toolCalls: [],
+      }))
+
+      vi.mocked(invoke).mockResolvedValue(mockMessages)
+
+      const result = await service.getSessionHistory('session-1')
+
+      expect(result).toHaveLength(1000)
+    })
+
+    it('应正确转换 500 条消息', () => {
+      const messages: IFlowHistoryMessage[] = Array.from({ length: 500 }, (_, i) => ({
+        uuid: `msg-${i}`,
+        timestamp: '2026-03-19T10:00:00Z',
+        type: i % 2 === 0 ? 'user' as const : 'assistant' as const,
+        content: `Content ${i}`,
+        toolCalls: [],
+      }))
+
+      const result = service.convertMessagesToFormat(messages)
+
+      expect(result).toHaveLength(500)
+    })
+  })
 })
