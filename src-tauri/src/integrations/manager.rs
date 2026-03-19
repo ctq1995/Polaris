@@ -52,6 +52,18 @@ pub struct IntegrationManager {
     instances_path: Option<PathBuf>,
 }
 
+/// AI 消息处理上下文
+struct ProcessAiMessageContext {
+    engine_registry: Arc<Mutex<EngineRegistry>>,
+    conversation_id: String,
+    message: String,
+    app_handle: AppHandle,
+    platform: Platform,
+    adapters: Arc<Mutex<HashMap<Platform, Box<dyn PlatformIntegration>>>>,
+    conversation_states: Arc<Mutex<ConversationStore>>,
+    active_sessions: Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
+}
+
 impl IntegrationManager {
     /// 创建新的集成管理器
     pub fn new() -> Self {
@@ -411,18 +423,6 @@ impl IntegrationManager {
                 tracing::error!("[IntegrationManager] ❌ 发送回复失败: {:?}", e);
             }
         }
-    }
-
-    /// AI 消息处理上下文
-    struct ProcessAiMessageContext {
-        engine_registry: Arc<Mutex<EngineRegistry>>,
-        conversation_id: String,
-        message: String,
-        app_handle: AppHandle,
-        platform: Platform,
-        adapters: Arc<Mutex<HashMap<Platform, Box<dyn PlatformIntegration>>>>,
-        conversation_states: Arc<Mutex<ConversationStore>>,
-        active_sessions: Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
     }
 
     /// 处理 AI 消息
