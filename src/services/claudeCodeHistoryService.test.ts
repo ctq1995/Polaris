@@ -1525,7 +1525,6 @@ describe('错误恢复场景', () => {
 
   it('应该处理消息转换中的错误数据', () => {
     const messages: ClaudeCodeMessage[] = [
-      // @ts-expect-error 故意传入错误数据
       { role: 'invalid-role', content: 'test' },
       { role: 'user', content: 'valid' },
     ]
