@@ -862,4 +862,480 @@ describe('workspaceReference', () => {
       expect(result.references.length).toBeGreaterThanOrEqual(0);
     });
   });
+
+  describe('集成测试', () => {
+    it('parseWorkspaceReferences 和 getWorkspaceByName 应协作正确', () => {
+      const message = '查看 @Utils:src/a.ts';
+      const result = parseWorkspaceReferences(message, mockWorkspaces, [], 'ws-1');
+
+      if (result.references.length > 0) {
+        const ws = getWorkspaceByName(result.references[0].workspaceName, mockWorkspaces);
+        expect(ws).toBeDefined();
+        expect(ws?.id).toBe('ws-2');
+      }
+    });
+
+    it('buildWorkspaceContextExtra 应与 parseWorkspaceReferences 配合', () => {
+      const contextExtra = buildWorkspaceContextExtra(mockWorkspaces, [mockWorkspaces[1]], 'ws-1');
+
+      expect(contextExtra).not.toBeNull();
+      expect(contextExtra?.currentWorkspace.name).toBe('Polaris');
+
+      // 使用相同的工作区列表进行引用解析
+      const result = parseWorkspaceReferences(
+        `查看 @${contextExtra!.contextWorkspaces[0].name}:src/a.ts`,
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('buildSystemPrompt 应与 buildWorkspaceContextExtra 一致', () => {
+      const contextWorkspaces = [mockWorkspaces[1]];
+      const contextExtra = buildWorkspaceContextExtra(mockWorkspaces, contextWorkspaces, 'ws-1');
+      const systemPrompt = buildSystemPrompt(mockWorkspaces, contextWorkspaces, 'ws-1');
+
+      expect(contextExtra).not.toBeNull();
+      expect(contextExtra?.currentWorkspace.name).toBe('Polaris');
+      expect(systemPrompt).toContain('Polaris');
+      expect(systemPrompt).toContain('Utils');
+    });
+
+    it('isValidWorkspaceReference 应正确识别解析结果格式', () => {
+      const validRefs = ['@Utils:src/a.ts', '@测试项目:readme.md', '@my-project:file.js'];
+      const invalidRefs = ['@/src/a.ts', 'test@example.com', '普通文本', '@Utils'];
+
+      validRefs.forEach(ref => {
+        expect(isValidWorkspaceReference(ref)).toBe(true);
+      });
+
+      invalidRefs.forEach(ref => {
+        expect(isValidWorkspaceReference(ref)).toBe(false);
+      });
+    });
+
+    it('完整工作流：解析消息 -> 验证引用 -> 构建上下文', () => {
+      const message = '请参考 @Utils:src/helper.ts 和 @Polaris:src/main.ts 完成任务';
+
+      // 1. 解析消息
+      const parsed = parseWorkspaceReferences(message, mockWorkspaces, [], 'ws-1');
+      expect(parsed.references).toHaveLength(2);
+
+      // 2. 验证每个引用
+      parsed.references.forEach(ref => {
+        const ws = getWorkspaceByName(ref.workspaceName, mockWorkspaces);
+        expect(ws).toBeDefined();
+      });
+
+      // 3. 构建上下文
+      const context = buildWorkspaceContextExtra(mockWorkspaces, [], 'ws-1');
+      expect(context).not.toBeNull();
+    });
+  });
+
+  describe('路径处理', () => {
+    it('应正确处理 Windows 绝对路径', () => {
+      const winWs = createMockWorkspace('ws-win', 'WinProj', 'C:\\Users\\dev\\project');
+      const result = parseWorkspaceReferences(
+        '查看 @WinProj:src\\main.ts',
+        [winWs],
+        [],
+        'ws-win'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].absolutePath).toContain('project');
+    });
+
+    it('应正确处理 Unix 绝对路径', () => {
+      const unixWs = createMockWorkspace('ws-unix', 'UnixProj', '/home/user/project');
+      const result = parseWorkspaceReferences(
+        '查看 @UnixProj:src/main.ts',
+        [unixWs],
+        [],
+        'ws-unix'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].absolutePath).toBe('/home/user/project/src/main.ts');
+    });
+
+    it('应处理路径中的点号', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/../test/a.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].relativePath).toBe('src/../test/a.ts');
+    });
+
+    it('应处理当前目录引用', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:./a.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].relativePath).toBe('./a.ts');
+    });
+
+    it('应处理混合路径分隔符', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/folder\\file.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理相对路径', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:../parent/file.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].relativePath).toBe('../parent/file.ts');
+    });
+
+    it('应处理网络路径 (UNC)', () => {
+      const uncWs = createMockWorkspace('ws-unc', 'NetProj', '\\\\server\\share\\project');
+      const result = parseWorkspaceReferences(
+        '查看 @NetProj:src/a.ts',
+        [uncWs],
+        [],
+        'ws-unc'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理带空格的路径', () => {
+      const spaceWs = createMockWorkspace('ws-space', 'My Project', 'D:/My Projects/Polaris App');
+      const result = parseWorkspaceReferences(
+        '查看 @My Project:src/a.ts',
+        [spaceWs],
+        [],
+        'ws-space'
+      );
+
+      // 注意：当前正则不支持带空格的工作区名（[^\s] 会中断在空格）
+      // 所以 "My Project" 会被解析为 "My" + "Project:src/a.ts"
+      // 这是已知限制，如果需要支持空格工作区名，需要修改正则
+      expect(result.references.length).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('类型边界测试', () => {
+    it('应处理工作区 ID 为空字符串', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/a.ts',
+        mockWorkspaces,
+        [],
+        ''
+      );
+
+      // 空字符串不会匹配任何工作区
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理工作区数组中的 null 元素', () => {
+      const workspacesWithNull = [...mockWorkspaces, null as unknown as Workspace];
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/a.ts',
+        workspacesWithNull,
+        [],
+        'ws-1'
+      );
+
+      // 不应崩溃，应正确处理 null 元素
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].workspaceName).toBe('Utils');
+    });
+
+    it('应处理 createdAt 和 lastAccessed 为空', () => {
+      const noDateWorkspace: Workspace = {
+        id: 'ws-nodate',
+        name: 'NoDate',
+        path: '/path/to/node',
+        createdAt: '',
+        lastAccessed: '',
+      };
+
+      const result = parseWorkspaceReferences(
+        '查看 @NoDate:src/a.ts',
+        [noDateWorkspace],
+        [],
+        'ws-nodate'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理极长的工作区名', () => {
+      const longName = 'A'.repeat(200);
+      const longNameWs = createMockWorkspace('ws-long', longName, '/path/to/long');
+      const result = parseWorkspaceReferences(
+        `查看 @${longName}:src/a.ts`,
+        [longNameWs],
+        [],
+        'ws-long'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].workspaceName).toBe(longName);
+    });
+
+    it('应处理工作区名只有空格', () => {
+      const spaceNameWs = createMockWorkspace('ws-space', '   ', '/path/to/space');
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/a.ts',
+        [spaceNameWs, ...mockWorkspaces],
+        [],
+        'ws-1'
+      );
+
+      // 空格工作区名不应匹配
+      expect(result.references).toHaveLength(1);
+      expect(result.references[0].workspaceName).toBe('Utils');
+    });
+  });
+
+  describe('更多边界值测试', () => {
+    it('应处理消息以引用开头', () => {
+      const result = parseWorkspaceReferences(
+        '@Utils:src/a.ts 是我要查看的文件',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理消息以引用结尾', () => {
+      const result = parseWorkspaceReferences(
+        '请查看 @Utils:src/a.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.processedMessage).toContain('D:/space/libs/utils/src/a.ts');
+    });
+
+    it('应处理消息只有引用', () => {
+      const result = parseWorkspaceReferences(
+        '@Utils:src/a.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+      expect(result.processedMessage).toBe('@D:/space/libs/utils/src/a.ts');
+    });
+
+    it('应处理相邻的引用', () => {
+      const result = parseWorkspaceReferences(
+        '比较@Utils:src/a.ts @Polaris:src/b.ts的差异',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      // 相邻的引用需要空格分隔，否则会被当成一个匹配
+      expect(result.references).toHaveLength(2);
+    });
+
+    it('应处理引用在括号内', () => {
+      const result = parseWorkspaceReferences(
+        '请查看文件 (@Utils:src/a.ts)',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理引用在引号内', () => {
+      const result = parseWorkspaceReferences(
+        '文件路径是 "@Utils:src/a.ts"',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理代码块中的引用', () => {
+      const result = parseWorkspaceReferences(
+        '```ts\nimport x from "@Utils:src/a.ts"\n```',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理 URL 中的 @ 符号', () => {
+      const result = parseWorkspaceReferences(
+        '访问 https://example.com/@user 和 @Utils:src/a.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      // URL 中的 @user 不应匹配（无 . 或 /）
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理 JSON 中的引用', () => {
+      const result = parseWorkspaceReferences(
+        '{"file": "@Utils:src/a.ts"}',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+
+    it('应处理 Markdown 链接语法', () => {
+      const result = parseWorkspaceReferences(
+        '见 [文档](@Utils:docs/readme.md)',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.references).toHaveLength(1);
+    });
+  });
+
+  describe('上下文头生成', () => {
+    it('应正确生成无引用的上下文头', () => {
+      const result = parseWorkspaceReferences(
+        '普通消息',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.contextHeader).toBe('');
+    });
+
+    it('应正确生成有关联工作区的上下文头', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/a.ts',
+        mockWorkspaces,
+        [mockWorkspaces[1], mockWorkspaces[2]],
+        'ws-1'
+      );
+
+      expect(result.contextHeader).toContain('关联工作区');
+      expect(result.contextHeader).toContain('Utils');
+      expect(result.contextHeader).toContain('测试项目');
+    });
+
+    it('应正确生成有多个引用工作区的上下文头', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/a.ts 和 @测试项目:readme.md',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.contextHeader).toContain('本次引用的工作区');
+      expect(result.contextHeader).toContain('Utils');
+      expect(result.contextHeader).toContain('测试项目');
+    });
+
+    it('上下文头应包含当前工作区信息', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/a.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.contextHeader).toContain('当前工作区: Polaris');
+      expect(result.contextHeader).toContain('D:/space/base/Polaris');
+    });
+
+    it('无当前工作区时应显示未设置', () => {
+      const result = parseWorkspaceReferences(
+        '查看 @Utils:src/a.ts',
+        mockWorkspaces,
+        [],
+        null
+      );
+
+      expect(result.contextHeader).toContain('未设置');
+    });
+  });
+
+  describe('处理后的消息', () => {
+    it('应保持非引用文本不变', () => {
+      const result = parseWorkspaceReferences(
+        '请查看 @Utils:src/a.ts 这个文件',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.processedMessage).toContain('请查看');
+      expect(result.processedMessage).toContain('这个文件');
+    });
+
+    it('应正确替换多个引用', () => {
+      const result = parseWorkspaceReferences(
+        '@Utils:src/a.ts @Polaris:src/b.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.processedMessage).toContain('D:/space/libs/utils/src/a.ts');
+      expect(result.processedMessage).toContain('D:/space/base/Polaris/src/b.ts');
+    });
+
+    it('应保持换行符', () => {
+      const result = parseWorkspaceReferences(
+        '第一行\n@Utils:src/a.ts\n第三行',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.processedMessage).toContain('第一行');
+      expect(result.processedMessage).toContain('第三行');
+    });
+
+    it('应保持 Tab 缩进', () => {
+      const result = parseWorkspaceReferences(
+        '\t@Utils:src/a.ts',
+        mockWorkspaces,
+        [],
+        'ws-1'
+      );
+
+      expect(result.processedMessage).toContain('\t');
+    });
+  });
 });

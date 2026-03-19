@@ -38,7 +38,7 @@ export function parseWorkspaceReferences(
   // 预构建名称索引，O(1) 查找
   const workspaceByName = new Map<string, Workspace>();
   for (const w of workspaces) {
-    if (w.name) {
+    if (w && w.name) {
       workspaceByName.set(w.name.toLowerCase(), w);
     }
   }
