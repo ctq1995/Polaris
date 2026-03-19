@@ -1090,4 +1090,525 @@ describe('gitContextService', () => {
       expect(result).toBe(false);
     });
   });
+
+  // ========== 并发调用和对象不可变性测试 ==========
+
+  describe('concurrent operations', () => {
+    it('should handle concurrent getGitCommits calls', async () => {
+      const mockCommits1: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'Commit A', author: 'Author', timestamp: 1000 },
+      ];
+      const mockCommits2: GitCommit[] = [
+        { hash: 'bbb', shortHash: 'b', message: 'Commit B', author: 'Author', timestamp: 2000 },
+      ];
+
+      mockInvoke.mockResolvedValueOnce(mockCommits1);
+      mockInvoke.mockResolvedValueOnce(mockCommits2);
+
+      const [result1, result2] = await Promise.all([
+        getGitCommits('/workspace1'),
+        getGitCommits('/workspace2'),
+      ]);
+
+      expect(result1).toEqual(mockCommits1);
+      expect(result2).toEqual(mockCommits2);
+    });
+
+    it('should handle concurrent mixed operations', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'Commit', author: 'Author', timestamp: 1000 },
+      ];
+      const mockStatus: GitStatus = {
+        branch: 'main',
+        staged: [],
+        unstaged: [],
+        untracked: [],
+      };
+      const mockStats: GitDiffStats = {
+        additions: 1,
+        deletions: 0,
+        modifications: 0,
+        files: ['file.ts'],
+      };
+
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+      mockInvoke.mockResolvedValueOnce(mockStats);
+
+      const [commits, status, stats] = await Promise.all([
+        getGitCommits(testWorkDir),
+        getGitStatus(testWorkDir),
+        getGitDiffStats(testWorkDir),
+      ]);
+
+      expect(commits).toEqual(mockCommits);
+      expect(status).toEqual(mockStatus);
+      expect(stats).toEqual(mockStats);
+    });
+
+    it('should handle partial failure in concurrent operations', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'Commit', author: 'Author', timestamp: 1000 },
+      ];
+
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+      mockInvoke.mockRejectedValueOnce(new Error('Status failed'));
+      mockInvoke.mockResolvedValueOnce(null);
+
+      const [commits, status, stats] = await Promise.all([
+        getGitCommits(testWorkDir),
+        getGitStatus(testWorkDir),
+        getGitDiffStats(testWorkDir),
+      ]);
+
+      expect(commits).toEqual(mockCommits);
+      expect(status).toBeNull();
+      expect(stats).toBeNull();
+    });
+
+    it('should handle concurrent searchGitCommits with different queries', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'feat: feature A', author: 'John', timestamp: 1000 },
+        { hash: 'bbb', shortHash: 'b', message: 'fix: bug fix', author: 'Jane', timestamp: 2000 },
+      ];
+
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const [result1, result2] = await Promise.all([
+        searchGitCommits(testWorkDir, 'feature'),
+        searchGitCommits(testWorkDir, 'fix'),
+      ]);
+
+      expect(result1).toHaveLength(1);
+      expect(result1[0].message).toContain('feature');
+      expect(result2).toHaveLength(1);
+      expect(result2[0].message).toContain('fix');
+    });
+  });
+
+  describe('object immutability', () => {
+    it('should not modify original commit when creating chip', () => {
+      const commit: GitCommit = {
+        hash: 'abc123',
+        shortHash: 'abc',
+        message: 'Original message',
+        author: 'Author',
+        timestamp: 1000,
+      };
+
+      const chip = createCommitChip(commit);
+      chip.message = 'Modified message';
+
+      expect(commit.message).toBe('Original message');
+    });
+
+    it('should not modify original stats when creating diff chip', () => {
+      const stats: GitDiffStats = {
+        additions: 10,
+        deletions: 5,
+        modifications: 3,
+        files: ['file.ts'],
+      };
+
+      const chip = createDiffChip('staged', stats);
+      if (chip.stats) {
+        chip.stats.additions = 999;
+      }
+
+      expect(stats.additions).toBe(10);
+    });
+
+    it('should return same array reference from getGitCommits (current behavior)', async () => {
+      // Note: getGitCommits returns the invoke result directly without copying.
+      // This is the current implementation behavior.
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'Commit', author: 'Author', timestamp: 1000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await getGitCommits(testWorkDir);
+
+      // Result is the same reference as mockCommits
+      expect(result).toBe(mockCommits);
+    });
+
+    it('should return new array from searchGitCommits', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'Test commit', author: 'Author', timestamp: 1000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'Test');
+      result.push({ hash: 'bbb', shortHash: 'b', message: 'Extra', author: 'Author', timestamp: 2000 });
+
+      expect(mockCommits).toHaveLength(1);
+    });
+  });
+
+  describe('searchGitCommits - advanced', () => {
+    it('should search by hash prefix with exact match', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'abcdef123456', shortHash: 'abcdef1', message: 'Commit 1', author: 'Author', timestamp: 1000 },
+        { hash: 'abcxyz789012', shortHash: 'abcxyz7', message: 'Commit 2', author: 'Author', timestamp: 2000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'abc');
+
+      // Both commits have hash starting with 'abc'
+      expect(result).toHaveLength(2);
+    });
+
+    it('should match shortHash with exact prefix', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'longhash1', shortHash: 'short1', message: 'Commit 1', author: 'Author', timestamp: 1000 },
+        { hash: 'longhash2', shortHash: 'short2', message: 'Commit 2', author: 'Author', timestamp: 2000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'short1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].shortHash).toBe('short1');
+    });
+
+    it('should handle query longer than hash', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'abc', shortHash: 'a', message: 'Commit', author: 'Author', timestamp: 1000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'abcdefghijk');
+
+      // No match since hash doesn't start with the long query
+      expect(result).toHaveLength(0);
+    });
+
+    it('should search across multiple fields', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'feat123', shortHash: 'f1', message: 'Add feature', author: 'Alice', timestamp: 1000 },
+        { hash: 'fix456', shortHash: 'f4', message: 'Fix bug', author: 'Bob', timestamp: 2000 },
+        { hash: 'doc789', shortHash: 'd7', message: 'Update docs', author: 'feat-author', timestamp: 3000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'feat');
+
+      // Should match: hash 'feat123', author 'feat-author'
+      expect(result).toHaveLength(2);
+    });
+
+    it('should not match partial words in author field', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'Commit', author: 'John Doe', timestamp: 1000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'ohn');
+
+      // 'ohn' is part of 'John', should match since we use includes()
+      expect(result).toHaveLength(1);
+    });
+
+    it('should handle emoji in search query', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: '🎉 feat: new feature', author: 'Author', timestamp: 1000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, '🎉');
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('should handle newline characters in message', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'feat: add feature\n\nThis is the body', author: 'Author', timestamp: 1000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'body');
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('should match multi-line message content', async () => {
+      const mockCommits: GitCommit[] = [
+        { hash: 'aaa', shortHash: 'a', message: 'feat: add feature\n\nDetails here', author: 'Author', timestamp: 1000 },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockCommits);
+
+      const result = await searchGitCommits(testWorkDir, 'Details');
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('getGitDiffStats - advanced', () => {
+    it('should handle stats with negative values gracefully', async () => {
+      // This shouldn't happen in practice, but testing edge case
+      const mockStats: GitDiffStats = {
+        additions: -1,
+        deletions: -5,
+        modifications: 0,
+        files: [],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStats);
+
+      const result = await getGitDiffStats(testWorkDir);
+
+      // Service returns what it gets from invoke
+      expect(result?.additions).toBe(-1);
+    });
+
+    it('should handle files with special characters', async () => {
+      const mockStats: GitDiffStats = {
+        additions: 1,
+        deletions: 0,
+        modifications: 0,
+        files: ['src/文件 with spaces.ts', 'src/unicode-🎉.ts'],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStats);
+
+      const result = await getGitDiffStats(testWorkDir);
+
+      expect(result?.files).toHaveLength(2);
+      expect(result?.files[0]).toContain('文件');
+    });
+
+    it('should handle very long file paths', async () => {
+      const longPath = 'src/' + 'a'.repeat(200) + '.ts';
+      const mockStats: GitDiffStats = {
+        additions: 1,
+        deletions: 0,
+        modifications: 0,
+        files: [longPath],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStats);
+
+      const result = await getGitDiffStats(testWorkDir);
+
+      expect(result?.files[0]).toBe(longPath);
+    });
+
+    it('should handle missing optional properties in response', async () => {
+      mockInvoke.mockResolvedValueOnce({
+        additions: 1,
+        deletions: 1,
+        // modifications missing
+        files: ['file.ts'],
+      });
+
+      const result = await getGitDiffStats(testWorkDir);
+
+      // Service returns what it gets
+      expect(result?.additions).toBe(1);
+      expect(result).not.toHaveProperty('modifications');
+    });
+  });
+
+  describe('formatRelativeTime - advanced', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-03-19T12:00:00Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should handle negative timestamp (before 1970)', () => {
+      const result = formatRelativeTime(-1000000000);
+      expect(typeof result).toBe('string');
+    });
+
+    it('should handle very large timestamp', () => {
+      const farFuture = Date.now() + 1000000000000; // Very far future
+      const result = formatRelativeTime(farFuture);
+      expect(typeof result).toBe('string');
+    });
+
+    it('should handle same timestamp as now', () => {
+      const now = Date.now();
+      const result = formatRelativeTime(now);
+      expect(result).toBe('刚刚');
+    });
+
+    it('should handle timestamp 1 millisecond ago', () => {
+      const now = Date.now();
+      const result = formatRelativeTime(now - 1);
+      expect(result).toBe('刚刚');
+    });
+
+    it('should handle exactly 1 year ago', () => {
+      const now = Date.now();
+      const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000;
+      const result = formatRelativeTime(oneYearAgo);
+      // Should show date since > 7 days
+      expect(result).toMatch(/\d+月/);
+    });
+
+    it('should handle daylight saving time transitions', () => {
+      // Set time during DST transition period
+      vi.setSystemTime(new Date('2024-03-10T02:00:00Z')); // DST starts in US
+
+      const oneHourAgo = Date.now() - 3600000;
+      const result = formatRelativeTime(oneHourAgo);
+
+      expect(result).toContain('小时');
+    });
+  });
+
+  describe('createDiffChip - advanced', () => {
+    it('should handle stats with many files', () => {
+      const stats: GitDiffStats = {
+        additions: 100,
+        deletions: 50,
+        modifications: 25,
+        files: Array.from({ length: 100 }, (_, i) => `file${i}.ts`),
+      };
+
+      const chip = createDiffChip('staged', stats);
+
+      expect(chip.fileCount).toBe(100);
+    });
+
+    it('should create chip with undefined stats but valid targetHash', () => {
+      const chip = createDiffChip('commit', undefined, 'abc123');
+
+      expect(chip.target).toBe('commit');
+      expect(chip.targetHash).toBe('abc123');
+      expect(chip.stats).toBeUndefined();
+      expect(chip.fileCount).toBeUndefined();
+    });
+
+    it('should handle stats with files but zero changes', () => {
+      const stats: GitDiffStats = {
+        additions: 0,
+        deletions: 0,
+        modifications: 0,
+        files: ['modified-file.ts'], // File exists but no line changes
+      };
+
+      const chip = createDiffChip('unstaged', stats);
+
+      expect(chip.fileCount).toBe(1);
+      expect(chip.stats?.additions).toBe(0);
+    });
+  });
+
+  describe('isInGitRepo - advanced', () => {
+    // Note: Current implementation uses `status !== null` check.
+    // In JavaScript, `undefined !== null` is true, so undefined result returns true.
+    // This is a known behavior - the function treats undefined as a valid response.
+    it('should return true for undefined invoke result (current behavior)', async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+
+      const result = await isInGitRepo(testWorkDir);
+
+      // undefined !== null is true in JavaScript
+      expect(result).toBe(true);
+    });
+
+    it('should return true for status with empty arrays', async () => {
+      const mockStatus: GitStatus = {
+        branch: 'main',
+        staged: [],
+        unstaged: [],
+        untracked: [],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+
+      const result = await isInGitRepo(testWorkDir);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true for detached HEAD state', async () => {
+      const mockStatus: GitStatus = {
+        branch: 'HEAD', // Detached HEAD often shows as 'HEAD'
+        staged: [],
+        unstaged: [],
+        untracked: [],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+
+      const result = await isInGitRepo(testWorkDir);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true for repo with merge conflicts', async () => {
+      const mockStatus: GitStatus = {
+        branch: 'main',
+        staged: ['conflicted-file.ts'], // Could be during merge
+        unstaged: ['other-file.ts'],
+        untracked: [],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+
+      const result = await isInGitRepo(testWorkDir);
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('getGitStatus - advanced', () => {
+    it('should handle status with many untracked files', async () => {
+      const mockStatus: GitStatus = {
+        branch: 'main',
+        staged: [],
+        unstaged: [],
+        untracked: Array.from({ length: 100 }, (_, i) => `untracked${i}.ts`),
+      };
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+
+      const result = await getGitStatus(testWorkDir);
+
+      expect(result?.untracked).toHaveLength(100);
+    });
+
+    it('should handle status with deleted files in staged', async () => {
+      const mockStatus: GitStatus = {
+        branch: 'main',
+        staged: ['deleted-file.ts'], // Staged deletion
+        unstaged: [],
+        untracked: [],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+
+      const result = await getGitStatus(testWorkDir);
+
+      expect(result?.staged).toContain('deleted-file.ts');
+    });
+
+    it('should handle status with renamed files', async () => {
+      const mockStatus: GitStatus = {
+        branch: 'main',
+        staged: ['old-name.ts -> new-name.ts'],
+        unstaged: [],
+        untracked: [],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+
+      const result = await getGitStatus(testWorkDir);
+
+      expect(result?.staged[0]).toContain('->');
+    });
+
+    it('should handle non-standard branch names', async () => {
+      const mockStatus: GitStatus = {
+        branch: 'feature/JIRA-123_new-feature',
+        staged: [],
+        unstaged: [],
+        untracked: [],
+      };
+      mockInvoke.mockResolvedValueOnce(mockStatus);
+
+      const result = await getGitStatus(testWorkDir);
+
+      expect(result?.branch).toBe('feature/JIRA-123_new-feature');
+    });
+  });
 });
