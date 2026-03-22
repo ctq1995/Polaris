@@ -60,9 +60,6 @@ pub struct ChatRequestOptions {
     /// 附件列表
     #[serde(default)]
     pub attachments: Option<Vec<Attachment>>,
-    /// CLI 参数
-    #[serde(default)]
-    pub cli_args: Option<Vec<String>>,
 }
 
 // ============================================================================
@@ -149,7 +146,7 @@ pub async fn start_chat(
     state: State<'_, crate::AppState>,
     options: ChatRequestOptions,
 ) -> Result<String> {
-    tracing::info!("[start_chat] 收到消息，长度: {} 字符, 附件数: {:?}, CLI 参数: {:?}", message.len(), options.attachments.as_ref().map(|a| a.len()), options.cli_args);
+    tracing::info!("[start_chat] 收到消息，长度: {} 字符, 附件数: {:?}", message.len(), options.attachments.as_ref().map(|a| a.len()));
 
     // 保存附件到工作区并获取图片路径
     let saved_image_paths = if let (Some(ref dir), Some(ref atts)) = (&options.work_dir, &options.attachments) {
@@ -234,10 +231,6 @@ pub async fn start_chat(
         session_opts = session_opts.with_system_prompt(prompt.clone());
     }
 
-    if let Some(ref args) = options.cli_args {
-        session_opts = session_opts.with_cli_args(args.clone());
-    }
-
     let mut registry = state.engine_registry.lock().await;
     registry.start_session(Some(engine), &final_message, session_opts)
 }
@@ -251,7 +244,7 @@ pub async fn continue_chat(
     state: State<'_, crate::AppState>,
     options: ChatRequestOptions,
 ) -> Result<()> {
-    tracing::info!("[continue_chat] 继续会话: {}, 附件数: {:?}, CLI 参数: {:?}", session_id, options.attachments.as_ref().map(|a| a.len()), options.cli_args);
+    tracing::info!("[continue_chat] 继续会话: {}, 附件数: {:?}", session_id, options.attachments.as_ref().map(|a| a.len()));
 
     // 保存附件到工作区并获取图片路径
     let saved_image_paths = if let (Some(dir), Some(atts)) = (&options.work_dir, &options.attachments) {
@@ -334,10 +327,6 @@ pub async fn continue_chat(
 
     if let Some(ref prompt) = options.system_prompt {
         session_opts = session_opts.with_system_prompt(prompt.clone());
-    }
-
-    if let Some(ref args) = options.cli_args {
-        session_opts = session_opts.with_cli_args(args.clone());
     }
 
     let mut registry = state.engine_registry.lock().await;

@@ -109,8 +109,6 @@ pub struct SessionOptions {
     pub openai_provider_id: Option<String>,
     /// 消息历史（用于 OpenAI 等无状态引擎继续对话）
     pub message_history: Vec<HistoryEntry>,
-    /// CLI 额外参数（用于引擎命令选项）
-    pub cli_args: Vec<String>,
 }
 
 /// 历史消息条目
@@ -135,7 +133,6 @@ impl SessionOptions {
             on_session_id_update: None,
             openai_provider_id: None,
             message_history: Vec::new(),
-            cli_args: Vec::new(),
         }
     }
 
@@ -187,12 +184,6 @@ impl SessionOptions {
     /// 设置消息历史
     pub fn with_message_history(mut self, history: Vec<HistoryEntry>) -> Self {
         self.message_history = history;
-        self
-    }
-
-    /// 设置 CLI 额外参数
-    pub fn with_cli_args(mut self, args: Vec<String>) -> Self {
-        self.cli_args = args;
         self
     }
 }
