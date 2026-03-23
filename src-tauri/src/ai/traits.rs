@@ -229,6 +229,15 @@ pub trait AIEngine: Send + Sync {
     /// 中断会话
     fn interrupt(&mut self, session_id: &str) -> Result<()>;
 
+    /// 向会话发送输入
+    ///
+    /// 返回值：
+    /// - Ok(true): 发送成功
+    /// - Ok(false): 会话不存在或不支持 stdin 输入
+    fn send_input(&mut self, _session_id: &str, _input: &str) -> Result<bool> {
+        Ok(false)
+    }
+
     /// 获取活动会话数量
     fn active_session_count(&self) -> usize {
         0

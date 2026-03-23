@@ -1271,3 +1271,22 @@ pub fn clear_processed_plans(
 
     Ok(removed)
 }
+
+// ============================================================================
+// stdin 输入相关命令
+// ============================================================================
+
+/// 向会话发送输入
+///
+/// 通过 stdin 向运行中的会话发送输入数据
+#[tauri::command]
+pub async fn send_input(
+    session_id: String,
+    input: String,
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<bool> {
+    tracing::info!("[send_input] 向会话 {} 发送输入: {} bytes", session_id, input.len());
+
+    let mut registry = state.engine_registry.lock().await;
+    registry.send_input(&session_id, &input)
+}

@@ -777,7 +777,8 @@ impl AIEngine for IFlowEngine {
                             &temp_id_for_stderr,
                             &real_id,
                             pid_for_stderr,
-                            "iflow"
+                            "iflow",
+                            None
                         );
 
                         // 通知外部 session_id 已更新
@@ -980,7 +981,8 @@ impl AIEngine for IFlowEngine {
                     &temp_id_for_monitor,
                     &real_session_id,
                     cli_pid,
-                    "iflow"
+                    "iflow",
+                    None
                 );
 
                 // 通知前端 session_id 已更新
@@ -1077,7 +1079,8 @@ impl AIEngine for IFlowEngine {
                                 &temp_id_for_stderr,
                                 &new_real_id,
                                 pid_for_stderr,
-                                "iflow"
+                                "iflow",
+                                None
                             );
 
                             // 通知外部 session_id 已更新

@@ -308,6 +308,25 @@ export async function clearProcessedPlans(): Promise<number> {
 }
 
 // ============================================================================
+// stdin 输入相关命令
+// ============================================================================
+
+/**
+ * 向会话发送输入
+ *
+ * 通过 stdin 向运行中的会话发送输入数据
+ * @param sessionId 会话 ID
+ * @param input 输入内容
+ * @returns 是否发送成功
+ */
+export async function sendInput(
+  sessionId: string,
+  input: string
+): Promise<boolean> {
+  return invoke<boolean>('send_input', { sessionId, input });
+}
+
+// ============================================================================
 // IFlow 聊天相关命令（废弃，使用统一聊天接口）
 // ============================================================================
 

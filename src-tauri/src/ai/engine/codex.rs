@@ -383,7 +383,7 @@ impl CodexEngine {
                         if let Some(serde_json::Value::String(real_id)) = extra.get("session_id") {
                             parser.set_session_id(real_id);
                             SessionManager::update_session_id_shared(
-                                &sessions, &temp_id, real_id, pid, "codex"
+                                &sessions, &temp_id, real_id, pid, "codex", None
                             );
                             tracing::info!("[CodexEngine] session_id 更新: {} -> {}", temp_id, real_id);
 

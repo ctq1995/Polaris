@@ -2,10 +2,11 @@
  *
  * 管理引擎的活动会话，追踪进程 PID 以支持中断等操作。
  * 支持临时 session_id 到真实 session_id 的别名映射。
+ * 支持通过 channel 向进程 stdin 发送输入。
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc::Sender};
 use crate::error::{AppError, Result};
 
 #[cfg(windows)]
@@ -17,7 +18,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// 会话信息
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SessionInfo {
     /// 会话 ID（真实 ID）
     pub id: String,
@@ -29,6 +30,23 @@ pub struct SessionInfo {
     pub created_at: i64,
     /// 别名列表（临时 ID -> 真实 ID 的映射）
     pub aliases: Vec<String>,
+    /// stdin 输入发送器（用于向进程发送输入）
+    pub input_sender: Option<Sender<String>>,
+}
+
+impl Clone for SessionInfo {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            pid: self.pid,
+            engine_id: self.engine_id.clone(),
+            created_at: self.created_at,
+            aliases: self.aliases.clone(),
+            // Sender 无法 clone，但可以多次 send
+            // 这里使用 Option 来处理没有 sender 的情况
+            input_sender: self.input_sender.clone(),
+        }
+    }
 }
 
 /// 会话管理器
@@ -45,14 +63,26 @@ impl SessionManager {
         }
     }
 
-    /// 注册会话
+    /// 注册会话（无 stdin 发送器）
     pub fn register(&self, session_id: String, pid: u32, engine_id: String) -> Result<()> {
+        self.register_with_sender(session_id, pid, engine_id, None)
+    }
+
+    /// 注册会话（带 stdin 发送器）
+    pub fn register_with_sender(
+        &self,
+        session_id: String,
+        pid: u32,
+        engine_id: String,
+        input_sender: Option<Sender<String>>,
+    ) -> Result<()> {
         let info = SessionInfo {
             id: session_id.clone(),
             pid,
             engine_id,
             created_at: chrono::Utc::now().timestamp(),
             aliases: Vec::new(),
+            input_sender,
         };
 
         let mut sessions = self.sessions.lock()
@@ -60,6 +90,30 @@ impl SessionManager {
         sessions.insert(session_id, info);
 
         Ok(())
+    }
+
+    /// 向会话发送输入
+    ///
+    /// 返回值：
+    /// - Ok(true): 发送成功
+    /// - Ok(false): 会话不存在或没有 stdin 发送器
+    pub fn send_input(&self, session_id: &str, input: &str) -> Result<bool> {
+        let sessions = self.sessions.lock()
+            .map_err(|e| AppError::Unknown(format!("锁获取失败: {}", e)))?;
+
+        if let Some(info) = sessions.get(session_id) {
+            if let Some(ref sender) = info.input_sender {
+                sender.send(input.to_string())
+                    .map_err(|e| AppError::ProcessError(format!("发送输入失败: {}", e)))?;
+                tracing::info!("[SessionManager] 已向会话 {} 发送输入", session_id);
+                return Ok(true);
+            }
+            tracing::warn!("[SessionManager] 会话 {} 没有 stdin 发送器", session_id);
+            return Ok(false);
+        }
+
+        tracing::warn!("[SessionManager] 会话 {} 不存在", session_id);
+        Ok(false)
     }
 
     /// 更新会话 ID（当引擎返回真实 session_id 时）（预留功能）
@@ -146,6 +200,7 @@ impl SessionManager {
         new_id: &str,
         pid: u32,
         engine_id: &str,
+        input_sender: Option<Sender<String>>,
     ) {
         if let Ok(mut s) = sessions.lock() {
             // 创建新的 SessionInfo，将 old_id 作为别名
@@ -157,6 +212,7 @@ impl SessionManager {
                 engine_id: engine_id.to_string(),
                 created_at: chrono::Utc::now().timestamp(),
                 aliases,
+                input_sender,
             };
 
             // 插入新 ID 映射

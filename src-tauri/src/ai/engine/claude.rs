@@ -165,7 +165,8 @@ impl ClaudeEngine {
 
     /// 配置命令（设置工作目录、环境变量等）
     fn configure_command(&self, cmd: &mut Command, work_dir: Option<&str>) {
-        cmd.stdout(Stdio::piped())
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
         #[cfg(windows)]
@@ -185,13 +186,15 @@ impl ClaudeEngine {
     }
 
     /// 启动后台线程读取事件
+    ///
+    /// 返回 input_sender，用于向进程 stdin 发送输入
     fn spawn_event_reader(
         &self,
         child: Child,
         temp_id: String,
         pid: u32,
         options: SessionOptions,
-    ) {
+    ) -> std::sync::mpsc::Sender<String> {
         let sessions = self.sessions.shared();
         let event_callback = options.event_callback.clone();
         let on_complete = options.on_complete.clone();
@@ -199,12 +202,18 @@ impl ClaudeEngine {
         let on_session_id_update = options.on_session_id_update.clone();
         let current_session_id = temp_id.clone();
 
+        // 创建 stdin 输入 channel
+        let (input_sender, input_receiver) = std::sync::mpsc::channel::<String>();
+
+        // 克隆 input_sender 用于返回给调用者
+        let input_sender_for_return = input_sender.clone();
+
         std::thread::spawn(move || {
-            let stdout = match child.stdout {
-                Some(s) => s,
-                None => {
+            let (stdout, stdin) = match (child.stdout, child.stdin) {
+                (Some(s), Some(i)) => (s, i),
+                _ => {
                     if let Some(ref cb) = on_error {
-                        cb("无法获取进程输出流".to_string());
+                        cb("无法获取进程输入/输出流".to_string());
                     }
                     return;
                 }
@@ -220,6 +229,27 @@ impl ClaudeEngine {
                 }
             };
 
+            // 启动 stdin 写入线程
+            std::thread::spawn(move || {
+                use std::io::Write;
+                let mut stdin_writer = stdin;
+                while let Ok(input) = input_receiver.recv() {
+                    match stdin_writer.write_all(input.as_bytes()) {
+                        Ok(_) => {
+                            if let Err(e) = stdin_writer.flush() {
+                                tracing::warn!("[ClaudeEngine] stdin flush 失败: {}", e);
+                                break;
+                            }
+                            tracing::debug!("[ClaudeEngine] 已写入 stdin: {} bytes", input.len());
+                        }
+                        Err(e) => {
+                            tracing::warn!("[ClaudeEngine] stdin 写入失败: {}", e);
+                            break;
+                        }
+                    }
+                }
+            });
+
             // 读取 stderr
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
@@ -231,6 +261,7 @@ impl ClaudeEngine {
 
             // 创建事件解析器
             let mut parser = EventParser::new(&current_session_id);
+            let sender_for_update = input_sender.clone();
 
             // 读取 stdout
             let reader = BufReader::new(stdout);
@@ -253,7 +284,7 @@ impl ClaudeEngine {
                         if let Some(serde_json::Value::String(real_id)) = extra.get("session_id") {
                             parser.set_session_id(real_id);
                             SessionManager::update_session_id_shared(
-                                &sessions, &temp_id, real_id, pid, "claude"
+                                &sessions, &temp_id, real_id, pid, "claude", Some(sender_for_update.clone())
                             );
                             tracing::info!("[ClaudeEngine] session_id 更新: {} -> {}", temp_id, real_id);
 
@@ -286,6 +317,8 @@ impl ClaudeEngine {
                 cb(0);
             }
         });
+
+        input_sender_for_return
     }
 }
 
@@ -336,11 +369,11 @@ impl AIEngine for ClaudeEngine {
 
         tracing::info!("[ClaudeEngine] 进程启动，PID: {}, 临时 ID: {}", pid, temp_id);
 
-        // 注册会话
-        self.sessions.register(temp_id.clone(), pid, "claude".to_string())?;
+        // 启动事件读取，获取 input_sender
+        let input_sender = self.spawn_event_reader(child, temp_id.clone(), pid, options);
 
-        // 启动事件读取
-        self.spawn_event_reader(child, temp_id.clone(), pid, options);
+        // 注册会话（带 stdin 发送器）
+        self.sessions.register_with_sender(temp_id.clone(), pid, "claude".to_string(), Some(input_sender))?;
 
         Ok(temp_id)
     }
@@ -392,11 +425,11 @@ impl AIEngine for ClaudeEngine {
 
         tracing::info!("[ClaudeEngine] 进程启动，PID: {}", pid);
 
-        // 更新会话 PID（使用真实 session_id）
-        self.sessions.register(real_session_id.clone(), pid, "claude".to_string())?;
+        // 启动事件读取，获取 input_sender
+        let input_sender = self.spawn_event_reader(child, real_session_id.clone(), pid, options);
 
-        // 启动事件读取
-        self.spawn_event_reader(child, real_session_id.clone(), pid, options);
+        // 更新会话 PID（使用真实 session_id，带 stdin 发送器）
+        self.sessions.register_with_sender(real_session_id.clone(), pid, "claude".to_string(), Some(input_sender))?;
 
         Ok(())
     }
@@ -411,6 +444,11 @@ impl AIEngine for ClaudeEngine {
             // 找不到会话，返回错误让调用者尝试其他引擎
             Err(AppError::ProcessError(format!("会话不存在: {}", session_id)))
         }
+    }
+
+    fn send_input(&mut self, session_id: &str, input: &str) -> Result<bool> {
+        tracing::info!("[ClaudeEngine] 向会话 {} 发送输入: {} bytes", session_id, input.len());
+        self.sessions.send_input(session_id, input)
     }
 
     fn active_session_count(&self) -> usize {

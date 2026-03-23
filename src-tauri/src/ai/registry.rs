@@ -195,6 +195,30 @@ impl EngineRegistry {
         }
         false
     }
+
+    /// 向会话发送输入
+    ///
+    /// 尝试在所有引擎中找到对应的会话并发送输入
+    pub fn send_input(&mut self, session_id: &str, input: &str) -> Result<bool> {
+        for (id, engine) in &mut self.engines {
+            match engine.send_input(session_id, input) {
+                Ok(true) => {
+                    tracing::info!("[EngineRegistry] 在引擎 {} 中成功发送输入", id);
+                    return Ok(true);
+                }
+                Ok(false) => {
+                    // 继续尝试其他引擎
+                    continue;
+                }
+                Err(e) => {
+                    tracing::debug!("[EngineRegistry] 引擎 {} 发送输入失败: {}", id, e);
+                    continue;
+                }
+            }
+        }
+        tracing::warn!("[EngineRegistry] 未找到会话 {}", session_id);
+        Ok(false)
+    }
 }
 
 impl Default for EngineRegistry {
