@@ -34,6 +34,7 @@ import {
 } from '../../utils/toolSummary';
 import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain, HelpCircle, CheckCircle, ClipboardList, ThumbsUp, ThumbsDown, X, Clock, ListChecks } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
+import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
 import { groupConversationRounds } from '../../utils/conversationRounds';
 import { splitMarkdownWithMermaid } from '../../utils/markdown';
 import { MermaidDiagram } from './MermaidDiagram';
