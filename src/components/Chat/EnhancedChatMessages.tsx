@@ -1962,6 +1962,7 @@ const NESTED_TOOL_STATUS_CONFIG = {
 const AgentRunBlockRenderer = memo(function AgentRunBlockRenderer({ block }: { block: AgentRunBlock }) {
   const { t } = useTranslation('chat');
   const [isExpanded, setIsExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const statusConfig = AGENT_STATUS_CONFIG[block.status];
   const StatusIcon = statusConfig.icon;
@@ -1987,22 +1988,41 @@ const AgentRunBlockRenderer = memo(function AgentRunBlockRenderer({ block }: { b
   // 是否有嵌套工具
   const hasToolCalls = block.toolCalls.length > 0;
 
+  // 键盘导航处理
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setIsExpanded(prev => !prev);
+    }
+  }, []);
+
   return (
-    <div className={clsx(
-      'my-2 rounded-lg border overflow-hidden',
-      block.status === 'error'
-        ? 'bg-error-faint border-error/30'
-        : isRunning
-          ? 'bg-primary-faint border-primary/30'
-          : 'bg-success-faint border-success/30'
-    )}>
+    <div
+      ref={containerRef}
+      role="region"
+      aria-label={t('agent.agentRunAriaLabel', { type: block.agentType })}
+      className={clsx(
+        'my-2 rounded-lg border overflow-hidden',
+        block.status === 'error'
+          ? 'bg-error-faint border-error/30'
+          : isRunning
+            ? 'bg-primary-faint border-primary/30'
+            : 'bg-success-faint border-success/30'
+      )}
+    >
       {/* 头部 */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={t('agent.toggleDetails')}
         className={clsx(
           'flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-inherit/50',
+          'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset',
           isRunning && 'animate-pulse-subtle'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={handleKeyDown}
       >
         {/* Agent 图标 */}
         <div className={clsx(

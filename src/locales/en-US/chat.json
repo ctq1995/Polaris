@@ -129,7 +129,9 @@
     "toolCount": "{{count}} tool calls",
     "completed": "completed",
     "toolCalls": "Tool Calls",
-    "output": "Output"
+    "output": "Output",
+    "agentRunAriaLabel": "Agent Run: {{type}}",
+    "toggleDetails": "Toggle details"
   },
   "toolGroup": {
     "tools": "tools",

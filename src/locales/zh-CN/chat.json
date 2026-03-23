@@ -129,7 +129,9 @@
     "toolCount": "{{count}} 个工具调用",
     "completed": "完成",
     "toolCalls": "工具调用",
-    "output": "输出"
+    "output": "输出",
+    "agentRunAriaLabel": "Agent 运行: {{type}}",
+    "toggleDetails": "展开或折叠详情"
   },
   "toolGroup": {
     "tools": "个工具",
