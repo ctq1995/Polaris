@@ -11,4 +11,8 @@ pub use ai_event::{
     ResultEvent, ErrorEvent, SessionEndEvent,
     UserMessageEvent, AssistantMessageEvent, SessionEndReason,
     ThinkingEvent,
+    // PlanMode 类型
+    PlanStatus, PlanTaskStatus, PlanStageStatus, PlanTask, PlanStage,
+    PlanStartEvent, PlanContentEvent, PlanStageUpdateEvent,
+    PlanApprovalRequestEvent, PlanApprovalResultEvent, PlanEndEvent,
 };

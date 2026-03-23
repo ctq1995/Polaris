@@ -1105,3 +1105,169 @@ pub fn clear_answered_questions(
 
     Ok(removed)
 }
+
+// ============================================================================
+// PlanMode 相关命令
+// ============================================================================
+
+use crate::state::{PendingPlan, PlanApprovalStatus};
+use crate::models::{PlanApprovalResultEvent, PlanStatus};
+
+/// 注册待审批计划
+///
+/// 当收到 plan_approval_request 事件时调用此函数
+#[tauri::command]
+pub fn register_pending_plan(
+    session_id: String,
+    plan_id: String,
+    title: Option<String>,
+    description: Option<String>,
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<()> {
+    tracing::info!(
+        "[register_pending_plan] 注册计划: session={}, plan={}, title={:?}",
+        session_id, plan_id, title
+    );
+
+    let plan = PendingPlan {
+        plan_id: plan_id.clone(),
+        session_id,
+        title,
+        description,
+        status: PlanApprovalStatus::Pending,
+        feedback: None,
+    };
+
+    let mut pending = state.pending_plans.lock()
+        .map_err(|e| AppError::Unknown(e.to_string()))?;
+    pending.insert(plan_id, plan);
+
+    Ok(())
+}
+
+/// 批准计划
+///
+/// 用户批准计划后调用此函数
+#[tauri::command]
+pub async fn approve_plan(
+    session_id: String,
+    plan_id: String,
+    window: Window,
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<()> {
+    tracing::info!(
+        "[approve_plan] 批准计划: session={}, plan={}",
+        session_id, plan_id
+    );
+
+    // 更新计划状态
+    {
+        let mut pending = state.pending_plans.lock()
+            .map_err(|e| AppError::Unknown(e.to_string()))?;
+
+        if let Some(plan) = pending.get_mut(&plan_id) {
+            plan.status = PlanApprovalStatus::Approved;
+        } else {
+            tracing::warn!("[approve_plan] 计划不存在: {}", plan_id);
+        }
+    }
+
+    // 发送事件通知前端计划已批准
+    let event = PlanApprovalResultEvent::new(&session_id, &plan_id, true);
+
+    window.emit("chat-event", &serde_json::json!({
+        "contextId": "main",
+        "payload": event
+    }))
+    .map_err(|e| AppError::ProcessError(format!("发送事件失败: {}", e)))?;
+
+    tracing::info!("[approve_plan] 计划已批准，事件已发送");
+
+    Ok(())
+}
+
+/// 拒绝计划
+///
+/// 用户拒绝计划后调用此函数
+#[tauri::command]
+pub async fn reject_plan(
+    session_id: String,
+    plan_id: String,
+    feedback: Option<String>,
+    window: Window,
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<()> {
+    tracing::info!(
+        "[reject_plan] 拒绝计划: session={}, plan={}, feedback={:?}",
+        session_id, plan_id, feedback
+    );
+
+    // 更新计划状态
+    {
+        let mut pending = state.pending_plans.lock()
+            .map_err(|e| AppError::Unknown(e.to_string()))?;
+
+        if let Some(plan) = pending.get_mut(&plan_id) {
+            plan.status = PlanApprovalStatus::Rejected;
+            plan.feedback = feedback.clone();
+        } else {
+            tracing::warn!("[reject_plan] 计划不存在: {}", plan_id);
+        }
+    }
+
+    // 发送事件通知前端计划已拒绝
+    let event = PlanApprovalResultEvent::new(&session_id, &plan_id, false)
+        .with_feedback(feedback.unwrap_or_default());
+
+    window.emit("chat-event", &serde_json::json!({
+        "contextId": "main",
+        "payload": event
+    }))
+    .map_err(|e| AppError::ProcessError(format!("发送事件失败: {}", e)))?;
+
+    tracing::info!("[reject_plan] 计划已拒绝，事件已发送");
+
+    Ok(())
+}
+
+/// 获取待审批计划列表
+#[tauri::command]
+pub fn get_pending_plans(
+    session_id: Option<String>,
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<Vec<PendingPlan>> {
+    let pending = state.pending_plans.lock()
+        .map_err(|e| AppError::Unknown(e.to_string()))?;
+
+    let plans: Vec<PendingPlan> = pending
+        .values()
+        .filter(|p| {
+            if let Some(ref sid) = session_id {
+                &p.session_id == sid
+            } else {
+                true
+            }
+        })
+        .filter(|p| matches!(p.status, PlanApprovalStatus::Pending))
+        .cloned()
+        .collect();
+
+    Ok(plans)
+}
+
+/// 清除已处理的计划
+#[tauri::command]
+pub fn clear_processed_plans(
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<usize> {
+    let mut pending = state.pending_plans.lock()
+        .map_err(|e| AppError::Unknown(e.to_string()))?;
+
+    let initial_count = pending.len();
+    pending.retain(|_, p| matches!(p.status, PlanApprovalStatus::Pending));
+    let removed = initial_count - pending.len();
+
+    tracing::info!("[clear_processed_plans] 清除了 {} 个已处理计划", removed);
+
+    Ok(removed)
+}

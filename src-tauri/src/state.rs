@@ -62,6 +62,40 @@ pub struct QuestionAnswer {
     pub custom_input: Option<String>,
 }
 
+// ============================================================================
+// PlanMode 相关类型
+// ============================================================================
+
+/// 计划审批状态
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum PlanApprovalStatus {
+    /// 等待审批
+    Pending,
+    /// 已批准
+    Approved,
+    /// 已拒绝
+    Rejected,
+}
+
+/// 待审批计划
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingPlan {
+    /// 计划 ID
+    pub plan_id: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 计划标题
+    pub title: Option<String>,
+    /// 计划描述
+    pub description: Option<String>,
+    /// 审批状态
+    pub status: PlanApprovalStatus,
+    /// 审批反馈（拒绝时可能有）
+    pub feedback: Option<String>,
+}
+
 /// 全局配置状态
 pub struct AppState {
     /// 配置存储
@@ -89,6 +123,8 @@ pub struct AppState {
     pub terminal_manager: Mutex<TerminalManager>,
     /// 待回答问题映射：callId -> PendingQuestion
     pub pending_questions: Arc<Mutex<HashMap<String, PendingQuestion>>>,
+    /// 待审批计划映射：planId -> PendingPlan
+    pub pending_plans: Arc<Mutex<HashMap<String, PendingPlan>>>,
 }
 
 /// 创建应用状态
@@ -126,5 +162,6 @@ pub fn create_app_state(
         scheduler_lock: AsyncMutex::new(None),
         terminal_manager: Mutex::new(TerminalManager::new()),
         pending_questions: Arc::new(Mutex::new(HashMap::new())),
+        pending_plans: Arc::new(Mutex::new(HashMap::new())),
     }
 }

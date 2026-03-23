@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { AIEvent } from '../../ai-runtime'
 import type { EventChatState } from './types'
 import { extractEditDiff, isEditTool } from '../../utils/diffExtractor'
+import { registerPendingPlan } from '../../services/tauri'
 
 // ============================================================================
 // 文件读取缓存
@@ -381,6 +382,27 @@ export function handleAIEvent(
         status: 'pending_approval',
         isActive: true,
       })
+
+      // 注册待审批计划到后端
+      // planBlockMap 存储的是 blockIndex，需要先获取 index 再获取实际的 block
+      const blockIndex = state.planBlockMap.get(planEvent.planId)
+      const planBlock = blockIndex !== undefined && state.currentMessage
+        ? state.currentMessage.blocks[blockIndex]
+        : undefined
+
+      // 类型守卫检查是否为 PlanModeBlock
+      const title = planBlock && 'title' in planBlock ? planBlock.title : undefined
+      const description = planBlock && 'description' in planBlock ? planBlock.description : undefined
+
+      registerPendingPlan(
+        planEvent.sessionId,
+        planEvent.planId,
+        title,
+        description
+      ).catch(err => {
+        console.error('[EventChatStore] Failed to register pending plan:', err)
+      })
+
       console.log('[EventChatStore] Plan approval requested:', planEvent.planId)
       break
     }

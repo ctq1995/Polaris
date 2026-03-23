@@ -463,6 +463,302 @@ impl TaskCompletedEvent {
 }
 
 // ============================================================================
+// PlanMode 相关类型和事件
+// ============================================================================
+
+/// PlanMode 状态
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanStatus {
+    /// 正在起草计划
+    Drafting,
+    /// 等待审批
+    PendingApproval,
+    /// 已批准
+    Approved,
+    /// 已拒绝
+    Rejected,
+    /// 正在执行
+    Executing,
+    /// 已完成
+    Completed,
+    /// 已取消
+    Canceled,
+}
+
+/// 计划任务状态
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanTaskStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Failed,
+    Skipped,
+}
+
+/// 计划阶段状态
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanStageStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Failed,
+}
+
+/// 计划任务
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanTask {
+    /// 任务 ID
+    pub task_id: String,
+    /// 任务描述
+    pub description: String,
+    /// 任务状态
+    pub status: PlanTaskStatus,
+}
+
+/// 计划阶段
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanStage {
+    /// 阶段 ID
+    pub stage_id: String,
+    /// 阶段名称
+    pub name: String,
+    /// 阶段描述
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// 阶段状态
+    pub status: PlanStageStatus,
+    /// 阶段内的任务列表
+    pub tasks: Vec<PlanTask>,
+}
+
+/// Plan 开始事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanStartEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 计划 ID
+    pub plan_id: String,
+}
+
+impl PlanStartEvent {
+    pub fn new(session_id: impl Into<String>, plan_id: impl Into<String>) -> Self {
+        Self {
+            event_type: "plan_start".to_string(),
+            session_id: session_id.into(),
+            plan_id: plan_id.into(),
+        }
+    }
+}
+
+/// Plan 内容事件 - 发送完整的计划内容
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanContentEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 计划 ID
+    pub plan_id: String,
+    /// 计划标题
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// 计划描述
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// 阶段列表
+    pub stages: Vec<PlanStage>,
+    /// 当前计划状态
+    pub status: PlanStatus,
+}
+
+impl PlanContentEvent {
+    pub fn new(
+        session_id: impl Into<String>,
+        plan_id: impl Into<String>,
+        stages: Vec<PlanStage>,
+        status: PlanStatus,
+    ) -> Self {
+        Self {
+            event_type: "plan_content".to_string(),
+            session_id: session_id.into(),
+            plan_id: plan_id.into(),
+            title: None,
+            description: None,
+            stages,
+            status,
+        }
+    }
+
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+}
+
+/// Plan 阶段更新事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanStageUpdateEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 计划 ID
+    pub plan_id: String,
+    /// 阶段 ID
+    pub stage_id: String,
+    /// 阶段状态
+    pub status: PlanStageStatus,
+    /// 更新的任务列表（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tasks: Option<Vec<PlanTask>>,
+}
+
+impl PlanStageUpdateEvent {
+    pub fn new(
+        session_id: impl Into<String>,
+        plan_id: impl Into<String>,
+        stage_id: impl Into<String>,
+        status: PlanStageStatus,
+    ) -> Self {
+        Self {
+            event_type: "plan_stage_update".to_string(),
+            session_id: session_id.into(),
+            plan_id: plan_id.into(),
+            stage_id: stage_id.into(),
+            status,
+            tasks: None,
+        }
+    }
+
+    pub fn with_tasks(mut self, tasks: Vec<PlanTask>) -> Self {
+        self.tasks = Some(tasks);
+        self
+    }
+}
+
+/// Plan 审批请求事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanApprovalRequestEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 计划 ID
+    pub plan_id: String,
+    /// 请求消息
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+impl PlanApprovalRequestEvent {
+    pub fn new(session_id: impl Into<String>, plan_id: impl Into<String>) -> Self {
+        Self {
+            event_type: "plan_approval_request".to_string(),
+            session_id: session_id.into(),
+            plan_id: plan_id.into(),
+            message: None,
+        }
+    }
+
+    pub fn with_message(mut self, message: impl Into<String>) -> Self {
+        self.message = Some(message.into());
+        self
+    }
+}
+
+/// Plan 审批结果事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanApprovalResultEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 计划 ID
+    pub plan_id: String,
+    /// 审批结果
+    pub approved: bool,
+    /// 修改建议（拒绝时可能有）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feedback: Option<String>,
+}
+
+impl PlanApprovalResultEvent {
+    pub fn new(
+        session_id: impl Into<String>,
+        plan_id: impl Into<String>,
+        approved: bool,
+    ) -> Self {
+        Self {
+            event_type: "plan_approval_result".to_string(),
+            session_id: session_id.into(),
+            plan_id: plan_id.into(),
+            approved,
+            feedback: None,
+        }
+    }
+
+    pub fn with_feedback(mut self, feedback: impl Into<String>) -> Self {
+        self.feedback = Some(feedback.into());
+        self
+    }
+}
+
+/// Plan 结束事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanEndEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 计划 ID
+    pub plan_id: String,
+    /// 结束状态
+    pub status: PlanStatus,
+    /// 结束原因
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl PlanEndEvent {
+    pub fn new(
+        session_id: impl Into<String>,
+        plan_id: impl Into<String>,
+        status: PlanStatus,
+    ) -> Self {
+        Self {
+            event_type: "plan_end".to_string(),
+            session_id: session_id.into(),
+            plan_id: plan_id.into(),
+            status,
+            reason: None,
+        }
+    }
+
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = Some(reason.into());
+        self
+    }
+}
+
+// ============================================================================
 // 统一 AIEvent 枚举
 // ============================================================================
 
@@ -486,6 +782,13 @@ pub enum AIEvent {
     TaskMetadata(TaskMetadataEvent),
     TaskProgress(TaskProgressEvent),
     TaskCompleted(TaskCompletedEvent),
+    // PlanMode 事件
+    PlanStart(PlanStartEvent),
+    PlanContent(PlanContentEvent),
+    PlanStageUpdate(PlanStageUpdateEvent),
+    PlanApprovalRequest(PlanApprovalRequestEvent),
+    PlanApprovalResult(PlanApprovalResultEvent),
+    PlanEnd(PlanEndEvent),
 }
 
 impl AIEvent {
@@ -506,6 +809,12 @@ impl AIEvent {
             AIEvent::TaskMetadata(e) => &e.event_type,
             AIEvent::TaskProgress(e) => &e.event_type,
             AIEvent::TaskCompleted(e) => &e.event_type,
+            AIEvent::PlanStart(e) => &e.event_type,
+            AIEvent::PlanContent(e) => &e.event_type,
+            AIEvent::PlanStageUpdate(e) => &e.event_type,
+            AIEvent::PlanApprovalRequest(e) => &e.event_type,
+            AIEvent::PlanApprovalResult(e) => &e.event_type,
+            AIEvent::PlanEnd(e) => &e.event_type,
         }
     }
 

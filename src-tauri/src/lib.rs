@@ -22,6 +22,8 @@ use commands::chat::{
     find_codex_paths, validate_codex_path,
     list_codex_sessions, get_codex_session_history,
     register_pending_question, answer_question, get_pending_questions, clear_answered_questions,
+    // PlanMode 相关
+    register_pending_plan, approve_plan, reject_plan, get_pending_plans, clear_processed_plans,
 };
 use commands::{validate_workspace_path, get_directory_info, get_home_dir};
 use commands::window::{
@@ -337,6 +339,12 @@ pub fn run() {
             answer_question,
             get_pending_questions,
             clear_answered_questions,
+            // PlanMode 相关
+            register_pending_plan,
+            approve_plan,
+            reject_plan,
+            get_pending_plans,
+            clear_processed_plans,
             // 工作区相关
             validate_workspace_path,
             get_directory_info,

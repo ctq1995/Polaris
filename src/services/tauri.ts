@@ -231,6 +231,83 @@ export async function clearAnsweredQuestions(): Promise<number> {
 }
 
 // ============================================================================
+// PlanMode 相关命令
+// ============================================================================
+
+/** 计划审批状态 */
+export type PlanApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+/** 待审批计划 */
+export interface PendingPlan {
+  planId: string;
+  sessionId: string;
+  title?: string;
+  description?: string;
+  status: PlanApprovalStatus;
+  feedback?: string;
+}
+
+/**
+ * 注册待审批计划
+ * @internal 内部使用，由事件处理器调用
+ */
+export async function registerPendingPlan(
+  sessionId: string,
+  planId: string,
+  title?: string,
+  description?: string
+): Promise<void> {
+  return invoke('register_pending_plan', {
+    sessionId,
+    planId,
+    title,
+    description,
+  });
+}
+
+/**
+ * 批准计划
+ */
+export async function approvePlan(
+  sessionId: string,
+  planId: string
+): Promise<void> {
+  return invoke('approve_plan', {
+    sessionId,
+    planId,
+  });
+}
+
+/**
+ * 拒绝计划
+ */
+export async function rejectPlan(
+  sessionId: string,
+  planId: string,
+  feedback?: string
+): Promise<void> {
+  return invoke('reject_plan', {
+    sessionId,
+    planId,
+    feedback,
+  });
+}
+
+/**
+ * 获取待审批计划列表
+ */
+export async function getPendingPlans(sessionId?: string): Promise<PendingPlan[]> {
+  return invoke<PendingPlan[]>('get_pending_plans', { sessionId });
+}
+
+/**
+ * 清除已处理的计划
+ */
+export async function clearProcessedPlans(): Promise<number> {
+  return invoke<number>('clear_processed_plans');
+}
+
+// ============================================================================
 // IFlow 聊天相关命令（废弃，使用统一聊天接口）
 // ============================================================================
 
