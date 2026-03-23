@@ -63,7 +63,7 @@ export interface PermissionRequest {
  */
 
 /** 内容块类型 - 用于 Assistant 消息的内容分段 */
-export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock;
+export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | QuestionBlock;
 
 /** 文本内容块 */
 export interface TextBlock {
@@ -103,6 +103,44 @@ export interface ToolCallBlock {
     /** AI 修改前的完整文件内容（用于精确撤销） */
     fullOldContent?: string;
   };
+}
+
+/** 问题选项 */
+export interface QuestionOption {
+  /** 选项值 */
+  value: string;
+  /** 显示文本（可选，默认使用 value） */
+  label?: string;
+}
+
+/** 问题回答状态 */
+export type QuestionStatus = 'pending' | 'answered';
+
+/** 问题答案 */
+export interface QuestionAnswer {
+  /** 选中的选项值列表 */
+  selected: string[];
+  /** 自定义输入内容 */
+  customInput?: string;
+}
+
+/** 问题内容块 - 用于 AskUserQuestion 工具 */
+export interface QuestionBlock {
+  type: 'question';
+  /** 工具调用 ID（与 tool_call_start 的 callId 对应） */
+  id: string;
+  /** 问题标题 */
+  header: string;
+  /** 是否多选 */
+  multiSelect?: boolean;
+  /** 选项列表 */
+  options: QuestionOption[];
+  /** 是否允许自定义输入 */
+  allowCustomInput?: boolean;
+  /** 回答状态 */
+  status: QuestionStatus;
+  /** 用户答案 */
+  answer?: QuestionAnswer;
 }
 
 /** 聊天消息类型标识符 */
@@ -246,4 +284,9 @@ export function isThinkingBlock(block: ContentBlock): block is ThinkingBlock {
 /** 类型守卫：判断是否为工具调用块 */
 export function isToolCallBlock(block: ContentBlock): block is ToolCallBlock {
   return block.type === 'tool_call';
+}
+
+/** 类型守卫：判断是否为问题块 */
+export function isQuestionBlock(block: ContentBlock): block is QuestionBlock {
+  return block.type === 'question';
 }
