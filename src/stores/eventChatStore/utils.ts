@@ -129,7 +129,7 @@ export function handleAIEvent(
       if (toolName === 'ask_user_question' || toolName === 'AskUserQuestion') {
         // 兼容不同引擎的事件格式：某些引擎（如 IFlow CLI）使用 input 字段，某些使用 args 字段
         const args = event.args as Record<string, unknown>
-        const input = (event as Record<string, unknown>).input as Record<string, unknown> | undefined
+        const input = (event as unknown as Record<string, unknown>).input as Record<string, unknown> | undefined
         // 优先使用 input 字段，如果为空则使用 args 字段
         const params = input && Object.keys(input).length > 0 ? input : args
 

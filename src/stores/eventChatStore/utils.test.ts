@@ -592,6 +592,58 @@ describe('handleAIEvent', () => {
         allowCustomInput: false,
       })
     })
+
+    it('应支持 input 字段格式（IFlow CLI 格式）', () => {
+      // 某些引擎（如 IFlow CLI）将问题参数放在 input 字段而非 args 字段
+      const event = {
+        type: 'tool_call_start' as const,
+        callId: 'q-iflow-1',
+        tool: 'AskUserQuestion',
+        args: {}, // args 为空
+        input: {
+          message: 'Answer questions?',
+          options: ['Yes', 'No'],
+        },
+      }
+
+      handleAIEvent(event, mockStore.set, mockStore.get)
+
+      expect(mockStore.state.appendQuestionBlock).toHaveBeenCalledWith(
+        'q-iflow-1',
+        'Answer questions?',
+        [{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }],
+        false,
+        false
+      )
+    })
+
+    it('应优先使用 input 字段（当 input 非空时）', () => {
+      const event = {
+        type: 'tool_call_start' as const,
+        callId: 'q-mixed-1',
+        tool: 'ask_user_question',
+        args: {
+          header: 'Args Header',
+          options: ['A', 'B'],
+        },
+        input: {
+          message: 'Input Message',
+          options: ['X', 'Y'],
+          multiSelect: true,
+        },
+      }
+
+      handleAIEvent(event, mockStore.set, mockStore.get)
+
+      // input 字段优先
+      expect(mockStore.state.appendQuestionBlock).toHaveBeenCalledWith(
+        'q-mixed-1',
+        'Input Message',
+        [{ value: 'X', label: 'X' }, { value: 'Y', label: 'Y' }],
+        true,
+        false
+      )
+    })
   })
 
   describe('question_answered', () => {
