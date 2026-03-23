@@ -141,5 +141,18 @@
     "showAll": "查看全部 {{count}} 个工具",
     "ariaLabel": "工具组，共 {{count}} 个工具",
     "toggleLabel": "展开或折叠工具列表"
+  },
+  "errorBlock": {
+    "title": "内容块渲染错误",
+    "description": "{{blockType}} 渲染时出现问题",
+    "retry": "重试",
+    "contentBlock": "内容块",
+    "textBlock": "文本块",
+    "thinkingBlock": "思考块",
+    "toolCallBlock": "工具调用",
+    "questionBlock": "问题块",
+    "planModeBlock": "计划模式块",
+    "agentRunBlock": "Agent 运行块",
+    "toolGroupBlock": "工具组块"
   }
 }

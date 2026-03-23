@@ -141,5 +141,18 @@
     "showAll": "Show all {{count}} tools",
     "ariaLabel": "Tool group, {{count}} tools",
     "toggleLabel": "Expand or collapse tool list"
+  },
+  "errorBlock": {
+    "title": "Content Block Error",
+    "description": "Error rendering {{blockType}}",
+    "retry": "Retry",
+    "contentBlock": "content block",
+    "textBlock": "text block",
+    "thinkingBlock": "thinking block",
+    "toolCallBlock": "tool call",
+    "questionBlock": "question block",
+    "planModeBlock": "plan mode block",
+    "agentRunBlock": "agent run block",
+    "toolGroupBlock": "tool group block"
   }
 }

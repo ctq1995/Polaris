@@ -38,6 +38,7 @@ import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlo
 import { PlanModeBlockRenderer, SimplifiedPlanModeRenderer } from './PlanModeBlockRenderer';
 import { AgentRunBlockRenderer, SimplifiedAgentRunRenderer } from './AgentRunBlockRenderer';
 import { ToolGroupRenderer } from './ToolGroupRenderer';
+import { ContentBlockErrorBoundary } from './ContentBlockErrorBoundary';
 import { groupConversationRounds } from '../../utils/conversationRounds';
 import { splitMarkdownWithMermaid } from '../../utils/markdown';
 import { MermaidDiagram } from './MermaidDiagram';
@@ -1131,43 +1132,80 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
   );
 });
 
-/** 内容块渲染器 */
+/** 内容块渲染器 - 每个块都有错误边界保护 */
 function renderContentBlock(
   block: ContentBlock,
   isStreaming?: boolean,
   renderMode: MessageRenderMode = 'full'
 ): React.ReactNode {
+  // 创建带有错误边界的内容块包装器
+  const wrapWithErrorBoundary = (content: React.ReactNode, blockId?: string) => (
+    <ContentBlockErrorBoundary key={blockId || `block-${block.type}`} blockType={block.type} blockId={blockId}>
+      {content}
+    </ContentBlockErrorBoundary>
+  );
+
   switch (block.type) {
     case 'text':
-      return <TextBlockRenderer key={`text-${block.content.slice(0, 20)}`} block={block} isStreaming={isStreaming} renderMode={renderMode} />;
+      return wrapWithErrorBoundary(
+        <TextBlockRenderer block={block} isStreaming={isStreaming} renderMode={renderMode} />,
+        `text-${block.content.slice(0, 20)}`
+      );
     case 'thinking':
       // 归档模式下不渲染思考块
       if (renderMode === 'archive') return null;
-      return <ThinkingBlockRenderer key={`thinking-${block.content.slice(0, 20)}`} block={block} />;
+      return wrapWithErrorBoundary(
+        <ThinkingBlockRenderer block={block} />,
+        `thinking-${block.content.slice(0, 20)}`
+      );
     case 'tool_call':
       // 归档模式下使用简化工具渲染
       if (renderMode === 'archive') {
-        return <SimplifiedToolCallRenderer key={block.id} block={block} />;
+        return wrapWithErrorBoundary(
+          <SimplifiedToolCallRenderer block={block} />,
+          block.id
+        );
       }
-      return <ToolCallBlockRenderer key={block.id} block={block} />;
+      return wrapWithErrorBoundary(
+        <ToolCallBlockRenderer block={block} />,
+        block.id
+      );
     case 'question':
       // 归档模式下使用简化问题渲染
       if (renderMode === 'archive') {
-        return <SimplifiedQuestionRenderer key={block.id} block={block} />;
+        return wrapWithErrorBoundary(
+          <SimplifiedQuestionRenderer block={block} />,
+          block.id
+        );
       }
-      return <QuestionBlockRenderer key={block.id} block={block} />;
+      return wrapWithErrorBoundary(
+        <QuestionBlockRenderer block={block} />,
+        block.id
+      );
     case 'plan_mode':
       // 归档模式下使用简化计划渲染
       if (renderMode === 'archive') {
-        return <SimplifiedPlanModeRenderer key={block.id} block={block} />;
+        return wrapWithErrorBoundary(
+          <SimplifiedPlanModeRenderer block={block} />,
+          block.id
+        );
       }
-      return <PlanModeBlockRenderer key={block.id} block={block} />;
+      return wrapWithErrorBoundary(
+        <PlanModeBlockRenderer block={block} />,
+        block.id
+      );
     case 'agent_run':
       // 归档模式下使用简化 Agent 渲染
       if (renderMode === 'archive') {
-        return <SimplifiedAgentRunRenderer key={block.id} block={block} />;
+        return wrapWithErrorBoundary(
+          <SimplifiedAgentRunRenderer block={block} />,
+          block.id
+        );
       }
-      return <AgentRunBlockRenderer key={block.id} block={block} />;
+      return wrapWithErrorBoundary(
+        <AgentRunBlockRenderer block={block} />,
+        block.id
+      );
     default:
       return null;
   }
