@@ -17,5 +17,16 @@
     "syntax": "引用语法",
     "currentSyntax": "@/path - 引用当前工作区文件",
     "contextSyntax": "@{name}:path - 引用关联工作区文件"
+  },
+  "selector": {
+    "noWorkspace": "还没有工作区",
+    "createWorkspace": "创建工作区",
+    "createWorkspaceTitle": "创建工作区",
+    "workspace": "工作区",
+    "currentWorkspaceLabel": "当前工作区",
+    "deleteWorkspace": "删除工作区",
+    "deleteWorkspaceTitle": "删除工作区",
+    "confirmDelete": "确定要删除 \"{{name}}\" 吗？",
+    "deleteHint": "此操作不可撤销。"
   }
 }

@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../stores';
 import { Button } from '../Common';
 import { CreateWorkspaceModal } from './CreateWorkspaceModal';
@@ -11,6 +12,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('WorkspaceSelector');
 
 export function WorkspaceSelector() {
+  const { t } = useTranslation('workspace');
   const {
     workspaces,
     currentWorkspaceId,
@@ -54,13 +56,13 @@ export function WorkspaceSelector() {
               </svg>
             </div>
             <p className="text-sm text-text-secondary mb-3">
-              还没有工作区
+              {t('selector.noWorkspace')}
             </p>
             <Button
               onClick={() => setShowCreateModal(true)}
               className="w-full"
             >
-              创建工作区
+              {t('selector.createWorkspace')}
             </Button>
           </div>
         </div>
@@ -78,13 +80,13 @@ export function WorkspaceSelector() {
     <>
       <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-text-tertiary">工作区</span>
+          <span className="text-xs font-medium text-text-tertiary">{t('selector.workspace')}</span>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowCreateModal(true)}
             className="p-1 h-6"
-            title="创建工作区"
+            title={t('selector.createWorkspaceTitle')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -137,7 +139,7 @@ export function WorkspaceSelector() {
                     <div className="mt-1 space-y-1">
                       <div className="flex items-center gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                        <span className="text-xs">当前工作区</span>
+                        <span className="text-xs">{t('selector.currentWorkspaceLabel')}</span>
                       </div>
                       <div className="text-xs text-white/80 bg-white/10 rounded px-1.5 py-0.5">
                         {workspace.path}
@@ -155,7 +157,7 @@ export function WorkspaceSelector() {
                         ? 'hover:bg-white/20 text-white'
                         : 'hover:bg-background-surface text-text-tertiary hover:text-danger'
                     }`}
-                    title="删除工作区"
+                    title={t('selector.deleteWorkspace')}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -179,25 +181,25 @@ export function WorkspaceSelector() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-background-elevated rounded-xl p-6 w-full max-w-sm border border-border">
             <h3 className="text-lg font-semibold text-text-primary mb-2">
-              删除工作区
+              {t('selector.deleteWorkspaceTitle')}
             </h3>
             <p className="text-sm text-text-secondary mb-4">
-              确定要删除 "{workspaces.find(w => w.id === showDeleteConfirm)?.name}" 吗？
+              {t('selector.confirmDelete', { name: workspaces.find(w => w.id === showDeleteConfirm)?.name })}
               <br />
-              此操作不可撤销。
+              {t('selector.deleteHint')}
             </p>
             <div className="flex justify-end gap-2">
               <Button
                 variant="ghost"
                 onClick={() => setShowDeleteConfirm(null)}
               >
-                取消
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="danger"
                 onClick={() => handleDeleteWorkspace(showDeleteConfirm)}
               >
-                删除
+                {t('common:buttons.delete')}
               </Button>
             </div>
           </div>

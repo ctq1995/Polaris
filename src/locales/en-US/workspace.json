@@ -17,5 +17,16 @@
     "syntax": "Reference syntax",
     "currentSyntax": "@/path - Reference file in current workspace",
     "contextSyntax": "@{name}:path - Reference file in context workspace"
+  },
+  "selector": {
+    "noWorkspace": "No workspace yet",
+    "createWorkspace": "Create Workspace",
+    "createWorkspaceTitle": "Create Workspace",
+    "workspace": "Workspace",
+    "currentWorkspaceLabel": "Current Workspace",
+    "deleteWorkspace": "Delete Workspace",
+    "deleteWorkspaceTitle": "Delete Workspace",
+    "confirmDelete": "Are you sure you want to delete \"{{name}}\"?",
+    "deleteHint": "This action cannot be undone."
   }
 }
