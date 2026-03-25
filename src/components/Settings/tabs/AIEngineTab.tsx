@@ -4,6 +4,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { ClaudePathSelector } from '../../Common';
+import { useConfigStore } from '../../../stores';
 import type { Config, EngineId } from '../../../types';
 
 interface AIEngineTabProps {
@@ -21,6 +22,7 @@ const FIXED_ENGINE_OPTIONS: { id: EngineId; nameKey: string; descKey: string }[]
 
 export function AIEngineTab({ config, onConfigChange, loading }: AIEngineTabProps) {
   const { t } = useTranslation('settings');
+  const { healthStatus } = useConfigStore();
 
   // 获取启用的 OpenAI Providers
   const enabledProviders = config.openaiProviders?.filter(p => p.enabled) || [];
@@ -161,7 +163,20 @@ export function AIEngineTab({ config, onConfigChange, loading }: AIEngineTabProp
       {/* Claude Code 配置 */}
       {config.defaultEngine === 'claude-code' && (
         <div className="p-4 bg-surface rounded-lg border border-border">
-          <h3 className="text-sm font-medium text-text-primary mb-3">{t('claudeCode.title')}</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-text-primary">{t('claudeCode.title')}</h3>
+            {/* Claude Code 版本状态 */}
+            {healthStatus?.claudeVersion && (
+              <span className="text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+                v{healthStatus.claudeVersion}
+              </span>
+            )}
+            {healthStatus && !healthStatus.claudeAvailable && (
+              <span className="text-xs px-2 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+                {t('claudeCode.notAvailable', '未安装')}
+              </span>
+            )}
+          </div>
           <div>
             <label className="block text-xs text-text-secondary mb-2">
               {t('claudeCode.cliPath')}
