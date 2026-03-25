@@ -122,12 +122,12 @@ export function AIEngineTab({ config, onConfigChange, loading }: AIEngineTabProp
                           <span className="font-medium text-text-primary">{provider.name}</span>
                           {provider.supportsTools && (
                             <span className="text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
-                              工具支持
+                              {t('openaiProviders.toolSupport')}
                             </span>
                           )}
                         </div>
                         <div className="text-sm text-text-secondary mt-1">
-                          模型: <span className="text-blue-400">{provider.model}</span>
+                          {t('openaiProviders.model')}: <span className="text-blue-400">{provider.model}</span>
                         </div>
                         <div className="text-xs text-text-tertiary mt-0.5 truncate">
                           {provider.apiBase}
@@ -153,7 +153,7 @@ export function AIEngineTab({ config, onConfigChange, loading }: AIEngineTabProp
                 OpenAI Provider
               </div>
               <p className="text-sm text-yellow-500 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                未配置 OpenAI Provider，请在"OpenAI Provider"标签页中添加配置
+                {t('openaiProviders.notConfigured')}
               </p>
             </div>
           )}
@@ -243,12 +243,12 @@ export function AIEngineTab({ config, onConfigChange, loading }: AIEngineTabProp
               })}
               className="w-full px-3 py-2 rounded border border-border bg-background text-sm"
             >
-              <option value="workspace-write">workspace-write (创建/修改，可能不支持删除)</option>
-              <option value="danger-full-access">danger-full-access (完整权限，包括删除)</option>
+              <option value="workspace-write">{t('codex.sandboxWorkspaceWrite')}</option>
+              <option value="danger-full-access">{t('codex.sandboxDangerFullAccess')}</option>
             </select>
             <p className="mt-1 text-xs text-text-tertiary">
-              workspace-write: 较安全，但删除文件可能失败<br/>
-              danger-full-access: 完整权限，但有安全风险
+              {t('codex.sandboxWorkspaceWriteHint')}<br/>
+              {t('codex.sandboxDangerHint')}
             </p>
           </div>
 
@@ -264,10 +264,10 @@ export function AIEngineTab({ config, onConfigChange, loading }: AIEngineTabProp
                 })}
                 className="w-4 h-4"
               />
-              <span className="text-red-500">dangerously-bypass-approvals-and-sandbox</span>
+              <span className="text-red-500">{t('codex.dangerousBypass')}</span>
             </label>
             <p className="mt-1 text-xs text-text-tertiary ml-6">
-              ⚠️ 跳过所有审批和沙箱限制，极危险，仅限安全环境使用
+              ⚠️ {t('codex.dangerousBypassHint')}
             </p>
           </div>
         </div>

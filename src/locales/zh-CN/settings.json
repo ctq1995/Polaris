@@ -28,8 +28,25 @@
     },
     "codex": {
       "name": "Codex",
-      "description": "OpenAI Codex CLI 工具"
+      "description": "OpenAI Codex CLI 工具",
+      "title": "Codex CLI",
+      "cliPath": "CLI 路径",
+      "hint": "OpenAI Codex CLI 路径，留空使用系统 PATH 中的 codex 命令",
+      "sandboxMode": "Sandbox 模式",
+      "sandboxWorkspaceWrite": "workspace-write (创建/修改，可能不支持删除)",
+      "sandboxDangerFullAccess": "danger-full-access (完整权限，包括删除)",
+      "sandboxWorkspaceWriteHint": "较安全，但删除文件可能失败",
+      "sandboxDangerHint": "完整权限，但有安全风险",
+      "dangerousBypass": "dangerously-bypass-approvals-and-sandbox",
+      "dangerousBypassHint": "跳过所有审批和沙箱限制，极危险，仅限安全环境使用",
+      "notAvailable": "未安装"
     }
+  },
+  "openaiProviders": {
+    "title": "OpenAI Provider",
+    "toolSupport": "工具支持",
+    "model": "模型",
+    "notConfigured": "未配置 OpenAI Provider，请在「OpenAI Provider」标签页中添加配置"
   },
   "claudeCode": {
     "title": "Claude Code 配置",
