@@ -154,16 +154,6 @@ export function CompactChatInput({ onSend, onInterrupt, disabled, isStreaming }:
           accept="image/*,.ts,.tsx,.js,.jsx,.json,.md,.txt,.py,.go,.rs,.java,.c,.cpp,.h"
         />
 
-        {/* 附件按钮 */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || isStreaming}
-          className="shrink-0 p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors disabled:opacity-50"
-          title={t('input.attachFile')}
-        >
-          <IconPaperclip size={16} />
-        </button>
-
         {/* 文本输入 - 支持多行 */}
         <AutoResizingTextarea
           ref={textareaRef}
@@ -178,25 +168,38 @@ export function CompactChatInput({ onSend, onInterrupt, disabled, isStreaming }:
           minHeight={32}
         />
 
-        {/* 发送/中断按钮 */}
-        {isStreaming ? (
+        {/* 右侧按钮组 - 垂直布局 */}
+        <div className="flex flex-col gap-1 shrink-0">
+          {/* 附件按钮 */}
           <button
-            onClick={onInterrupt}
-            className="shrink-0 p-1.5 rounded-lg bg-danger text-white hover:bg-danger-hover transition-colors"
-            title={t('input.interrupt')}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || isStreaming}
+            className="shrink-0 p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors disabled:opacity-50"
+            title={t('input.attachFile')}
           >
-            <IconStop size={16} />
+            <IconPaperclip size={16} />
           </button>
-        ) : (
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className="shrink-0 p-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={t('input.send')}
-          >
-            <IconSend size={16} />
-          </button>
-        )}
+
+          {/* 发送/中断按钮 */}
+          {isStreaming ? (
+            <button
+              onClick={onInterrupt}
+              className="shrink-0 p-1.5 rounded-lg bg-danger text-white hover:bg-danger-hover transition-colors"
+              title={t('input.interrupt')}
+            >
+              <IconStop size={16} />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!canSend}
+              className="shrink-0 p-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={t('input.send')}
+            >
+              <IconSend size={16} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -12,16 +12,14 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '../Common'
 import { IconSend, IconStop, IconPaperclip } from '../Common/Icons'
-import { useWorkspaceStore, useConfigStore, useEventChatStore, useChatInputStore } from '../../stores'
+import { useWorkspaceStore, useChatInputStore, useEventChatStore } from '../../stores'
 import { FileSuggestion, WorkspaceSuggestion } from './FileSuggestion'
 import { GitSuggestion, getGitRootSuggestions, commitsToSuggestionItems, type GitSuggestionItem } from './GitSuggestion'
 import { AttachmentPreview } from './AttachmentPreview'
 import { AutoResizingTextarea } from './AutoResizingTextarea'
 import { useFileSearch } from '../../hooks/useFileSearch'
 import { getGitCommits } from '../../services/gitContextService'
-import { baiduTranslate } from '../../services/tauri'
 import type { FileMatch } from '../../services/fileSearch'
 import type { Workspace } from '../../types'
 import type { Attachment } from '../../types/attachment'
@@ -81,7 +79,6 @@ export function ChatInput({
 
   const { currentWorkspaceId, workspaces } = useWorkspaceStore()
   const { fileMatches, searchFiles, clearResults } = useFileSearch()
-  const { config } = useConfigStore()
   const { setInputLength, setAttachmentCount, setSuggestionMode, setHasPendingQuestion, setHasActivePlan } = useChatInputStore()
 
   // 检查是否有待回答的问题
@@ -126,8 +123,6 @@ export function ChatInput({
   useEffect(() => {
     setAttachmentCount(attachments.length)
   }, [attachments.length, setAttachmentCount])
-
-  const [isTranslating, setIsTranslating] = useState(false)
 
   // 过滤工作区列表
   const filteredWorkspaces = useMemo(
@@ -593,32 +588,6 @@ export function ChatInput({
     clearResults()
   }, [clearResults])
 
-  const handleTranslateAndSend = useCallback(async () => {
-    const trimmed = value.trim()
-    if (!trimmed || disabled || isStreaming || isTranslating) return
-
-    const baiduConfig = config?.baiduTranslate
-    if (!baiduConfig?.appId || !baiduConfig?.secretKey) {
-      alert(t('error.apiKeyNotSet'))
-      return
-    }
-
-    setIsTranslating(true)
-    try {
-      const result = await baiduTranslate(trimmed, baiduConfig.appId, baiduConfig.secretKey)
-      if (result.success && result.result) {
-        onSend(result.result, undefined, attachments.length > 0 ? attachments : undefined)
-        resetInput()
-      } else {
-        alert(t('error.translateFailed') + ': ' + (result.error || 'Unknown error'))
-      }
-    } catch (e) {
-      alert(t('error.translateFailed') + ': ' + (e instanceof Error ? e.message : 'Unknown error'))
-    } finally {
-      setIsTranslating(false)
-    }
-  }, [value, disabled, isStreaming, isTranslating, config, attachments, onSend, resetInput, t])
-
   // 点击外部关闭建议
   useEffect(() => {
     const handleClickOutside = () => {
@@ -658,16 +627,6 @@ export function ChatInput({
             accept="image/*,.ts,.tsx,.js,.jsx,.json,.md,.txt,.py,.go,.rs,.java,.c,.cpp,.h"
           />
 
-          {/* 附件按钮 */}
-          <button
-            onClick={openFileDialog}
-            disabled={disabled || isStreaming}
-            className="shrink-0 p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors disabled:opacity-50"
-            title={t('input.addAttachment')}
-          >
-            <IconPaperclip size={18} />
-          </button>
-
           {/* 文本输入 */}
           <AutoResizingTextarea
             ref={textareaRef}
@@ -682,41 +641,38 @@ export function ChatInput({
             minHeight={36}
           />
 
-          {/* 发送/中断按钮 */}
-          {isStreaming && onInterrupt ? (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={onInterrupt}
-              className="shrink-0 h-8 px-3 text-xs"
+          {/* 右侧按钮组 - 垂直布局 */}
+          <div className="flex flex-col gap-1 shrink-0">
+            {/* 附件按钮 */}
+            <button
+              onClick={openFileDialog}
+              disabled={disabled || isStreaming}
+              className="shrink-0 p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors disabled:opacity-50"
+              title={t('input.addAttachment')}
             >
-              <IconStop size={12} className="mr-1" />
-              {t('input.interrupt')}
-            </Button>
-          ) : (
-            <>
-              {config?.baiduTranslate?.appId && config?.baiduTranslate?.secretKey && value.trim() && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleTranslateAndSend}
-                  disabled={disabled || isStreaming || isTranslating}
-                  className="shrink-0 h-8 px-3 text-xs"
-                >
-                  {isTranslating ? t('input.translating') : t('input.translateAndSend')}
-                </Button>
-              )}
-              <Button
+              <IconPaperclip size={18} />
+            </button>
+
+            {/* 发送/中断按钮 */}
+            {isStreaming && onInterrupt ? (
+              <button
+                onClick={onInterrupt}
+                className="shrink-0 p-1.5 rounded-lg bg-danger text-white hover:bg-danger-hover transition-colors"
+                title={t('input.interrupt')}
+              >
+                <IconStop size={18} />
+              </button>
+            ) : (
+              <button
                 onClick={handleSend}
                 disabled={!canSend}
-                size="sm"
-                className="shrink-0 h-8 px-3 text-xs shadow-glow"
+                className="shrink-0 p-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={t('input.send')}
               >
-                <IconSend size={12} className="mr-1" />
-                {t('input.send')}
-              </Button>
-            </>
-          )}
+                <IconSend size={18} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
