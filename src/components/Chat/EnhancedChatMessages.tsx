@@ -935,27 +935,27 @@ const ThinkingBlockRenderer = memo(function ThinkingBlockRenderer({
       {/* 展开时显示完整内容 */}
       {!isCollapsed && (
         <div className="px-3 py-2 border-t border-primary/10 bg-background-surface/30">
-          {/* 步骤摘要区域 */}
-          {steps.length >= 2 && (
-            <div className="mb-3 pb-3 border-b border-primary/10">
-              <div className="flex items-center gap-1.5 mb-2">
-                <ListOrdered className="w-3.5 h-3.5 text-primary" />
-                <span className="text-xs font-medium text-primary">思考步骤</span>
-              </div>
-              <div className="space-y-1">
-                {steps.map((step, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-medium">
-                      {idx + 1}
-                    </span>
-                    <span className="text-text-secondary line-clamp-1">
-                      {step.text.length > 60 ? step.text.slice(0, 60) + '...' : step.text}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/*/!* 步骤摘要区域 *!/*/}
+          {/*{steps.length >= 2 && (*/}
+          {/*  <div className="mb-3 pb-3 border-b border-primary/10">*/}
+          {/*    <div className="flex items-center gap-1.5 mb-2">*/}
+          {/*      <ListOrdered className="w-3.5 h-3.5 text-primary" />*/}
+          {/*      <span className="text-xs font-medium text-primary">思考步骤</span>*/}
+          {/*    </div>*/}
+          {/*    <div className="space-y-1">*/}
+          {/*      {steps.map((step, idx) => (*/}
+          {/*        <div key={idx} className="flex items-start gap-2 text-xs">*/}
+          {/*          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-medium">*/}
+          {/*            {idx + 1}*/}
+          {/*          </span>*/}
+          {/*          <span className="text-text-secondary line-clamp-1">*/}
+          {/*            {step.text.length > 60 ? step.text.slice(0, 60) + '...' : step.text}*/}
+          {/*          </span>*/}
+          {/*        </div>*/}
+          {/*      ))}*/}
+          {/*    </div>*/}
+          {/*  </div>*/}
+          {/*)}*/}
 
           {/* 完整思考内容 */}
           <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
