@@ -214,5 +214,11 @@
     "previous": "Previous (Shift+Enter)",
     "next": "Next (Enter)",
     "close": "Close (Esc)"
+  },
+  "timeline": {
+    "toolCalls": "Tool Calls",
+    "input": "Input",
+    "output": "Output",
+    "copy": "Copy"
   }
 }

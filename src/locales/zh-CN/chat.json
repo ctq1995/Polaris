@@ -214,5 +214,11 @@
     "previous": "上一个 (Shift+Enter)",
     "next": "下一个 (Enter)",
     "close": "关闭 (Esc)"
+  },
+  "timeline": {
+    "toolCalls": "工具调用",
+    "input": "输入",
+    "output": "输出",
+    "copy": "复制"
   }
 }

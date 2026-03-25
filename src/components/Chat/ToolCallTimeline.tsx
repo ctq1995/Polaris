@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { type ToolCall } from '../../types';
 import { clsx } from 'clsx';
 import { getToolStatusIcon, getToolStatusColor } from '../../utils/toolStatusHelpers';
@@ -45,6 +46,7 @@ interface ToolCallItemProps {
 }
 
 function ToolCallItem({ tool }: ToolCallItemProps) {
+  const { t } = useTranslation('chat');
   const StatusIcon = getToolStatusIcon(tool.status);
   const [isExpanded, setIsExpanded] = React.useState(false);
 
@@ -80,13 +82,13 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
           {tool.input && Object.keys(tool.input).length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-text-subtle">输入</span>
+                <span className="text-xs text-text-subtle">{t('timeline.input')}</span>
                 <button
                   onClick={() => copyToClipboard(JSON.stringify(tool.input, null, 2))}
                   className="flex items-center gap-1 text-xs text-text-muted hover:text-text transition-colors"
                 >
                   <IconCopy size={12} />
-                  复制
+                  {t('timeline.copy')}
                 </button>
               </div>
               <pre className="text-xs bg-background-secondary p-2 rounded border border-border-subtle overflow-x-auto">
@@ -99,13 +101,13 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
           {tool.output && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-text-subtle">输出</span>
+                <span className="text-xs text-text-subtle">{t('timeline.output')}</span>
                 <button
                   onClick={() => copyToClipboard(tool.output || '')}
                   className="flex items-center gap-1 text-xs text-text-muted hover:text-text transition-colors"
                 >
                   <IconCopy size={12} />
-                  复制
+                  {t('timeline.copy')}
                 </button>
               </div>
               <pre className={clsx(
@@ -125,6 +127,8 @@ function ToolCallItem({ tool }: ToolCallItemProps) {
 }
 
 export function ToolCallTimeline({ toolCalls }: ToolCallTimelineProps) {
+  const { t } = useTranslation('chat');
+
   if (toolCalls.length === 0) return null;
 
   return (
@@ -132,7 +136,7 @@ export function ToolCallTimeline({ toolCalls }: ToolCallTimelineProps) {
       {/* 标题栏 */}
       <div className="flex items-center gap-2 text-xs text-text-subtle">
         <div className="w-2 h-2 rounded-full bg-border-muted" />
-        <span>工具调用</span>
+        <span>{t('timeline.toolCalls')}</span>
         <span className="bg-background-tertiary px-1.5 py-0.5 rounded text-text-muted">
           {toolCalls.length}
         </span>
