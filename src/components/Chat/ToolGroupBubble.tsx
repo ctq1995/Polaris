@@ -5,6 +5,7 @@
  */
 
 import { memo, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type ToolGroupChatMessage, type ToolChatMessage } from '../../types';
 import { formatDuration, calculateToolGroupStatus } from '../../utils/toolSummary';
 import { getToolStatusIcon, getToolStatusColor } from '../../utils/toolStatusHelpers';
@@ -49,6 +50,7 @@ export const ToolGroupBubble = memo(function ToolGroupBubble({
   message,
   tools
 }: ToolGroupBubbleProps) {
+  const { t } = useTranslation('chat');
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAllTools, setShowAllTools] = useState(false);
 
@@ -109,9 +111,9 @@ export const ToolGroupBubble = memo(function ToolGroupBubble({
           {/* 状态统计 */}
           {tools.length > 0 && (
             <span className="ml-2 text-xs text-text-tertiary">
-              {stats.completed > 0 && `${stats.completed} 完成`}
-              {stats.running > 0 && ` ${stats.running} 进行中`}
-              {stats.failed > 0 && ` ${stats.failed} 失败`}
+              {stats.completed > 0 && `${stats.completed} ${t('toolGroup.completed')}`}
+              {stats.running > 0 && ` ${stats.running} ${t('toolGroup.running')}`}
+              {stats.failed > 0 && ` ${stats.failed} ${t('toolGroup.failed')}`}
             </span>
           )}
         </div>
@@ -142,7 +144,7 @@ export const ToolGroupBubble = memo(function ToolGroupBubble({
               onClick={() => setShowAllTools(true)}
               className="w-full px-3 py-2 text-xs text-primary hover:text-primary-hover hover:bg-background-hover rounded-md transition-colors"
             >
-              查看全部 {tools.length} 个工具
+              {t('toolGroup.showAll', { count: tools.length })}
             </button>
           )}
         </div>

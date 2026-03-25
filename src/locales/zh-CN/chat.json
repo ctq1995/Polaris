@@ -262,5 +262,13 @@
     "copySource": "复制源码",
     "copied": "已复制",
     "copy": "复制"
+  },
+  "suggestion": {
+    "commands": "命令",
+    "workspaces": "工作区",
+    "current": "当前"
+  },
+  "contextChip": {
+    "remove": "移除 {{label}}"
   }
 }

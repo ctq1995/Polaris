@@ -262,5 +262,13 @@
     "copySource": "Copy source",
     "copied": "Copied",
     "copy": "Copy"
+  },
+  "suggestion": {
+    "commands": "Commands",
+    "workspaces": "Workspaces",
+    "current": "Current"
+  },
+  "contextChip": {
+    "remove": "Remove {{label}}"
   }
 }

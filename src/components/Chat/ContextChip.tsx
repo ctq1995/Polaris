@@ -4,6 +4,7 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ContextChipWithId } from '../../types/context';
 import { getChipLabel, getChipDescription, getChipIcon } from '../../types/context';
 
@@ -55,6 +56,7 @@ const colorMap = {
 };
 
 export const ContextChip = memo(function ContextChip({ chip, onRemove }: ContextChipProps) {
+  const { t } = useTranslation('chat');
   const icon = getChipIcon(chip);
   const label = getChipLabel(chip);
   const description = getChipDescription(chip);
@@ -85,7 +87,7 @@ export const ContextChip = memo(function ContextChip({ chip, onRemove }: Context
         type="button"
         onClick={onRemove}
         className="shrink-0 ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
-        aria-label={`移除 ${label}`}
+        aria-label={t('contextChip.remove', { label })}
       >
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

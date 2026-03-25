@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { FileMatch } from '../../services/fileSearch';
 import type { Workspace } from '../../types';
 
@@ -128,6 +129,7 @@ export function CommandSuggestion({
   onHover,
   position,
 }: CommandSuggestionProps) {
+  const { t } = useTranslation('chat');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -155,7 +157,7 @@ export function CommandSuggestion({
       }}
     >
       <div className="px-3 py-2 text-xs text-text-tertiary border-b border-border">
-        命令
+        {t('suggestion.commands')}
       </div>
       {commands.map((cmd, index) => (
         <div
@@ -196,6 +198,7 @@ export function WorkspaceSuggestion({
   onHover,
   position,
 }: WorkspaceSuggestionProps) {
+  const { t } = useTranslation('chat');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -223,7 +226,7 @@ export function WorkspaceSuggestion({
       }}
     >
       <div className="px-3 py-2 text-xs text-text-tertiary border-b border-border">
-        工作区
+        {t('suggestion.workspaces')}
       </div>
       {workspaces.map((workspace, index) => {
         const isCurrent = workspace.id === currentWorkspaceId;
@@ -256,7 +259,7 @@ export function WorkspaceSuggestion({
             {/* 当前工作区标签 */}
             {isCurrent && (
               <span className="text-xs text-text-tertiary bg-background-elevated px-1.5 py-0.5 rounded shrink-0">
-                当前
+                {t('suggestion.current')}
               </span>
             )}
           </div>
