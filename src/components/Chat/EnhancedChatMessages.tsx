@@ -11,7 +11,7 @@
  * - Edit 工具优化显示
  */
 
-import { useMemo, memo, useState, useCallback, useRef, useDeferredValue } from 'react';
+import { useMemo, memo, useState, useCallback, useRef, useDeferredValue, useEffect } from 'react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
@@ -34,6 +34,7 @@ import {
 } from '../../utils/toolSummary';
 import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain, ListOrdered, Trash2 } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
+import { useMessageSearch } from './MessageSearchPanel';
 import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
 import { PlanModeBlockRenderer, SimplifiedPlanModeRenderer } from './PlanModeBlockRenderer';
 import { AgentRunBlockRenderer, SimplifiedAgentRunRenderer } from './AgentRunBlockRenderer';
@@ -133,7 +134,11 @@ function extractThinkingSteps(content: string): ThinkingStep[] {
 }
 
 /** 用户消息组件 */
-const UserBubble = memo(function UserBubble({ message }: { message: UserChatMessage }) {
+const UserBubble = memo(function UserBubble({
+  message,
+}: {
+  message: UserChatMessage;
+}) {
   const { t } = useTranslation('chat');
   const toast = useToastStore();
   const deleteMessage = useEventChatStore((state) => state.deleteMessage);
@@ -1543,7 +1548,7 @@ const SimplifiedToolCallRenderer = memo(function SimplifiedToolCallRenderer({ bl
 /** 助手消息组件 - 使用内容块架构 */
 const AssistantBubble = memo(function AssistantBubble({
   message,
-  renderMode = 'full'
+  renderMode = 'full',
 }: {
   message: AssistantChatMessage;
   renderMode?: MessageRenderMode;
@@ -2016,6 +2021,46 @@ export function EnhancedChatMessages() {
   const conversationRounds = useMemo(() => {
     return groupConversationRounds(displayMessages);
   }, [displayMessages]);
+
+  // 消息搜索功能（TODO: 完整集成搜索 UI）
+  const {
+    // searchQuery, // TODO: 传递给 renderChatMessage
+    // setSearchQuery,
+    // isSearchVisible,
+    // openSearch,
+    // closeSearch,
+    // currentMatchIndex,
+    // totalMatches,
+    currentMatchMessageId,
+    // goToPrevious,
+    // goToNext,
+  } = useMessageSearch(displayMessages);
+
+  // 搜索结果跳转
+  useEffect(() => {
+    if (currentMatchMessageId && virtuosoRef.current) {
+      const index = displayMessages.findIndex(m => m.id === currentMatchMessageId);
+      if (index >= 0) {
+        virtuosoRef.current.scrollToIndex({
+          index,
+          align: 'center',
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [currentMatchMessageId, displayMessages]);
+
+  // 键盘快捷键：Ctrl+F / Cmd+F 打开搜索（TODO: 完整集成搜索 UI 后启用）
+  // useEffect(() => {
+  //   const handleKeyDown = (e: KeyboardEvent) => {
+  //     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+  //       e.preventDefault();
+  //       openSearch();
+  //     }
+  //   };
+  //   window.addEventListener('keydown', handleKeyDown);
+  //   return () => window.removeEventListener('keydown', handleKeyDown);
+  // }, [openSearch]);
 
   // 检测用户是否在底部附近（基于像素距离）
   const handleAtBottomStateChange = useCallback((atBottom: boolean) => {

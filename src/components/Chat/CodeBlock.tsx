@@ -6,12 +6,13 @@
  * - 一键复制代码
  * - 显示编程语言标签
  * - 行号切换
+ * - 代码折叠（长代码默认折叠）
  * - 暗色主题适配
  * - 异步高亮避免阻塞主线程
  */
 
 import { memo, useState, useCallback, useEffect, useMemo } from 'react';
-import { Copy, Check, List, ListX } from 'lucide-react';
+import { Copy, Check, List, ListX, ChevronDown, ChevronUp } from 'lucide-react';
 import hljs from 'highlight.js';
 
 // 导入常用语言
@@ -47,6 +48,9 @@ hljs.registerLanguage('shell', bash);
 
 // 高亮结果缓存
 const highlightCache = new Map<string, string>();
+
+/** 代码行数阈值：超过此行数默认折叠 */
+const FOLD_THRESHOLD = 15;
 
 /**
  * 生成缓存键
@@ -193,6 +197,10 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
   // 计算行数
   const lineCount = useMemo(() => codeString.split('\n').length, [codeString]);
 
+  // 折叠状态：超过阈值的代码块默认折叠
+  const shouldAutoFold = lineCount > FOLD_THRESHOLD;
+  const [isCollapsed, setIsCollapsed] = useState(shouldAutoFold);
+
   // 异步语法高亮
   useEffect(() => {
     if (!normalizedLanguage) {
@@ -229,6 +237,11 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
     setShowLineNumbers(prev => !prev);
   }, []);
 
+  // 切换折叠状态
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
+
   // 显示原始代码或高亮后的代码
   const displayCode = highlightedCode ?? codeString;
   const useHighlight = highlightedCode !== null;
@@ -260,6 +273,27 @@ export const CodeBlock = memo(function CodeBlock({ children, className }: CodeBl
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-1">
+          {/* 折叠/展开按钮 */}
+          {shouldAutoFold && (
+            <button
+              className="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 text-text-tertiary hover:bg-background-hover"
+              onClick={toggleCollapse}
+              title={isCollapsed ? '展开代码' : '折叠代码'}
+            >
+              {isCollapsed ? (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  展开
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  折叠
+                </>
+              )}
+            </button>
+          )}
+
           {/* 行号切换按钮 */}
           <button
             className={`px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 ${
