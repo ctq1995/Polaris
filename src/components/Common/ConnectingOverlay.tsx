@@ -3,10 +3,12 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useConfigStore } from '../../stores';
 import { Button, ClaudePathSelector } from './index';
 
 export function ConnectingOverlay() {
+  const { t } = useTranslation('common');
   const { config, healthStatus, connectionState, error, retryConnection } = useConfigStore();
   const [showPathInput, setShowPathInput] = useState(false);
   const [tempPath, setTempPath] = useState(config?.claudeCode?.cliPath || '');
@@ -48,50 +50,50 @@ export function ConnectingOverlay() {
         {/* 文字提示 */}
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-text-primary">
-            {isConnecting ? '正在连接 Claude Code' : isFailed ? '连接失败' : ''}
+            {isConnecting ? t('connection.connecting') : isFailed ? t('connection.connectFailed') : ''}
           </h2>
           <p className="text-sm text-text-secondary">
-            {isConnecting ? '请稍候，正在初始化...' : isFailed ? '无法连接到 Claude CLI' : ''}
+            {isConnecting ? t('connection.connectingHint') : isFailed ? t('connection.connectFailedHint') : ''}
           </p>
         </div>
 
         {/* 连接状态详情 */}
         {healthStatus?.claudeVersion ? (
           <p className="text-xs text-text-tertiary">
-            已检测到版本: {healthStatus.claudeVersion}
+            {t('connection.detectedVersion', { version: healthStatus.claudeVersion })}
           </p>
         ) : isFailed ? (
           <div className="text-xs text-text-tertiary space-y-3 max-w-md">
-            <p className="text-danger font-medium">{error || 'Claude CLI 未找到'}</p>
+            <p className="text-danger font-medium">{error || t('connection.cliNotFound')}</p>
             {config?.claudeCode?.cliPath && (
-              <p>当前路径: <code className="bg-background-surface px-1 py-0.5 rounded">{config.claudeCode.cliPath}</code></p>
+              <p>{t('connection.currentPath')} <code className="bg-background-surface px-1 py-0.5 rounded">{config.claudeCode.cliPath}</code></p>
             )}
 
             {/* 详细诊断信息 */}
             <div className="bg-background-surface p-3 rounded-lg space-y-2">
-              <p className="font-medium text-text-secondary">问题诊断:</p>
+              <p className="font-medium text-text-secondary">{t('connection.diagnosis')}</p>
               <ul className="space-y-1 list-disc list-inside">
-                <li>Claude CLI 可能未正确安装</li>
-                <li>命令路径配置错误或文件不存在</li>
-                <li>系统环境变量 PATH 未包含 Claude 路径</li>
-                <li>权限不足导致无法执行命令</li>
+                <li>{t('connection.diagnosis1')}</li>
+                <li>{t('connection.diagnosis2')}</li>
+                <li>{t('connection.diagnosis3')}</li>
+                <li>{t('connection.diagnosis4')}</li>
               </ul>
             </div>
 
             {/* 引导式帮助 */}
             <div className="bg-background-surface p-3 rounded-lg space-y-2">
-              <p className="font-medium text-text-secondary">解决方案:</p>
+              <p className="font-medium text-text-secondary">{t('connection.solutions')}</p>
               <ol className="space-y-1 list-decimal list-inside">
-                <li>确认已安装 Claude CLI: <code className="px-1 py-0.5 rounded">claude --version</code></li>
-                <li>Windows 用户查找路径: <code className="px-1 py-0.5 rounded">where claude</code></li>
-                <li>Mac/Linux 用户查找路径: <code className="px-1 py-0.5 rounded">which claude</code></li>
-                <li>如果通过 npm 安装，尝试重新安装: <code className="px-1 py-0.5 rounded">npm install -g @anthropic-ai/claude-3-dev</code></li>
+                <li>{t('connection.solution1')} <code className="px-1 py-0.5 rounded">claude --version</code></li>
+                <li>{t('connection.solution2')} <code className="px-1 py-0.5 rounded">where claude</code></li>
+                <li>{t('connection.solution3')} <code className="px-1 py-0.5 rounded">which claude</code></li>
+                <li>{t('connection.solution4')} <code className="px-1 py-0.5 rounded">npm install -g @anthropic-ai/claude-3-dev</code></li>
               </ol>
             </div>
           </div>
         ) : (
           <p className="text-xs text-text-tertiary">
-            正在检测 Claude CLI...
+            {t('connection.detecting')}
           </p>
         )}
 
@@ -105,21 +107,21 @@ export function ConnectingOverlay() {
                   variant="primary"
                   className="w-full"
                 >
-                  重新检测
+                  {t('connection.retryDetection')}
                 </Button>
                 <Button
                   onClick={() => setShowPathInput(true)}
                   variant="ghost"
                   className="w-full"
                 >
-                  设置 Claude 路径
+                  {t('connection.setClaudePath')}
                 </Button>
               </div>
             ) : (
               <div className="space-y-4 w-full max-w-md">
                 <div className="bg-background-surface p-4 rounded-lg">
                   <p className="text-sm text-text-secondary mb-3">
-                    选择或输入 Claude CLI 的路径
+                    {t('connection.pathSelectorHint')}
                   </p>
                   <ClaudePathSelector
                     value={tempPath}
@@ -134,7 +136,7 @@ export function ConnectingOverlay() {
                     className="flex-1"
                     disabled={!tempPath.trim()}
                   >
-                    保存并重试
+                    {t('connection.saveAndRetry')}
                   </Button>
                   <Button
                     onClick={() => {
@@ -144,7 +146,7 @@ export function ConnectingOverlay() {
                     variant="ghost"
                     className="flex-1"
                   >
-                    取消
+                    {t('buttons.cancel')}
                   </Button>
                 </div>
               </div>

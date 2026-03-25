@@ -101,5 +101,29 @@
     "previewInDevelopment": "Preview feature in development...",
     "closeOthers": "Close Others",
     "closeAll": "Close All"
+  },
+  "connection": {
+    "connecting": "Connecting to Claude Code",
+    "connectingHint": "Please wait, initializing...",
+    "connectFailed": "Connection Failed",
+    "connectFailedHint": "Unable to connect to Claude CLI",
+    "detectedVersion": "Detected version: {{version}}",
+    "cliNotFound": "Claude CLI not found",
+    "currentPath": "Current path:",
+    "diagnosis": "Problem Diagnosis:",
+    "diagnosis1": "Claude CLI may not be installed correctly",
+    "diagnosis2": "Command path is misconfigured or file does not exist",
+    "diagnosis3": "System PATH does not include Claude path",
+    "diagnosis4": "Insufficient permissions to execute command",
+    "solutions": "Solutions:",
+    "solution1": "Verify Claude CLI is installed:",
+    "solution2": "Windows users find path:",
+    "solution3": "Mac/Linux users find path:",
+    "solution4": "If installed via npm, try reinstalling:",
+    "detecting": "Detecting Claude CLI...",
+    "retryDetection": "Retry Detection",
+    "setClaudePath": "Set Claude Path",
+    "pathSelectorHint": "Select or enter Claude CLI path",
+    "saveAndRetry": "Save & Retry"
   }
 }

@@ -102,5 +102,29 @@
     "previewInDevelopment": "预览功能开发中...",
     "closeOthers": "关闭其他",
     "closeAll": "关闭所有"
+  },
+  "connection": {
+    "connecting": "正在连接 Claude Code",
+    "connectingHint": "请稍候，正在初始化...",
+    "connectFailed": "连接失败",
+    "connectFailedHint": "无法连接到 Claude CLI",
+    "detectedVersion": "已检测到版本: {{version}}",
+    "cliNotFound": "Claude CLI 未找到",
+    "currentPath": "当前路径:",
+    "diagnosis": "问题诊断:",
+    "diagnosis1": "Claude CLI 可能未正确安装",
+    "diagnosis2": "命令路径配置错误或文件不存在",
+    "diagnosis3": "系统环境变量 PATH 未包含 Claude 路径",
+    "diagnosis4": "权限不足导致无法执行命令",
+    "solutions": "解决方案:",
+    "solution1": "确认已安装 Claude CLI:",
+    "solution2": "Windows 用户查找路径:",
+    "solution3": "Mac/Linux 用户查找路径:",
+    "solution4": "如果通过 npm 安装，尝试重新安装:",
+    "detecting": "正在检测 Claude CLI...",
+    "retryDetection": "重新检测",
+    "setClaudePath": "设置 Claude 路径",
+    "pathSelectorHint": "选择或输入 Claude CLI 的路径",
+    "saveAndRetry": "保存并重试"
   }
 }
