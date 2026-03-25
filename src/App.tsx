@@ -20,7 +20,7 @@ import { TerminalPanel } from './components/Terminal/TerminalPanel';
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const DeveloperPanel = lazy(() => import('./components/Developer/DeveloperPanel').then(m => ({ default: m.DeveloperPanel })));
 const CreateWorkspaceModal = lazy(() => import('./components/Workspace/CreateWorkspaceModal').then(m => ({ default: m.CreateWorkspaceModal })));
-const SessionHistoryPanel = lazy(() => import('./components/Chat/SessionHistoryPanel').then(m => ({ default: m.SessionHistoryPanel })));
+import { SessionHistoryTrigger } from './components/Chat/SessionHistoryTrigger';
 import { useConfigStore, useEventChatStore, useViewStore, useWorkspaceStore, useTabStore, useIntegrationStore, useToolPanelStore, useGitStore } from './stores';
 import { useWindowSize } from './hooks';
 import * as tauri from './services/tauri';
@@ -74,8 +74,6 @@ function App() {
   const lastOpenAIProvidersRef = useRef<string>(JSON.stringify([]));
   const lastActiveProviderIdRef = useRef<string | undefined>(undefined);
   const {
-    showSessionHistory,
-    toggleSessionHistory,
     // 新布局状态
     leftPanelType,
     rightPanelCollapsed,
@@ -620,25 +618,8 @@ function App() {
         />
       )}
 
-      {/* 会话历史模态框 */}
-      {showSessionHistory && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={toggleSessionHistory}
-          />
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
-            <div
-              className="bg-background-elevated border border-border rounded-xl shadow-xl w-full max-w-2xl h-[80vh] flex flex-col pointer-events-auto overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Suspense fallback={<div className="flex items-center justify-center h-full text-text-muted">{t('status.loading')}</div>}>
-                <SessionHistoryPanel onClose={toggleSessionHistory} />
-              </Suspense>
-            </div>
-          </div>
-        </>
-      )}
+      {/* 会话历史悬浮触发器 - 右侧边缘半圆 */}
+      <SessionHistoryTrigger />
 
       {/* 全局右键菜单 */}
       <SelectionContextMenu />

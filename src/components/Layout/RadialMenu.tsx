@@ -21,6 +21,8 @@ interface RadialMenuProps {
   onToggleRightPanel?: () => void
   /** 右侧面板是否折叠 */
   rightPanelCollapsed?: boolean
+  /** 悬停状态变化回调 */
+  onHover?: (isHovering: boolean) => void
 }
 
 interface MenuItem {
@@ -35,7 +37,8 @@ export function RadialMenu({
   onClose,
   onOpenSettings,
   onToggleRightPanel,
-  rightPanelCollapsed
+  rightPanelCollapsed,
+  onHover
 }: RadialMenuProps) {
   const { t } = useTranslation('common')
   const leftPanelType = useViewStore((state) => state.leftPanelType)
@@ -168,31 +171,48 @@ export function RadialMenu({
   if (!isOpen) return null
 
   // 扇形菜单项的位置计算
-  // 从悬浮球位置（左中上方）向右下展开扇形
+  // 从悬浮球位置（左边垂直居中）向右展开扇形
+  // 使用 90°-270° 范围，从正上方到正下方（半圆在右侧）
   const itemCount = menuItems.length
-  const startAngle = 0 // 从右边开始
-  const endAngle = 180 // 展开到下方（半圆）
+  const startAngle = 90 // 从正上方开始
+  const endAngle = 270 // 展开到正下方
   const angleRange = endAngle - startAngle
   const radius = 100 // 半径（像素）
+
+  // 计算菜单项位置
+  const getMenuPosition = (index: number) => {
+    const angle = startAngle + (angleRange / (itemCount - 1)) * index
+    const radian = (angle * Math.PI) / 180
+    const x = Math.cos(radian) * radius
+    const y = Math.sin(radian) * radius
+    return { x, y }
+  }
 
   return (
     <div
       ref={menuRef}
       className="fixed z-50 animate-in fade-in duration-150"
       style={{
-        // 菜单展开位置：悬浮球右侧
-        left: '56px',
-        top: '80px' // 与悬浮球对齐
+        // 菜单展开位置：悬浮球右侧中心点
+        left: '40px', // 半圆宽度 + 一点间距
+        top: '50%',
+        transform: 'translateY(-50%)'
       }}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
     >
-      {/* 菜单项容器 - 半圆展开 */}
-      <div className="relative" style={{ width: radius + 60, height: radius + 60 }}>
+      {/* 菜单项容器 - 垂直布局 */}
+      <div
+        className="relative"
+        style={{
+          width: radius + 60,
+          height: radius * 2 + 60,
+          // 容器中心对齐触发器中心
+          marginTop: -radius - 30,
+        }}
+      >
         {menuItems.map((item, index) => {
-          // 计算角度（从右向下半圆展开）
-          const angle = startAngle + (angleRange / (itemCount - 1)) * index
-          const radian = (angle * Math.PI) / 180
-          const x = Math.cos(radian) * radius
-          const y = Math.sin(radian) * radius
+          const { x, y } = getMenuPosition(index)
 
           const isActive = item.id === leftPanelType ||
             (item.id === 'rightPanel' && !rightPanelCollapsed)
@@ -211,8 +231,9 @@ export function RadialMenu({
                 }
               `}
               style={{
-                left: x,
-                top: y,
+                // 位置相对于容器中心
+                left: radius + 30 + x - 22, // 中心偏移 + x坐标 - 按钮宽度一半
+                top: radius + 30 + y - 22, // 中心偏移 + y坐标 - 按钮高度一半
                 animationDelay: `${index * 20}ms`
               }}
               title={item.label}
@@ -227,13 +248,19 @@ export function RadialMenu({
 }
 
 /**
- * RadialMenuTrigger - 扇形菜单触发器（悬浮球）
- * 位置：左中上方
+ * RadialMenuTrigger - 扇形菜单触发器（贴边半圆悬浮球）
+ *
+ * 特点：
+ * - 左边缘完全贴屏幕，形成半圆效果
+ * - 位置：屏幕左边垂直居中
+ * - 支持悬停触发（hover）和点击触发
  */
 export function RadialMenuTrigger({
+  onHover,
   onClick,
   isOpen
 }: {
+  onHover?: (isHovering: boolean) => void
   onClick: () => void
   isOpen: boolean
 }) {
@@ -242,22 +269,32 @@ export function RadialMenuTrigger({
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
       className={`
-        fixed left-4 w-10 h-10 rounded-full
-        flex items-center justify-center shadow-lg
-        transition-all duration-200 ease-out z-40 group
+        fixed z-40
+        /* 贴边半圆：左半圆在屏幕外，右半圆在屏幕内 */
+        w-8 h-14 -ml-4
+        rounded-r-full
+        flex items-center justify-end pr-1
+        shadow-lg
+        transition-all duration-200 ease-out
+        group
         ${isOpen
-          ? 'bg-primary-hover scale-110 shadow-xl'
-          : 'bg-primary hover:bg-primary-hover hover:scale-110 hover:shadow-xl'
+          ? 'bg-primary-hover shadow-xl'
+          : 'bg-primary hover:bg-primary-hover hover:shadow-xl'
         }
       `}
       style={{
-        top: '80px' // 左中上方位置
+        top: '50%',
+        transform: 'translateY(-50%)',
+        left: '0'
       }}
       title={t('labels.showActivityBar')}
     >
+      {/* 三横线图标 */}
       <div className={`
-        w-5 h-5 flex flex-col items-center justify-center gap-0.5
+        w-4 h-4 flex flex-col items-center justify-center gap-0.5
         transition-transform duration-200
         ${isOpen ? 'rotate-45' : 'group-hover:scale-110'}
       `}>

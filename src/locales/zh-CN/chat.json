@@ -196,6 +196,8 @@
     "scrollToBottom": "回到底部"
   },
   "history": {
+    "title": "会话历史",
+    "loading": "加载中...",
     "today": "今天",
     "yesterday": "昨天",
     "thisWeek": "本周",

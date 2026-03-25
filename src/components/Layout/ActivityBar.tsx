@@ -1,11 +1,11 @@
 /**
  * ActivityBar - 左侧 Activity Bar 组件
  *
- * 支持折叠隐藏，点击悬浮球展开扇形菜单
- * 扇形菜单从悬浮球位置展开，包含所有侧边栏功能
+ * 支持折叠隐藏，悬停悬浮球展开扇形菜单
+ * 扇形菜单从悬浮球位置向右展开，包含所有侧边栏功能
  */
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Files, GitPullRequest, CheckSquare, Settings, Languages, Clock, Terminal, Code2, PanelRight } from 'lucide-react'
 import { useViewStore } from '@/stores/viewStore'
 import { ActivityBarIcon } from './ActivityBarIcon'
@@ -29,8 +29,47 @@ export function ActivityBar({ className, onOpenSettings, onToggleRightPanel, rig
   const activityBarCollapsed = useViewStore((state) => state.activityBarCollapsed)
   const toggleActivityBar = useViewStore((state) => state.toggleActivityBar)
 
-  // 扇形菜单状态
+  // 扇形菜单状态 - 支持悬停和点击
   const [isRadialMenuOpen, setIsRadialMenuOpen] = useState(false)
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current)
+      }
+    }
+  }, [])
+
+  // 悬停处理
+  const handleTriggerHover = useCallback((isHovering: boolean) => {
+    if (isHovering) {
+      // 鼠标进入触发器，取消隐藏定时器并显示菜单
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current)
+        hideTimerRef.current = null
+      }
+      setIsRadialMenuOpen(true)
+    }
+    // 鼠标离开触发器时不立即隐藏，等待菜单区域的处理
+  }, [])
+
+  // 菜单区域悬停处理
+  const handleMenuHover = useCallback((isHovering: boolean) => {
+    if (isHovering) {
+      // 鼠标进入菜单，取消隐藏定时器
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current)
+        hideTimerRef.current = null
+      }
+    } else {
+      // 鼠标离开菜单，延迟隐藏
+      hideTimerRef.current = setTimeout(() => {
+        setIsRadialMenuOpen(false)
+      }, 200)
+    }
+  }, [])
 
   const panelButtons = [
     {
@@ -70,12 +109,13 @@ export function ActivityBar({ className, onOpenSettings, onToggleRightPanel, rig
     },
   ]
 
-  // 折叠状态下的渲染：显示悬浮球 + 扇形菜单
+  // 折叠状态下的渲染：显示贴边半圆悬浮球 + 扇形菜单
   if (activityBarCollapsed) {
     return (
       <>
-        {/* 悬浮球触发器 */}
+        {/* 贴边半圆悬浮触发器 */}
         <RadialMenuTrigger
+          onHover={handleTriggerHover}
           onClick={() => setIsRadialMenuOpen(!isRadialMenuOpen)}
           isOpen={isRadialMenuOpen}
         />
@@ -87,6 +127,7 @@ export function ActivityBar({ className, onOpenSettings, onToggleRightPanel, rig
           onOpenSettings={onOpenSettings}
           onToggleRightPanel={onToggleRightPanel}
           rightPanelCollapsed={rightPanelCollapsed}
+          onHover={handleMenuHover}
         />
       </>
     )

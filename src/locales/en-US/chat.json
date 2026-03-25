@@ -196,6 +196,8 @@
     "scrollToBottom": "Scroll to bottom"
   },
   "history": {
+    "title": "Session History",
+    "loading": "Loading...",
     "today": "Today",
     "yesterday": "Yesterday",
     "thisWeek": "This Week",
