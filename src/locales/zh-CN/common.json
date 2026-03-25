@@ -93,5 +93,14 @@
   },
   "toast": {
     "close": "关闭通知"
+  },
+  "tabs": {
+    "openFileOrDiff": "打开文件或查看差异",
+    "close": "关闭",
+    "noOpenTabs": "没有打开的标签页",
+    "openFileHint": "从左侧文件浏览器打开文件,或在 Git 面板中查看差异",
+    "previewInDevelopment": "预览功能开发中...",
+    "closeOthers": "关闭其他",
+    "closeAll": "关闭所有"
   }
 }

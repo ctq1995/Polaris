@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface TabContextMenuProps {
   visible: boolean
@@ -25,6 +26,7 @@ export function TabContextMenu({
   onCloseAll,
   tabId,
 }: TabContextMenuProps) {
+  const { t } = useTranslation('common')
   const menuRef = useRef<HTMLDivElement>(null)
 
   // 点击外部关闭菜单
@@ -68,7 +70,7 @@ export function TabContextMenu({
         }}
         className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-background-hover transition-colors"
       >
-        关闭
+        {t('tabs.close')}
       </button>
       <button
         onClick={() => {
@@ -77,7 +79,7 @@ export function TabContextMenu({
         }}
         className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-background-hover transition-colors"
       >
-        关闭其他
+        {t('tabs.closeOthers')}
       </button>
       <div className="my-1 border-t border-border-subtle" />
       <button
@@ -87,7 +89,7 @@ export function TabContextMenu({
         }}
         className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-background-hover transition-colors"
       >
-        关闭所有
+        {t('tabs.closeAll')}
       </button>
     </div>
   )

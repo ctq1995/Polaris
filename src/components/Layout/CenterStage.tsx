@@ -5,6 +5,7 @@
  */
 
 import { ReactNode, useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, FileDiff, FileText, Image as ImageIcon } from 'lucide-react'
 import { useTabStore, Tab } from '@/stores/tabStore'
 import { DiffViewer } from '@/components/Diff/DiffViewer'
@@ -20,6 +21,7 @@ interface TabBarProps {
  * TabBar 组件
  */
 export function TabBar({ className = '' }: TabBarProps) {
+  const { t } = useTranslation('common')
   const tabs = useTabStore((state) => state.tabs)
   const activeTabId = useTabStore((state) => state.activeTabId)
   const closeTab = useTabStore((state) => state.closeTab)
@@ -73,7 +75,7 @@ export function TabBar({ className = '' }: TabBarProps) {
   if (tabs.length === 0) {
     return (
       <div className={`flex items-center justify-center h-10 bg-background-surface border-b border-border-subtle ${className}`}>
-        <span className="text-xs text-text-tertiary">打开文件或查看差异</span>
+        <span className="text-xs text-text-tertiary">{t('tabs.openFileOrDiff')}</span>
       </div>
     )
   }
@@ -105,7 +107,7 @@ export function TabBar({ className = '' }: TabBarProps) {
               <button
                 onClick={(e) => handleClose(e, tab.id)}
                 className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-background-hover transition-all"
-                title="关闭"
+                title={t('tabs.close')}
               >
                 <X size={12} />
               </button>
@@ -143,6 +145,7 @@ interface TabContentProps {
  * TabContent 组件 - 根据 activeTabId 渲染对应内容
  */
 export function TabContent({ className = '' }: TabContentProps) {
+  const { t } = useTranslation('common')
   const activeTab = useTabStore((state) => state.getActiveTab())
 
   if (!activeTab) {
@@ -151,9 +154,9 @@ export function TabContent({ className = '' }: TabContentProps) {
         className={`flex-1 flex items-center justify-center bg-background-base ${className}`}
       >
         <div className="text-center">
-          <p className="text-sm text-text-secondary mb-2">没有打开的标签页</p>
+          <p className="text-sm text-text-secondary mb-2">{t('tabs.noOpenTabs')}</p>
           <p className="text-xs text-text-tertiary">
-            从左侧文件浏览器打开文件,或在 Git 面板中查看差异
+            {t('tabs.openFileHint')}
           </p>
         </div>
       </div>
@@ -199,7 +202,7 @@ export function TabContent({ className = '' }: TabContentProps) {
       }
       return (
         <div className={`flex-1 flex items-center justify-center ${className}`}>
-          <p className="text-sm text-text-tertiary">预览功能开发中...</p>
+          <p className="text-sm text-text-tertiary">{t('tabs.previewInDevelopment')}</p>
         </div>
       )
 
