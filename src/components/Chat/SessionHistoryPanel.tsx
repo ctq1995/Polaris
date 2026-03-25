@@ -5,12 +5,26 @@
  * 支持滚动加载更多（每次显示20条）
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useEventChatStore, UnifiedHistoryItem } from '../../stores/eventChatStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Zap, Loader2, X, Terminal, ChevronDown } from 'lucide-react'
 
 const PAGE_SIZE = 20
+
+/** 日期分组类型 */
+type DateGroup = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
+
+/** 日期分组标签 */
+const DATE_GROUP_LABELS: Record<DateGroup, string> = {
+  today: '今天',
+  yesterday: '昨天',
+  thisWeek: '本周',
+  earlier: '更早',
+}
+
+/** 日期分组顺序 */
+const DATE_GROUP_ORDER: DateGroup[] = ['today', 'yesterday', 'thisWeek', 'earlier']
 
 interface SessionHistoryPanelProps {
   onClose?: () => void
@@ -78,6 +92,25 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     setAllHistory(prev => prev.filter(h => h.id !== sessionId))
   }
 
+  // 判断日期分组
+  const getDateGroup = (timestamp: string): DateGroup => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
+    const startOfWeek = new Date(startOfToday.getTime() - 6 * 86400000)
+
+    if (date >= startOfToday) {
+      return 'today'
+    } else if (date >= startOfYesterday) {
+      return 'yesterday'
+    } else if (date >= startOfWeek) {
+      return 'thisWeek'
+    } else {
+      return 'earlier'
+    }
+  }
+
   // 格式化时间
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
@@ -85,16 +118,14 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     const diffMs = now.getTime() - date.getTime()
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
 
     if (diffMins < 1) return '刚刚'
     if (diffMins < 60) return `${diffMins} 分钟前`
     if (diffHours < 24) return `${diffHours} 小时前`
-    if (diffDays < 7) return `${diffDays} 天前`
 
-    return date.toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
+    return date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
     })
   }
 
@@ -154,6 +185,23 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   // 当前显示的历史
   const displayedHistory = filteredHistory.slice(0, displayCount)
   const hasMore = displayCount < filteredHistory.length
+
+  // 按日期分组
+  const groupedHistory = useMemo(() => {
+    const groups: Record<DateGroup, UnifiedHistoryItem[]> = {
+      today: [],
+      yesterday: [],
+      thisWeek: [],
+      earlier: [],
+    }
+
+    for (const item of displayedHistory) {
+      const group = getDateGroup(item.timestamp)
+      groups[group].push(item)
+    }
+
+    return groups
+  }, [displayedHistory])
 
   // 格式化文件大小
   const formatFileSize = (bytes: number) => {
@@ -276,82 +324,102 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
             <p className="text-sm">暂无历史会话</p>
           </div>
         ) : (
-          <ul>
-            {displayedHistory.map((item, index) => {
-              const isRestoring = restoring === item.id
-              const canDelete = item.source === 'local'
-              const engineInfo = getEngineInfo(item.engineId, item.source)
-              const EngineIcon = engineInfo.icon
+          <>
+            {DATE_GROUP_ORDER.map((group) => {
+              const items = groupedHistory[group]
+              if (items.length === 0) return null
 
               return (
-                <li
-                  key={item.id}
-                  className={`flex items-start gap-3 px-4 py-3 hover:bg-background-hover transition-colors ${index > 0 ? 'border-t border-border-subtle' : ''}`}
-                >
-                  {/* 引擎标识 */}
-                  <div className={`mt-0.5 ${engineInfo.color}`}>
-                    <EngineIcon className="w-4 h-4" />
+                <div key={group} className="mb-2">
+                  {/* 分组标题 */}
+                  <div className="sticky top-0 z-10 px-4 py-2 bg-background-elevated border-b border-border-subtle">
+                    <span className="text-xs font-medium text-text-tertiary">
+                      {DATE_GROUP_LABELS[group]}
+                      <span className="ml-2 text-text-muted">({items.length})</span>
+                    </span>
                   </div>
 
-                  {/* 会话信息 */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-medium text-text-primary truncate">{item.title}</h3>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${engineInfo.bgColor}`}>
-                        {engineInfo.name}
-                      </span>
-                    </div>
+                  {/* 分组内的会话列表 */}
+                  <ul>
+                    {items.map((item, index) => {
+                      const isRestoring = restoring === item.id
+                      const canDelete = item.source === 'local'
+                      const engineInfo = getEngineInfo(item.engineId, item.source)
+                      const EngineIcon = engineInfo.icon
 
-                    <div className="flex items-center gap-4 text-xs text-text-tertiary">
-                      <span className="flex items-center gap-1">
-                        <MessageSquare className="w-3 h-3" />
-                        {item.messageCount} 条消息
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatTime(item.timestamp)}
-                      </span>
-                      {item.fileSize && (
-                        <span>{formatFileSize(item.fileSize)}</span>
-                      )}
-                      {(item.inputTokens || item.outputTokens) && (
-                        <span>
-                          {((item.inputTokens || 0) + (item.outputTokens || 0)).toLocaleString()} Tokens
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                      return (
+                        <li
+                          key={item.id}
+                          className={`flex items-start gap-3 px-4 py-3 hover:bg-background-hover transition-colors ${index > 0 ? 'border-t border-border-subtle' : ''}`}
+                        >
+                          {/* 引擎标识 */}
+                          <div className={`mt-0.5 ${engineInfo.color}`}>
+                            <EngineIcon className="w-4 h-4" />
+                          </div>
 
-                  {/* 操作按钮 */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleRestore(item)}
-                      disabled={isRestoring}
-                      className={`p-1.5 rounded-md hover:bg-background-elevated transition-colors ${
-                        isRestoring ? 'opacity-50 cursor-not-allowed' : 'text-text-secondary hover:text-text-primary'
-                      }`}
-                      title="恢复会话"
-                    >
-                      {isRestoring ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <RotateCcw className="w-4 h-4" />
-                      )}
-                    </button>
-                    {canDelete && (
-                      <button
-                        onClick={() => handleDelete(item.id, item.source)}
-                        className="p-1.5 rounded-md hover:bg-danger/10 text-text-tertiary hover:text-danger transition-colors"
-                        title="删除会话"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </li>
+                          {/* 会话信息 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-sm font-medium text-text-primary truncate">{item.title}</h3>
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${engineInfo.bgColor}`}>
+                                {engineInfo.name}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-4 text-xs text-text-tertiary">
+                              <span className="flex items-center gap-1">
+                                <MessageSquare className="w-3 h-3" />
+                                {item.messageCount} 条消息
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatTime(item.timestamp)}
+                              </span>
+                              {item.fileSize && (
+                                <span>{formatFileSize(item.fileSize)}</span>
+                              )}
+                              {(item.inputTokens || item.outputTokens) && (
+                                <span>
+                                  {((item.inputTokens || 0) + (item.outputTokens || 0)).toLocaleString()} Tokens
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 操作按钮 */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleRestore(item)}
+                              disabled={isRestoring}
+                              className={`p-1.5 rounded-md hover:bg-background-elevated transition-colors ${
+                                isRestoring ? 'opacity-50 cursor-not-allowed' : 'text-text-secondary hover:text-text-primary'
+                              }`}
+                              title="恢复会话"
+                            >
+                              {isRestoring ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-4 h-4" />
+                              )}
+                            </button>
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDelete(item.id, item.source)}
+                                className="p-1.5 rounded-md hover:bg-danger/10 text-text-tertiary hover:text-danger transition-colors"
+                                title="删除会话"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
               )
             })}
-          </ul>
+          </>
         )}
 
         {/* 加载更多按钮 */}
