@@ -183,5 +183,22 @@
     "replying": "[回复中...]",
     "waitingReply": "等待回复...",
     "scrollToBottom": "回到底部"
+  },
+  "history": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "thisWeek": "本周",
+    "earlier": "更早",
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前",
+    "messages": "{{count}} 条消息",
+    "loadMore": "加载更多 ({{count}} 条未显示)",
+    "restoreSession": "恢复会话",
+    "deleteSession": "删除会话",
+    "searchPlaceholder": "搜索会话...",
+    "noHistory": "暂无历史会话",
+    "claudeCodeHint": "• Claude Code 会话来自原生历史记录",
+    "localSessionHint": "• 本地会话可删除，CLI 会话只读"
   }
 }

@@ -183,5 +183,22 @@
     "replying": "[Replying...]",
     "waitingReply": "Waiting for reply...",
     "scrollToBottom": "Scroll to bottom"
+  },
+  "history": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "earlier": "Earlier",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}} minutes ago",
+    "hoursAgo": "{{count}} hours ago",
+    "messages": "{{count}} messages",
+    "loadMore": "Load more ({{count}} hidden)",
+    "restoreSession": "Restore session",
+    "deleteSession": "Delete session",
+    "searchPlaceholder": "Search sessions...",
+    "noHistory": "No history sessions",
+    "claudeCodeHint": "• Claude Code sessions from native history",
+    "localSessionHint": "• Local sessions can be deleted, CLI sessions are read-only"
   }
 }

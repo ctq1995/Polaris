@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useEventChatStore, UnifiedHistoryItem } from '../../stores/eventChatStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Zap, Loader2, X, Terminal, ChevronDown } from 'lucide-react'
@@ -15,14 +16,6 @@ const PAGE_SIZE = 20
 /** 日期分组类型 */
 type DateGroup = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
 
-/** 日期分组标签 */
-const DATE_GROUP_LABELS: Record<DateGroup, string> = {
-  today: '今天',
-  yesterday: '昨天',
-  thisWeek: '本周',
-  earlier: '更早',
-}
-
 /** 日期分组顺序 */
 const DATE_GROUP_ORDER: DateGroup[] = ['today', 'yesterday', 'thisWeek', 'earlier']
 
@@ -31,6 +24,7 @@ interface SessionHistoryPanelProps {
 }
 
 export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
+  const { t } = useTranslation('chat')
   const [allHistory, setAllHistory] = useState<UnifiedHistoryItem[]>([])
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
   const [loading, setLoading] = useState(true)
@@ -119,9 +113,9 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
 
-    if (diffMins < 1) return '刚刚'
-    if (diffMins < 60) return `${diffMins} 分钟前`
-    if (diffHours < 24) return `${diffHours} 小时前`
+    if (diffMins < 1) return t('history.justNow')
+    if (diffMins < 60) return t('history.minutesAgo', { count: diffMins })
+    if (diffHours < 24) return t('history.hoursAgo', { count: diffHours })
 
     return date.toLocaleTimeString('zh-CN', {
       hour: '2-digit',
@@ -306,7 +300,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       <div className="px-4 py-2 border-b border-border-subtle shrink-0">
         <input
           type="text"
-          placeholder="搜索会话..."
+          placeholder={t('history.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => { setSearchQuery(e.target.value); setDisplayCount(PAGE_SIZE); }}
           className="w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
@@ -321,7 +315,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
         {displayedHistory.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-text-tertiary">
             <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
-            <p className="text-sm">暂无历史会话</p>
+            <p className="text-sm">{t('history.noHistory')}</p>
           </div>
         ) : (
           <>
@@ -329,12 +323,19 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
               const items = groupedHistory[group]
               if (items.length === 0) return null
 
+              const groupLabels: Record<DateGroup, string> = {
+                today: t('history.today'),
+                yesterday: t('history.yesterday'),
+                thisWeek: t('history.thisWeek'),
+                earlier: t('history.earlier'),
+              }
+
               return (
                 <div key={group} className="mb-2">
                   {/* 分组标题 */}
                   <div className="sticky top-0 z-10 px-4 py-2 bg-background-elevated border-b border-border-subtle">
                     <span className="text-xs font-medium text-text-tertiary">
-                      {DATE_GROUP_LABELS[group]}
+                      {groupLabels[group]}
                       <span className="ml-2 text-text-muted">({items.length})</span>
                     </span>
                   </div>
@@ -369,7 +370,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
                             <div className="flex items-center gap-4 text-xs text-text-tertiary">
                               <span className="flex items-center gap-1">
                                 <MessageSquare className="w-3 h-3" />
-                                {item.messageCount} 条消息
+                                {t('history.messages', { count: item.messageCount })}
                               </span>
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
@@ -394,7 +395,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
                               className={`p-1.5 rounded-md hover:bg-background-elevated transition-colors ${
                                 isRestoring ? 'opacity-50 cursor-not-allowed' : 'text-text-secondary hover:text-text-primary'
                               }`}
-                              title="恢复会话"
+                              title={t('history.restoreSession')}
                             >
                               {isRestoring ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -406,7 +407,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
                               <button
                                 onClick={() => handleDelete(item.id, item.source)}
                                 className="p-1.5 rounded-md hover:bg-danger/10 text-text-tertiary hover:text-danger transition-colors"
-                                title="删除会话"
+                                title={t('history.deleteSession')}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -430,7 +431,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
               className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-background-hover rounded-md transition-colors"
             >
               <ChevronDown className="w-4 h-4" />
-              <span>加载更多 ({filteredHistory.length - displayCount} 条未显示)</span>
+              <span>{t('history.loadMore', { count: filteredHistory.length - displayCount })}</span>
             </button>
           </div>
         )}
@@ -438,8 +439,8 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
 
       {/* 底部提示 */}
       <div className="px-4 py-2 border-t border-border-subtle text-xs text-text-tertiary shrink-0">
-        <p>• Claude Code 会话来自原生历史记录</p>
-        <p>• 本地会话可删除，CLI 会话只读</p>
+        <p>{t('history.claudeCodeHint')}</p>
+        <p>{t('history.localSessionHint')}</p>
       </div>
     </div>
   )
