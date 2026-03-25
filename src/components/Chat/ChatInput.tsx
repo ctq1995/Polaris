@@ -639,7 +639,7 @@ export function ChatInput({
             onClick={openFileDialog}
             disabled={disabled || isStreaming}
             className="shrink-0 p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-background-hover transition-colors disabled:opacity-50"
-            title="添加附件 (支持图片、文件)"
+            title={t('input.addAttachment')}
           >
             <IconPaperclip size={18} />
           </button>
@@ -651,7 +651,7 @@ export function ChatInput({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={attachments.length > 0 ? '描述你的问题或直接发送...' : t('input.placeholder')}
+            placeholder={attachments.length > 0 ? t('input.placeholderWithAttachment') : t('input.placeholder')}
             className="flex-1 px-2 py-1.5 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-relaxed"
             disabled={disabled}
             maxHeight={180}

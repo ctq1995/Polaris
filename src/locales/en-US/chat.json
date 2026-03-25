@@ -1,12 +1,14 @@
 {
   "input": {
     "placeholder": "Type a message... (Enter to send, Shift+Enter for new line)",
+    "placeholderWithAttachment": "Describe your question or send directly...",
     "send": "Send",
     "translateAndSend": "Translate & Send",
     "translating": "Translating...",
     "interrupt": "Interrupt",
     "attachFile": "Attach File",
     "attachImage": "Attach Image",
+    "addAttachment": "Add attachment (images, files)",
     "clearContext": "Clear Context",
     "contextFiles": "Context Files",
     "selectWorkspace": "Select workspace",
