@@ -1111,3 +1111,141 @@ export async function schedulerUpdateLogRetentionConfig(
 ): Promise<void> {
   return invoke('scheduler_update_log_retention_config', { config });
 }
+
+// ============================================================================
+// 需求库相关命令
+// ============================================================================
+
+import type {
+  Requirement, RequirementStats, CreateRequirementParams,
+  UpdateRequirementParams, SaveAnalysisParams, SaveDesignParams,
+  SavePrototypeParams, CreateExecutionParams, FinishExecutionParams,
+  TransitionPhaseParams,
+  PrototypeVersion, RequirementExecution, AcceptanceCriteria, SubRequirement,
+} from '../types/requirement';
+
+/** 获取所有需求 */
+export async function requirementGetAll(workspacePath?: string): Promise<Requirement[]> {
+  return invoke<Requirement[]>('requirement_get_all', { workspacePath: workspacePath || null });
+}
+
+/** 获取单个需求 */
+export async function requirementGet(id: string, workspacePath?: string): Promise<Requirement | null> {
+  return invoke<Requirement | null>('requirement_get', { id, workspacePath: workspacePath || null });
+}
+
+/** 创建需求 */
+export async function requirementCreate(params: CreateRequirementParams, workspacePath?: string): Promise<Requirement> {
+  return invoke<Requirement>('requirement_create', { params, workspacePath: workspacePath || null });
+}
+
+/** 更新需求 */
+export async function requirementUpdate(id: string, params: UpdateRequirementParams, workspacePath?: string): Promise<void> {
+  return invoke('requirement_update', { id, params, workspacePath: workspacePath || null });
+}
+
+/** 删除需求 */
+export async function requirementDelete(id: string, workspacePath?: string): Promise<void> {
+  return invoke('requirement_delete', { id, workspacePath: workspacePath || null });
+}
+
+/** 执行阶段转换 */
+export async function requirementTransitionPhase(params: TransitionPhaseParams, workspacePath?: string): Promise<Requirement> {
+  return invoke<Requirement>('requirement_transition_phase', { params, workspacePath: workspacePath || null });
+}
+
+/** 保存分析结果 */
+export async function requirementSaveAnalysis(params: SaveAnalysisParams, workspacePath?: string): Promise<Requirement> {
+  return invoke<Requirement>('requirement_save_analysis', { params, workspacePath: workspacePath || null });
+}
+
+/** 保存设计方案 */
+export async function requirementSaveDesign(params: SaveDesignParams, workspacePath?: string): Promise<Requirement> {
+  return invoke<Requirement>('requirement_save_design', { params, workspacePath: workspacePath || null });
+}
+
+/** 保存原型 */
+export async function requirementSavePrototype(params: SavePrototypeParams, workspacePath?: string): Promise<PrototypeVersion> {
+  return invoke<PrototypeVersion>('requirement_save_prototype', { params, workspacePath: workspacePath || null });
+}
+
+/** 设置当前原型版本 */
+export async function requirementSetCurrentPrototype(
+  requirementId: string,
+  versionId: string,
+  workspacePath?: string
+): Promise<void> {
+  return invoke('requirement_set_current_prototype', { requirementId, versionId, workspacePath: workspacePath || null });
+}
+
+/** 更新验收标准 */
+export async function requirementUpdateCriteria(
+  requirementId: string,
+  criteria: AcceptanceCriteria[],
+  workspacePath?: string
+): Promise<void> {
+  return invoke('requirement_update_criteria', { requirementId, criteria, workspacePath: workspacePath || null });
+}
+
+/** 创建执行记录 */
+export async function requirementCreateExecution(
+  params: CreateExecutionParams,
+  workspacePath?: string
+): Promise<RequirementExecution> {
+  return invoke<RequirementExecution>('requirement_create_execution', { params, workspacePath: workspacePath || null });
+}
+
+/** 完成执行记录 */
+export async function requirementFinishExecution(
+  params: FinishExecutionParams,
+  workspacePath?: string
+): Promise<void> {
+  return invoke('requirement_finish_execution', { params, workspacePath: workspacePath || null });
+}
+
+/** 添加子需求 */
+export async function requirementAddSub(
+  requirementId: string,
+  title: string,
+  workspacePath?: string
+): Promise<SubRequirement> {
+  return invoke<SubRequirement>('requirement_add_sub', { requirementId, title, workspacePath: workspacePath || null });
+}
+
+/** 切换子需求状态 */
+export async function requirementToggleSub(
+  requirementId: string,
+  subId: string,
+  workspacePath?: string
+): Promise<void> {
+  return invoke('requirement_toggle_sub', { requirementId, subId, workspacePath: workspacePath || null });
+}
+
+/** 删除子需求 */
+export async function requirementDeleteSub(
+  requirementId: string,
+  subId: string,
+  workspacePath?: string
+): Promise<void> {
+  return invoke('requirement_delete_sub', { requirementId, subId, workspacePath: workspacePath || null });
+}
+
+/** 获取需求统计 */
+export async function requirementGetStats(workspacePath?: string): Promise<RequirementStats> {
+  return invoke<RequirementStats>('requirement_get_stats', { workspacePath: workspacePath || null });
+}
+
+/** 确认需求（审核门控） */
+export async function requirementApprove(id: string, workspacePath?: string): Promise<Requirement> {
+  return invoke<Requirement>('requirement_approve', { id, workspacePath: workspacePath || null });
+}
+
+/** 批量确认需求 */
+export async function requirementBatchApprove(ids: string[], workspacePath?: string): Promise<number> {
+  return invoke<number>('requirement_batch_approve', { ids, workspacePath: workspacePath || null });
+}
+
+/** 重新从磁盘加载需求文件（检测 AI 修改） */
+export async function requirementReload(workspacePath?: string): Promise<Requirement[]> {
+  return invoke<Requirement[]>('requirement_reload', { workspacePath: workspacePath || null });
+}

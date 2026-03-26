@@ -88,6 +88,16 @@ use commands::terminal::{
     terminal_create, terminal_write, terminal_resize,
     terminal_close, terminal_list, terminal_get,
 };
+use commands::requirement::{
+    requirement_get_all, requirement_get, requirement_create, requirement_update, requirement_delete,
+    requirement_transition_phase,
+    requirement_save_analysis, requirement_save_design,
+    requirement_save_prototype, requirement_set_current_prototype, requirement_update_criteria,
+    requirement_create_execution, requirement_finish_execution,
+    requirement_add_sub, requirement_toggle_sub, requirement_delete_sub,
+    requirement_get_stats,
+    requirement_approve, requirement_batch_approve, requirement_reload,
+};
 
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
@@ -496,6 +506,27 @@ pub fn run() {
             terminal_close,
             terminal_list,
             terminal_get,
+            // 需求库相关
+            requirement_get_all,
+            requirement_get,
+            requirement_create,
+            requirement_update,
+            requirement_delete,
+            requirement_transition_phase,
+            requirement_save_analysis,
+            requirement_save_design,
+            requirement_save_prototype,
+            requirement_set_current_prototype,
+            requirement_update_criteria,
+            requirement_create_execution,
+            requirement_finish_execution,
+            requirement_add_sub,
+            requirement_toggle_sub,
+            requirement_delete_sub,
+            requirement_get_stats,
+            requirement_approve,
+            requirement_batch_approve,
+            requirement_reload,
 
         ])
         .run(tauri::generate_context!())

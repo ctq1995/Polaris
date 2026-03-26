@@ -106,6 +106,9 @@ export function handleAIEvent(
           console.warn('[EventChatStore] 会话结束时刷新 Git 状态失败:', err)
         })
       }
+
+      // 通知需求面板刷新（AI 可能修改了 requirements.json）
+      window.dispatchEvent(new CustomEvent('ai-session-end'))
       break
 
     case 'token':

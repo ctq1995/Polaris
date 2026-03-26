@@ -9,5 +9,15 @@
   "todoTrigger": "当用户提到\"待办\"、\"todo\"、\"任务\"时，使用 Bash 工具操作待办文件:",
   "todoRead": "1. 读取待办: cat .polaris/todos.json",
   "todoFormat": "2. 待办文件格式: {\"version\": \"1.0.0\", \"todos\": [{\"id\": \"uuid\", \"content\": \"内容\", \"status\": \"pending|in_progress|completed\", \"priority\": \"low|normal|high|urgent\"}]}",
-  "todoParse": "3. 可以用 jq 工具解析 JSON: cat .polaris/todos.json | jq '.todos'"
+  "todoParse": "3. 可以用 jq 工具解析 JSON: cat .polaris/todos.json | jq '.todos'",
+  "reqManagement": "需求库管理:",
+  "reqStorage": "当前工作区的需求数据存储在: {{path}}/.polaris/requirements.json",
+  "reqPrototypeDir": "需求原型文件存储在: {{path}}/.polaris/prototypes/",
+  "reqTrigger": "当用户提到\"需求\"、\"requirement\"、\"需求库\"时，读取需求文件:",
+  "reqRead": "1. 读取需求: cat .polaris/requirements.json",
+  "reqFormat": "2. 需求文件格式: {\"version\": \"1.0.0\", \"requirements\": [{\"id\": \"uuid\", \"title\": \"标题\", \"description\": \"描述\", \"status\": \"draft|analyzing|designed|developing|testing|tested|accepted|rejected|cancelled\", \"priority\": \"low|normal|high|urgent\", \"type\": \"feature|bugfix|refactor|docs|infra|research|other\", \"approved\": false, \"source\": \"user|agent_analysis|scheduled\", \"tags\": [], \"group\": \"\", \"subRequirements\": [{\"id\": \"\", \"title\": \"\", \"status\": \"pending|completed\"}], \"analysis\": {\"summary\": \"\", \"scope\": \"\", \"suggestedTasks\": [], \"suggestedFiles\": [], \"complexity\": \"simple|medium|complex\"}, \"design\": {\"solution\": \"\", \"prototypes\": [{\"id\": \"\", \"version\": 1, \"path\": \".polaris/prototypes/{id}.html\", \"note\": \"\", \"createdAt\": 0}], \"acceptanceCriteria\": [{\"id\": \"\", \"content\": \"\", \"passed\": false}]}}]}",
+  "reqAddGuide": "3. 添加需求时，使用 Write/Edit 工具更新 requirements.json 文件，设置 approved=false, source=\"agent_analysis\"",
+  "reqPrototypeGuide": "4. 分析需求时，必须同时生成 HTML 原型，写入 .polaris/prototypes/{requirementId}.html，并在 requirements.json 中添加 prototype 记录（path 字段指向文件路径）",
+  "reqStatusGuide": "5. 需求状态流转: draft → analyzing → designed → developing → testing → tested → accepted（每个状态都有合理的回退路径）",
+  "reqApprovalGuide": "6. AI 创建的需求必须设置 approved=false，用户在需求面板中确认后才会设为 approved=true。只有 approved=true 的需求才能进入开发流程"
 }

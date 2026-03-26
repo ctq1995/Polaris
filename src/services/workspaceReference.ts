@@ -257,5 +257,18 @@ export function buildSystemPrompt(
   lines.push(t('systemPrompt:todoFormat'));
   lines.push(t('systemPrompt:todoParse'));
 
+  lines.push(``);
+  lines.push(t('systemPrompt:reqManagement'));
+  lines.push(t('systemPrompt:reqStorage', { path: currentWorkspace.path }));
+  lines.push(t('systemPrompt:reqPrototypeDir', { path: currentWorkspace.path }));
+  lines.push(``);
+  lines.push(t('systemPrompt:reqTrigger'));
+  lines.push(t('systemPrompt:reqRead'));
+  lines.push(t('systemPrompt:reqFormat'));
+  lines.push(t('systemPrompt:reqAddGuide'));
+  lines.push(t('systemPrompt:reqPrototypeGuide'));
+  lines.push(t('systemPrompt:reqStatusGuide'));
+  lines.push(t('systemPrompt:reqApprovalGuide'));
+
   return lines.join('\n');
 }

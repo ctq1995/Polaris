@@ -9,6 +9,10 @@ import { todoTools } from '@/ai-runtime/tools/todoTools'
 
 /**
  * 注册所有 AI 工具
+ *
+ * 注意：需求库工具已改为通过系统提示词引导 Claude Code 直接操作
+ * requirements.json 文件，不再使用 globalToolRegistry 注册。
+ * 参见 src/locales/zh-CN/systemPrompt.json 中的 reqManagement 指令。
  */
 export function bootstrapTools(): void {
   console.log('[ToolBootstrap] 开始注册 AI 工具...')

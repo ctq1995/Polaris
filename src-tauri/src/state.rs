@@ -14,6 +14,7 @@ use crate::commands::terminal::TerminalManager;
 use crate::integrations::IntegrationManager;
 use crate::services::config_store::ConfigStore;
 use crate::services::scheduler::{TaskStoreService, LogStoreService, SchedulerDispatcher};
+use crate::services::requirement::RequirementStoreService;
 use crate::utils::SchedulerLock;
 
 /// 待回答问题信息
@@ -125,6 +126,10 @@ pub struct AppState {
     pub pending_questions: Arc<Mutex<HashMap<String, PendingQuestion>>>,
     /// 待审批计划映射：planId -> PendingPlan
     pub pending_plans: Arc<Mutex<HashMap<String, PendingPlan>>>,
+    /// 需求库存储（全局回退）
+    pub requirement_store: Arc<AsyncMutex<RequirementStoreService>>,
+    /// 工作区级需求存储缓存：workspace_path -> store
+    pub workspace_requirement_stores: Arc<AsyncMutex<HashMap<String, Arc<AsyncMutex<RequirementStoreService>>>>>,
 }
 
 /// 创建应用状态
@@ -149,6 +154,11 @@ pub fn create_app_state(
 
     // 注意：调度器启动需要在 Tauri 运行时中进行，在 lib.rs 的 setup hook 中启动
 
+    // 初始化需求存储
+    let requirement_store = Arc::new(AsyncMutex::new(
+        RequirementStoreService::new().expect("无法初始化需求存储")
+    ));
+
     AppState {
         config_store: Mutex::new(config_store),
         sessions: Arc::new(Mutex::new(HashMap::new())),
@@ -163,5 +173,7 @@ pub fn create_app_state(
         terminal_manager: Mutex::new(TerminalManager::new()),
         pending_questions: Arc::new(Mutex::new(HashMap::new())),
         pending_plans: Arc::new(Mutex::new(HashMap::new())),
+        requirement_store,
+        workspace_requirement_stores: Arc::new(AsyncMutex::new(HashMap::new())),
     }
 }
