@@ -64,7 +64,7 @@ export function RequirementDetailDialog({
   onEditSubmit,
   onReadPrototype,
 }: RequirementDetailDialogProps) {
-  const { t } = useTranslation('requirement')
+  const { t, i18n } = useTranslation('requirement')
   const [editing, setEditing] = useState(false)
   const [prototypeHtml, setPrototypeHtml] = useState<string | null>(null)
   const [loadingPrototype, setLoadingPrototype] = useState(false)
@@ -101,7 +101,7 @@ export function RequirementDetailDialog({
   }, [open, requirement.id, requirement.prototypePath])
 
   const formatTime = (ts: number) =>
-    new Date(ts).toLocaleString('zh-CN', {
+    new Date(ts).toLocaleString(i18n.language, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -238,13 +238,13 @@ export function RequirementDetailDialog({
                 {requirement.executedAt && (
                   <div className="text-text-secondary">
                     <Clock size={12} className="inline mr-0.5" />
-                    执行开始: {formatTime(requirement.executedAt)}
+                    {t('detail.executedAt')}: {formatTime(requirement.executedAt)}
                   </div>
                 )}
 
                 {requirement.completedAt && (
                   <div className="text-text-secondary">
-                    完成时间: {formatTime(requirement.completedAt)}
+                    {t('detail.completedAt')}: {formatTime(requirement.completedAt)}
                   </div>
                 )}
               </div>
@@ -257,13 +257,13 @@ export function RequirementDetailDialog({
 
               {requirement.executeError && (
                 <div className="text-xs text-red-400 mt-1">
-                  执行错误: {requirement.executeError}
+                  {t('detail.executeError')}: {requirement.executeError}
                 </div>
               )}
 
               {requirement.executeLog && (
                 <div className="mt-2">
-                  <label className="block text-xs text-text-secondary mb-1">执行日志</label>
+                  <label className="block text-xs text-text-secondary mb-1">{t('detail.executeLog')}</label>
                   <pre className="text-xs text-text-secondary bg-background-elevated p-2 rounded overflow-x-auto max-h-32 overflow-y-auto">
                     {requirement.executeLog}
                   </pre>

@@ -44,16 +44,6 @@ const priorityStyleConfig: Record<string, string> = {
   urgent: 'text-red-500 bg-red-500/10',
 }
 
-/** 格式化时间戳 */
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 export function RequirementCard({
   requirement,
   onEditClick,
@@ -62,7 +52,16 @@ export function RequirementCard({
   onDeleteClick,
   onClick,
 }: RequirementCardProps) {
-  const { t } = useTranslation('requirement')
+  const { t, i18n } = useTranslation('requirement')
+
+  /** 格式化时间戳 */
+  const formatTime = (ts: number) =>
+    new Date(ts).toLocaleString(i18n.language, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
 
   const style = statusStyleConfig[requirement.status]
   const priorityStyle = priorityStyleConfig[requirement.priority] || priorityStyleConfig.normal

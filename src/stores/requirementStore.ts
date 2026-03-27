@@ -75,6 +75,9 @@ const DEFAULT_FILTER: RequirementFilter = {
   search: '',
 }
 
+/** 服务订阅取消句柄，防止重复订阅 */
+let unsubscribeService: (() => void) | null = null
+
 export const useRequirementStore = create<RequirementState>((set, get) => ({
   requirements: [],
   loading: false,
@@ -91,8 +94,9 @@ export const useRequirementStore = create<RequirementState>((set, get) => ({
       const requirements = requirementService.getAllRequirements()
       const stats = requirementService.getStats()
 
-      // 订阅服务变化，自动同步状态
-      requirementService.subscribe(() => {
+      // 订阅服务变化，自动同步状态（先取消旧订阅防止泄漏）
+      unsubscribeService?.()
+      unsubscribeService = requirementService.subscribe(() => {
         const state = get()
         if (!state.initialized) return
         const fresh = requirementService.getAllRequirements()
