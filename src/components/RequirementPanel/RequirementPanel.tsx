@@ -213,7 +213,7 @@ export function RequirementPanel() {
             {t('title')}
             {stats && stats.total > 0 && (
               <span className="ml-2 text-xs font-normal text-text-secondary">
-                ({stats.total} {t('stats.total', { count: stats.total })})
+                ({t('stats.total', { count: stats.total })})
               </span>
             )}
           </h2>

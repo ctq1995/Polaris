@@ -56,6 +56,14 @@ const statusStyleMap: Record<string, { text: string; bg: string }> = {
   failed: { text: 'text-red-400', bg: 'bg-red-400/10' },
 }
 
+/** 优先级颜色映射 */
+const priorityStyleMap: Record<string, string> = {
+  low: 'text-text-tertiary',
+  normal: 'text-blue-500',
+  high: 'text-orange-500',
+  urgent: 'text-red-500',
+}
+
 export function RequirementDetailDialog({
   requirement,
   open,
@@ -111,6 +119,18 @@ export function RequirementDetailDialog({
       hour: '2-digit',
       minute: '2-digit',
     })
+
+  // Escape 键关闭弹窗
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !showRejectInput) {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose, showRejectInput])
 
   // 编辑模式：直接用 RequirementForm
   if (editing) {
@@ -182,9 +202,7 @@ export function RequirementDetailDialog({
             {/* 优先级 */}
             <div className="flex items-center gap-1">
               <span>{t('detail.priorityField')}:</span>
-              <span className={statusStyleMap[`priority-${requirement.priority}`]
-                ? 'text-blue-500'
-                : ''}>
+              <span className={priorityStyleMap[requirement.priority] || ''}>
                 {t(`priority.${requirement.priority}`)}
               </span>
             </div>

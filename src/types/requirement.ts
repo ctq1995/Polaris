@@ -173,31 +173,6 @@ export interface RequirementFileData {
   requirements: Requirement[]
 }
 
-/** 需求状态显示名称 */
-export const RequirementStatusLabels: Record<RequirementStatus, string> = {
-  draft: '草稿',
-  pending: '待审核',
-  approved: '已批准',
-  rejected: '已拒绝',
-  executing: '执行中',
-  completed: '已完成',
-  failed: '执行失败',
-}
-
-/** 需求优先级显示名称 */
-export const RequirementPriorityLabels: Record<RequirementPriority, string> = {
-  low: '低',
-  normal: '普通',
-  high: '高',
-  urgent: '紧急',
-}
-
-/** 需求来源显示名称 */
-export const RequirementSourceLabels: Record<RequirementSource, string> = {
-  ai: 'AI 生成',
-  user: '手动创建',
-}
-
 /** 允许 AI 读取的需求状态 */
 export const AI_READABLE_STATUSES: RequirementStatus[] = [
   'pending', 'approved', 'executing',
