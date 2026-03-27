@@ -133,7 +133,11 @@
     "batchApproveSuccess": "已批准 {{count}} 个需求",
     "batchRejectSuccess": "已拒绝 {{count}} 个需求",
     "prototypeNotFound": "无法获取原型文件路径",
-    "prototypeOpenFailed": "打开原型文件失败"
+    "prototypeOpenFailed": "打开原型文件失败",
+    "generateTriggered": "已触发 AI 生成需求",
+    "generateTriggerFailed": "触发 AI 生成需求失败",
+    "executeTriggered": "已触发 AI 执行分析",
+    "executeTriggerFailed": "触发 AI 执行分析失败"
   },
 
   "empty": {
@@ -141,6 +145,19 @@
     "noMatching": "没有符合筛选条件的需求",
     "hint": "可通过定时任务自动生成需求，选择 req-generate 模板"
   },
+
+  "generate": {
+    "title": "AI 生成需求",
+    "scope": "分析范围",
+    "scopeAll": "全局",
+    "scopeFrontend": "前端",
+    "scopeBackend": "后端",
+    "context": "补充上下文（可选）",
+    "contextPlaceholder": "输入补充上下文信息...",
+    "confirm": "开始生成",
+    "cancel": "取消"
+  },
+  "execute": "执行分析",
 
   "newRequirement": "新建",
   "refresh": "刷新"

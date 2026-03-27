@@ -12,6 +12,7 @@ import {
   Sparkles,
   User,
   Eye,
+  Play,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Requirement } from '@/types/requirement'
@@ -24,6 +25,7 @@ interface RequirementCardProps {
   onApproveClick?: (requirement: Requirement) => void
   onRejectClick?: (requirement: Requirement) => void
   onDeleteClick?: (requirement: Requirement) => void
+  onExecuteClick?: (requirement: Requirement) => void
   onClick?: (requirement: Requirement) => void
 }
 
@@ -34,6 +36,7 @@ export function RequirementCard({
   onApproveClick,
   onRejectClick,
   onDeleteClick,
+  onExecuteClick,
   onClick,
 }: RequirementCardProps) {
   const { t, i18n } = useTranslation('requirement')
@@ -147,6 +150,18 @@ export function RequirementCard({
                 <X size={14} />
               </button>
             </>
+          )}
+
+          {requirement.status === 'approved' && onExecuteClick && (
+            <button
+              onClick={e => { e.stopPropagation(); onExecuteClick(requirement) }}
+              className="p-1.5 rounded hover:bg-blue-500/10 text-text-secondary hover:text-blue-500 transition-all"
+              title={t('execute')}
+              aria-label={t('execute')}
+              disabled={disabled}
+            >
+              <Play size={14} />
+            </button>
           )}
 
           <button

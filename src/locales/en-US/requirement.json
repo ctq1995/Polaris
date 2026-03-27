@@ -133,7 +133,11 @@
     "batchApproveSuccess": "{{count}} requirements approved",
     "batchRejectSuccess": "{{count}} requirements rejected",
     "prototypeNotFound": "Cannot get prototype file path",
-    "prototypeOpenFailed": "Failed to open prototype file"
+    "prototypeOpenFailed": "Failed to open prototype file",
+    "generateTriggered": "AI generation triggered",
+    "generateTriggerFailed": "Failed to trigger AI generation",
+    "executeTriggered": "AI execution triggered",
+    "executeTriggerFailed": "Failed to trigger AI execution"
   },
 
   "empty": {
@@ -141,6 +145,19 @@
     "noMatching": "No requirements match the current filter",
     "hint": "You can set up scheduled tasks to auto-generate (req-generate template)"
   },
+
+  "generate": {
+    "title": "AI Generate Requirements",
+    "scope": "Analysis Scope",
+    "scopeAll": "All",
+    "scopeFrontend": "Frontend",
+    "scopeBackend": "Backend",
+    "context": "Additional Context (optional)",
+    "contextPlaceholder": "Enter additional context...",
+    "confirm": "Generate",
+    "cancel": "Cancel"
+  },
+  "execute": "Execute Analysis",
 
   "newRequirement": "New",
   "refresh": "Refresh"

@@ -18,16 +18,19 @@ import {
   X as XIcon,
   AlertCircle,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { openPath } from '@tauri-apps/plugin-opener'
-import { useWorkspaceStore } from '@/stores'
+import { useWorkspaceStore, useConfigStore } from '@/stores'
 import { useRequirementStore } from '@/stores/requirementStore'
+import { useSchedulerStore } from '@/stores/schedulerStore'
 import { useToastStore } from '@/stores/toastStore'
 import { ConfirmDialog } from '@/components/Common/ConfirmDialog'
 import { RequirementCard } from './RequirementCard'
 import { RequirementDetailDialog } from './RequirementDetailDialog'
 import { RequirementForm } from './RequirementForm'
+import { RequirementGenerateDialog } from './RequirementGenerateDialog'
 import type { Requirement, RequirementStatus } from '@/types/requirement'
 import { PRIORITY_WEIGHT } from './constants'
 import { createLogger } from '@/utils/logger'
@@ -84,6 +87,8 @@ export function RequirementPanel() {
 
   // Dialog 状态
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selectedRequirement = selectedId ? requirements.find(r => r.id === selectedId) ?? null : null
 
@@ -212,6 +217,80 @@ export function RequirementPanel() {
     }
   }
 
+  /** 触发 AI 生成需求 */
+  const handleGenerate = async (scope: string, context: string) => {
+    const workspacePath = currentWorkspace?.path
+    if (!workspacePath) return
+
+    setGenerating(true)
+    try {
+      const config = useConfigStore.getState().config
+      const engineId = config?.defaultEngine || 'claude-code'
+
+      const scopeLabel = t(`generate.scope${scope.charAt(0).toUpperCase() + scope.slice(1)}` as 'generate.scopeAll' | 'generate.scopeFrontend' | 'generate.scopeBackend')
+      const taskName = `[需求生成] ${scopeLabel}`
+
+      const task = await useSchedulerStore.getState().createTask({
+        name: taskName,
+        triggerType: 'once',
+        triggerValue: '',
+        engineId,
+        prompt: '分析项目并生成需求',
+        mode: 'protocol',
+        templateId: 'req-generate',
+        templateParamValues: {
+          scope,
+          projectContext: context,
+        },
+        workDir: workspacePath,
+      })
+
+      await useSchedulerStore.getState().runTaskWithSubscription(task.id, taskName)
+      toast.success(t('toast.generateTriggered'))
+    } catch (e) {
+      log.error('触发生成需求失败:', e instanceof Error ? e : new Error(String(e)))
+      toast.error(t('toast.generateTriggerFailed'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  /** 触发 AI 执行需求分析 */
+  const handleExecute = async (req: Requirement) => {
+    setProcessing(req.id, true)
+    try {
+      const workspacePath = currentWorkspace?.path
+      if (!workspacePath) return
+
+      const config = useConfigStore.getState().config
+      const engineId = config?.defaultEngine || 'claude-code'
+
+      const taskName = `[需求执行] ${req.title}`
+
+      const task = await useSchedulerStore.getState().createTask({
+        name: taskName,
+        triggerType: 'once',
+        triggerValue: '',
+        engineId,
+        prompt: `执行需求分析: ${req.title}`,
+        mode: 'protocol',
+        templateId: 'req-execute',
+        templateParamValues: {
+          focusModule: req.title,
+        },
+        workDir: workspacePath,
+      })
+
+      await useSchedulerStore.getState().runTaskWithSubscription(task.id, taskName)
+      toast.success(t('toast.executeTriggered'))
+    } catch (e) {
+      log.error('触发执行需求失败:', e instanceof Error ? e : new Error(String(e)))
+      toast.error(t('toast.executeTriggerFailed'))
+    } finally {
+      setProcessing(req.id, false)
+    }
+  }
+
   // --- 渲染 ---
 
   if (!currentWorkspace) {
@@ -253,6 +332,15 @@ export function RequirementPanel() {
               aria-label={t('refresh')}
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={() => setShowGenerateDialog(true)}
+              disabled={generating}
+              className="p-1.5 rounded-lg hover:bg-purple-500/10 text-text-secondary hover:text-purple-500 transition-all disabled:opacity-50"
+              title={t('generate.title')}
+              aria-label={t('generate.title')}
+            >
+              <Sparkles size={16} className={generating ? 'animate-pulse' : ''} />
             </button>
             <button
               onClick={() => setShowCreateDialog(true)}
@@ -359,6 +447,7 @@ export function RequirementPanel() {
               type: 'danger',
               onConfirm: () => handleDelete(req),
             })}
+            onExecuteClick={handleExecute}
             onEditClick={req => setSelectedId(req.id)}
             onClick={req => setSelectedId(req.id)}
           />
@@ -407,6 +496,16 @@ export function RequirementPanel() {
         </div>
       )}
 
+      {/* AI 生成需求弹窗 */}
+      <RequirementGenerateDialog
+        open={showGenerateDialog}
+        onConfirm={(scope, context) => {
+          setShowGenerateDialog(false)
+          handleGenerate(scope, context)
+        }}
+        onCancel={() => setShowGenerateDialog(false)}
+      />
+
       {/* 需求详情弹窗 */}
       {selectedRequirement && (
         <RequirementDetailDialog
@@ -440,6 +539,7 @@ export function RequirementPanel() {
           })}
           onApprove={handleApprove}
           onReject={handleReject}
+          onExecute={handleExecute}
           onReadPrototype={readPrototype}
           onOpenPrototype={handleOpenPrototype}
         />

@@ -19,6 +19,7 @@ import {
   Clock,
   Loader2,
   ExternalLink,
+  Play,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Requirement, RequirementPriority, RequirementSource } from '@/types/requirement'
@@ -49,6 +50,8 @@ interface RequirementDetailDialogProps {
   onReadPrototype?: (path: string) => Promise<string>
   /** 获取原型文件绝对路径并打开 */
   onOpenPrototype?: (path: string) => Promise<void>
+  /** 执行需求分析 */
+  onExecute?: (req: Requirement) => void
 }
 
 export function RequirementDetailDialog({
@@ -62,6 +65,7 @@ export function RequirementDetailDialog({
   onEditSubmit,
   onReadPrototype,
   onOpenPrototype,
+  onExecute,
 }: RequirementDetailDialogProps) {
   const { t, i18n } = useTranslation('requirement')
   const [editing, setEditing] = useState(false)
@@ -399,6 +403,16 @@ export function RequirementDetailDialog({
                   <X size={14} />
                 </button>
               </div>
+            )}
+            {requirement.status === 'approved' && onExecute && (
+              <button
+                onClick={() => onExecute(requirement)}
+                className="px-3 py-1.5 text-sm bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500/20 transition-all flex items-center gap-1 disabled:opacity-50 disabled:pointer-events-none"
+                disabled={disabled}
+              >
+                <Play size={14} />
+                {t('execute')}
+              </button>
             )}
             <button
               onClick={() => setEditing(true)}
