@@ -127,74 +127,64 @@ function TaskCard({
     { key: 'delete', label: t('task.delete'), variant: 'danger', onClick: onDelete }
   );
 
-  // 紧凑模式：使用下拉菜单
+  // 紧凑模式 - 两行布局
   if (isCompact) {
+    const borderColor = isSubscribing
+      ? 'border-blue-500'
+      : isSubscribed
+        ? 'border-cyan-500'
+        : isSelected
+          ? 'border-blue-500'
+          : 'border-[#2a2a4a]';
+    const cardOpacity = !task.enabled ? 'opacity-70' : '';
+
     return (
-      <div className={`bg-[#1a1a2e] rounded-lg p-3 border ${isSelected ? 'border-blue-500' : 'border-[#2a2a4a]'}`}>
-        <div className="flex items-start justify-between gap-2">
-          {/* 选择模式下显示复选框 */}
-          {selectionMode && (
-            <div className="flex items-center mt-1">
+      <div className={`bg-[#1a1a2e] rounded-lg p-3 border ${borderColor} ${cardOpacity}`}>
+        {/* 第一行：标题 + 操作 */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {selectionMode && (
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={onSelect}
-                className="w-5 h-5 rounded border-gray-500 bg-[#12122a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+                className="w-4 h-4 rounded border-gray-500 bg-[#12122a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
               />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`w-2 h-2 rounded-full shrink-0 ${task.enabled ? 'bg-green-500' : 'bg-gray-500'}`} />
-              <h3 className="text-white font-medium truncate">{task.name}</h3>
-              {/* 分组标签 */}
-              {showGroupTag && task.group && (
-                <span className="px-2 py-0.5 rounded text-xs bg-orange-500/20 text-orange-400">
-                  {task.group}
-                </span>
-              )}
-            </div>
-            <div className="mt-1 text-xs text-gray-400 flex items-center gap-2 flex-wrap">
-              <StatusBadge status={task.lastRunStatus} />
-              {task.enabled && task.nextRunAt && (
-                <span>{formatRelativeTime(task.nextRunAt, t)}</span>
-              )}
-            </div>
+            )}
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${task.enabled ? (isSubscribing ? 'bg-blue-500 animate-pulse' : 'bg-green-500') : 'bg-gray-500'}`} />
+            <h3 className="text-white text-sm font-medium truncate">{task.name}</h3>
+            {isSubscribed && !isSubscribing && (
+              <span className="text-[10px] leading-none">🔔</span>
+            )}
           </div>
-
           <div className="flex items-center gap-1 shrink-0">
-            {/* 订阅状态或按钮 - 紧凑模式 */}
             {isSubscribing ? (
               <button
                 onClick={onCancelSubscription}
-                className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                className="w-7 h-7 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded transition-colors text-xs"
                 title={t('task.stopSubscription')}
               >
                 ⏹
               </button>
-            ) : isSubscribed ? (
-              <span className="px-2 py-1 text-xs bg-cyan-600/30 text-cyan-400 rounded">🔔</span>
-            ) : (
+            ) : !isSubscribed ? (
               <button
                 onClick={onSubscribe}
-                className="p-1.5 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded transition-colors"
+                className="w-7 h-7 flex items-center justify-center bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded transition-colors text-xs"
                 title={t('task.subscribeHint')}
               >
                 👁
               </button>
-            )}
-            {/* 执行按钮 */}
+            ) : null}
             <button
               onClick={onRun}
-              className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              className="w-7 h-7 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors text-xs"
               title={t('task.runInBackground')}
             >
               ▶
             </button>
-            {/* 更多操作下拉菜单 */}
             <DropdownMenu
               trigger={
-                <button className="p-1.5 bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors">
+                <button className="w-7 h-7 flex items-center justify-center bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors text-xs">
                   ⋯
                 </button>
               }
@@ -203,160 +193,166 @@ function TaskCard({
             />
           </div>
         </div>
+        {/* 第二行：状态 + 下次执行 */}
+        <div className="text-xs text-gray-500 flex items-center gap-2">
+          <StatusBadge status={task.lastRunStatus} />
+          {task.enabled && task.nextRunAt && (
+            <span>
+              {t('task.nextRun')}: <span className="text-cyan-400">{formatRelativeTime(task.nextRunAt, t)}</span>
+            </span>
+          )}
+        </div>
       </div>
     );
   }
 
-  // 正常模式
+  // 正常模式 - 三段式布局 (Header / Body / Footer)
+  const borderColor = isSubscribing
+    ? 'border-blue-500'
+    : isSubscribed
+      ? 'border-cyan-500'
+      : isSelected
+        ? 'border-blue-500'
+        : 'border-[#2a2a4a]';
+  const cardOpacity = !task.enabled ? 'opacity-70' : '';
+
   return (
-    <div className={`bg-[#1a1a2e] rounded-lg p-4 border ${isSelected ? 'border-blue-500' : 'border-[#2a2a4a]'}`}>
-      <div className="flex items-start justify-between">
-        {/* 选择模式下显示复选框 */}
+    <div className={`bg-[#1a1a2e] rounded-lg p-4 border ${borderColor} ${cardOpacity}`}>
+      {/* Header: 状态灯 + 标题 + 徽章 */}
+      <div className="flex items-center gap-2 mb-3">
         {selectionMode && (
-          <div className="flex items-center mr-3 mt-1">
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={onSelect}
-              className="w-5 h-5 rounded border-gray-500 bg-[#12122a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
-            />
-          </div>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onSelect}
+            className="w-4 h-4 rounded border-gray-500 bg-[#12122a] text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+          />
         )}
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${task.enabled ? 'bg-green-500' : 'bg-gray-500'}`} />
-            <h3 className="text-white font-medium">{task.name}</h3>
-            {/* 分组标签 */}
-            {showGroupTag && task.group && (
-              <span className="px-2 py-0.5 rounded text-xs bg-orange-500/20 text-orange-400">
-                {task.group}
-              </span>
-            )}
-            {/* 模式徽章 */}
-            <span className={`px-2 py-0.5 rounded text-xs ${
-              task.mode === 'protocol'
-                ? 'bg-purple-500/20 text-purple-400'
-                : 'bg-gray-500/20 text-gray-400'
-            }`}>
-              {TaskModeLabels[task.mode]}
-            </span>
-          </div>
+        <span className={`w-2 h-2 rounded-full shrink-0 ${task.enabled ? (isSubscribing ? 'bg-blue-500 animate-pulse' : 'bg-green-500') : 'bg-gray-500'}`} />
+        <h3 className="text-white font-medium truncate">{task.name}</h3>
+        {showGroupTag && task.group && (
+          <span className="px-2 py-0.5 rounded text-xs bg-orange-500/20 text-orange-400 shrink-0">
+            {task.group}
+          </span>
+        )}
+        <span className={`px-2 py-0.5 rounded text-xs shrink-0 ${
+          task.mode === 'protocol'
+            ? 'bg-purple-500/20 text-purple-400'
+            : 'bg-gray-500/20 text-gray-400'
+        }`}>
+          {TaskModeLabels[task.mode]}
+        </span>
+        {isSubscribed && !isSubscribing && (
+          <span className="px-2 py-0.5 rounded text-xs bg-cyan-500/20 text-cyan-400 shrink-0">
+            🔔
+          </span>
+        )}
+      </div>
 
-          <div className="mt-2 text-sm text-gray-400 space-y-1">
-            <p>
-              <span className="text-gray-500">{t('task.trigger')}: </span>
-              {TriggerTypeLabels[task.triggerType]} - {task.triggerValue}
-            </p>
-            <p>
-              <span className="text-gray-500">{t('task.engine')}: </span>
-              {task.engineId}
-            </p>
-            <div className="flex items-center gap-4">
-              <span>
-                <span className="text-gray-500">{t('log.stats', { defaultValue: '状态' })}: </span>
-                <StatusBadge status={task.lastRunStatus} />
+      {/* Body: Grid 元信息 */}
+      <div className="mb-3">
+        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          <span className="text-gray-500">{t('task.trigger')}</span>
+          <span className="text-gray-300">{TriggerTypeLabels[task.triggerType]} - {task.triggerValue}</span>
+          <span className="text-gray-500">{t('task.engine')}</span>
+          <span className="text-gray-300">{task.engineId}</span>
+          {task.enabled && task.nextRunAt && (
+            <>
+              <span className="text-gray-500">{t('task.nextRun')}</span>
+              <span className="text-cyan-400">{formatRelativeTime(task.nextRunAt, t)}</span>
+            </>
+          )}
+          <span className="text-gray-500">{t('log.stats', { defaultValue: '状态' })}</span>
+          <span><StatusBadge status={task.lastRunStatus} /></span>
+          {task.maxRuns !== undefined && task.maxRuns !== null && (
+            <>
+              <span className="text-gray-500">{t('task.rounds')}</span>
+              <span className={task.currentRuns >= task.maxRuns ? 'text-yellow-400' : 'text-gray-300'}>
+                {task.currentRuns}/{task.maxRuns}
               </span>
-              {task.enabled && task.nextRunAt && (
-                <span>
-                  <span className="text-gray-500">{t('task.nextRun')}: </span>
-                  {formatRelativeTime(task.nextRunAt, t)}
-                </span>
-              )}
-              {/* 执行轮次显示 */}
-              {task.maxRuns !== undefined && task.maxRuns !== null && (
-                <span>
-                  <span className="text-gray-500">{t('task.rounds')}: </span>
-                  <span className={task.currentRuns >= task.maxRuns ? 'text-yellow-400' : 'text-gray-300'}>
-                    {task.currentRuns}/{task.maxRuns}
-                  </span>
-                </span>
-              )}
-            </div>
-          </div>
+            </>
+          )}
         </div>
+      </div>
 
-        <div className="flex items-center gap-2">
-          {/* 协议模式显示查看文档按钮 */}
-          {task.mode === 'protocol' && onViewDocs && (
+      {/* Footer: 操作按钮 */}
+      <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#2a2a4a] flex-wrap">
+        {/* 协议模式查看文档 */}
+        {task.mode === 'protocol' && onViewDocs && (
+          <button
+            onClick={onViewDocs}
+            className="px-3 py-1 text-sm bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 rounded transition-colors"
+            title="查看任务文档"
+          >
+            文档
+          </button>
+        )}
+        {/* 订阅相关 */}
+        {isSubscribing ? (
+          <button
+            onClick={onCancelSubscription}
+            className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-1"
+            title={t('task.stopSubscription')}
+          >
+            ⏹ {t('task.stopSubscription')}
+          </button>
+        ) : isSubscribed ? (
+          <>
             <button
-              onClick={onViewDocs}
-              className="px-3 py-1 text-sm bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 rounded transition-colors"
-              title="查看任务文档"
+              onClick={onUnsubscribe}
+              className="px-3 py-1 text-sm bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
+              title={t('task.unsubscribe')}
             >
-              文档
+              {t('task.unsubscribe')}
             </button>
-          )}
-          {/* 订阅执行按钮 - 在 AI 对话窗口实时显示执行过程 */}
-          {isSubscribing ? (
-            // 正在订阅执行中 - 显示停止按钮
-            <button
-              onClick={onCancelSubscription}
-              className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-1"
-              title={t('task.stopSubscription')}
-            >
-              ⏹ {t('task.stopSubscription')}
-            </button>
-          ) : isSubscribed ? (
-            // 已订阅等待触发 - 显示订阅状态和取消订阅按钮
-            <div className="flex items-center gap-1">
-              <span className="px-2 py-1 text-xs bg-cyan-600/30 text-cyan-400 rounded flex items-center gap-1">
-                🔔 {t('task.subscribed')}
-              </span>
-              <button
-                onClick={onUnsubscribe}
-                className="px-2 py-1 text-xs bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 rounded transition-colors"
-                title={t('task.unsubscribe')}
-              >
-                {t('task.unsubscribe')}
-              </button>
-            </div>
-          ) : (
-            // 未订阅 - 显示订阅按钮
-            <button
-              onClick={onSubscribe}
-              className="px-3 py-1 text-sm bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded transition-colors flex items-center gap-1"
-              title={t('task.subscribeHint')}
-            >
-              👁 {t('task.subscribe')}
-            </button>
-          )}
+          </>
+        ) : (
           <button
-            onClick={onRun}
-            className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-            title={t('task.runInBackground')}
+            onClick={onSubscribe}
+            className="px-3 py-1 text-sm bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded transition-colors flex items-center gap-1"
+            title={t('task.subscribeHint')}
           >
-            {t('task.run')}
+            👁 {t('task.subscribe')}
           </button>
-          <button
-            onClick={onToggle}
-            className={`px-3 py-1 text-sm rounded transition-colors ${
-              task.enabled
-                ? 'bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30'
-                : 'bg-green-600/20 text-green-400 hover:bg-green-600/30'
-            }`}
-          >
-            {task.enabled ? t('task.disabled') : t('task.enabled')}
-          </button>
-          <button
-            onClick={onEdit}
-            className="px-3 py-1 text-sm bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors"
-          >
-            {t('task.edit')}
-          </button>
-          <button
-            onClick={onCopy}
-            className="px-3 py-1 text-sm bg-teal-600/20 text-teal-400 hover:bg-teal-600/30 rounded transition-colors"
-            title={t('task.copy')}
-          >
-            {t('task.copy')}
-          </button>
-          <button
-            onClick={onDelete}
-            className="px-3 py-1 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors"
-          >
-            {t('task.delete')}
-          </button>
-        </div>
+        )}
+        {/* 主要操作 */}
+        <button
+          onClick={onRun}
+          className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+          title={t('task.runInBackground')}
+        >
+          ▶ {t('task.run')}
+        </button>
+        {/* 次要操作 */}
+        <button
+          onClick={onToggle}
+          className={`px-3 py-1 text-sm rounded transition-colors ${
+            task.enabled
+              ? 'bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/30'
+              : 'bg-green-600/20 text-green-400 hover:bg-green-600/30'
+          }`}
+        >
+          {task.enabled ? t('task.disabled') : t('task.enabled')}
+        </button>
+        <button
+          onClick={onEdit}
+          className="px-3 py-1 text-sm bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded transition-colors"
+        >
+          {t('task.edit')}
+        </button>
+        <button
+          onClick={onCopy}
+          className="px-3 py-1 text-sm bg-teal-600/20 text-teal-400 hover:bg-teal-600/30 rounded transition-colors"
+          title={t('task.copy')}
+        >
+          {t('task.copy')}
+        </button>
+        <button
+          onClick={onDelete}
+          className="px-3 py-1 text-sm bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded transition-colors"
+        >
+          {t('task.delete')}
+        </button>
       </div>
     </div>
   );
