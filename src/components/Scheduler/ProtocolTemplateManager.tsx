@@ -455,7 +455,7 @@ export function ProtocolTemplateManager() {
     ? allTemplates
     : allTemplates.filter((t) => t.category === selectedCategory);
 
-  const categories = ['all', 'development', 'optimization', 'fix', 'custom'];
+  const categories = ['all', 'development', 'optimization', 'fix', 'requirement', 'custom'];
 
   const handleCreate = (params: CreateProtocolTemplateParams) => {
     addTemplate(params);

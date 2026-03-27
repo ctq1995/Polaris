@@ -73,7 +73,7 @@ function ProtocolTemplateSelector({
     ? templates
     : templates.filter((t) => t.category === selectedCategory);
 
-  const categories = ['all', 'development', 'optimization', 'fix', 'custom'];
+  const categories = ['all', 'development', 'optimization', 'fix', 'requirement', 'custom'];
 
   if (disabled) {
     return null;
