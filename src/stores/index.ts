@@ -33,3 +33,4 @@ export { useSchedulerStore } from './schedulerStore';
 export { useTerminalStore } from './terminalStore';
 export { useProtocolTemplateStore } from './protocolTemplateStore';
 export { useChatInputStore } from './chatInputStore';
+export { useRequirementStore } from './requirementStore';
