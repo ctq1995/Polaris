@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-03-27T17:09:48.000Z",
+  "updatedAt": "2026-03-27T17:12:52.701Z",
   "requirements": [
     {
       "id": "req-unsaved-dialog-002",
@@ -280,7 +280,7 @@
       "id": "req-scheduler-card-layout-020",
       "title": "定时任务卡片布局优化",
       "description": "当前定时任务卡片布局不合理，按钮和内容混在一起，容易被挤压变形，影响可读性和操作体验。\n\n**背景分析**：\n- `TaskCard` 组件使用 flex 布局，内容和按钮在同一行\n- 面板宽度有限时，按钮挤压内容空间\n- 紧凑模式下布局更加拥挤\n- 订阅状态和执行状态显示不够直观\n\n**改进目标**：\n\n1. **三段式布局**\n   - Header：状态指示灯 + 标题 + 徽章（模式、分组、订阅状态）\n   - Body：元信息（触发器、引擎、下次执行、状态）使用 Grid 对齐\n   - Footer：操作按钮统一放在底部，右对齐\n\n2. **按钮分组**\n   - 主要操作：订阅/执行（靠左或突出显示）\n   - 次要操作：启用/禁用、编辑、复制、删除（靠右）\n   - 紧凑模式：使用图标按钮 + 下拉菜单\n\n3. **状态可视化**\n   - 订阅中：卡片边框青色高亮 + 🔔 徽章\n   - 执行中：卡片边框蓝色 + 状态灯闪烁动画\n   - 已禁用：卡片整体降低不透明度\n\n4. **紧凑模式优化**\n   - 两行布局：第一行标题+主要操作，第二行状态+下次执行\n   - 使用图标按钮代替文字按钮\n   - 更多操作收纳到下拉菜单\n\n**影响范围**：\n- `src/components/Scheduler/SchedulerPanel.tsx` 中的 `TaskCard` 组件\n- 样式调整和布局重构\n\n**预期效果**：\n- 卡片布局清晰，不会被挤压变形\n- 按钮位置统一，操作更便捷\n- 状态一目了然\n- 紧凑模式下仍有良好体验",
-      "status": "approved",
+      "status": "completed",
       "priority": "normal",
       "generatedBy": "ai",
       "tags": [
@@ -291,9 +291,11 @@
       "hasPrototype": true,
       "prototypePath": ".polaris/requirements/prototypes/scheduler-card-layout-optimization.html",
       "createdAt": 1743273600000,
-      "updatedAt": 1774627902413,
+      "updatedAt": 1743312000000,
       "generatedAt": 1743273600000,
-      "reviewedAt": 1774627902413
+      "reviewedAt": 1774627902413,
+      "completedAt": 1743312000000,
+      "executeLog": "三段式布局重构(ae60a31) + 紧凑模式修复(f2fce6e)"
     },
     {
       "id": "req-scheduler-filter-collapse-021",
@@ -338,7 +340,7 @@
       "id": "req-editor-breadcrumb-023",
       "title": "编辑器面包屑路径导航",
       "description": "当前编辑器顶部栏（EditorHeader）仅显示文件名和操作按钮，缺少完整的文件路径上下文信息。用户在编辑文件时无法快速了解文件所在目录层级，也无法通过路径快速导航到同目录的其他文件。\n\n**背景分析**：\n- `EditorHeader`（`src/components/Editor/EditorHeader.tsx`）只显示 `currentFile.name`（文件名），不显示路径\n- VS Code、IntelliJ 等主流编辑器都在编辑器上方提供面包屑导航\n- 当项目文件较多时，仅靠文件名难以区分同名文件（如多个 `index.ts`）\n- 用户需要切换到文件树才能浏览同级文件，效率较低\n\n**改进目标**：\n\n1. **面包屑路径栏**\n   - 在 TabBar 和编辑器内容之间新增面包屑导航栏（高度约 28px）\n   - 显示完整文件路径：`src › components › Editor › EditorHeader.tsx`\n   - 每段显示对应图标（文件夹/文件）\n   - 路径过长时支持水平滚动\n\n2. **路径段交互**\n   - 点击路径段（如「components」）展开下拉菜单\n   - 下拉菜单显示该目录下的所有文件和子目录\n   - 选择文件直接在编辑器中打开\n   - 选择文件夹在文件树中定位并展开\n   - 当前文件名高亮且为最后一段\n\n3. **右侧附加信息**\n   - 显示文件语言类型（TypeScript、Markdown 等）\n   - 显示文件编码（UTF-8）\n   - 显示换行符类型（LF/CRLF）\n\n4. **与现有组件协同**\n   - EditorHeader 保留保存/关闭按钮\n   - 面包屑栏独立于 EditorHeader，位于其上方或替代其路径显示部分\n   - 复用 FileExplorer 的文件图标和目录读取逻辑\n\n**影响范围**：\n- `src/components/Editor/EditorHeader.tsx` - 调整布局，移除文件名显示（由面包屑替代）\n- `src/components/Layout/CenterStage.tsx` - 在 TabBar 和 TabContent 之间插入面包屑栏\n- 新增 `src/components/Editor/BreadcrumbBar.tsx` - 面包屑导航组件\n- 新增 `src/components/Editor/BreadcrumbDropdown.tsx` - 路径段下拉菜单\n- 复用 `src/components/FileExplorer/` 的文件图标和目录读取逻辑\n\n**预期效果**：\n- 用户直观了解当前编辑文件的位置\n- 快速浏览和打开同级/上级目录文件\n- 区分不同目录下的同名文件\n- 提升文件导航效率，减少对文件树的依赖",
-      "status": "pending",
+      "status": "approved",
       "priority": "normal",
       "generatedBy": "ai",
       "tags": [
@@ -350,8 +352,9 @@
       "hasPrototype": true,
       "prototypePath": ".polaris/requirements/prototypes/editor-breadcrumb-navigation.html",
       "createdAt": 1774631388000,
-      "updatedAt": 1774631388000,
-      "generatedAt": 1774631388000
+      "updatedAt": 1774631572701,
+      "generatedAt": 1774631388000,
+      "reviewedAt": 1774631572701
     }
   ]
 }
