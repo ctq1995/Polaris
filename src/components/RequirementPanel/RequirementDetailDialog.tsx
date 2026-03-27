@@ -71,14 +71,12 @@ export function RequirementDetailDialog({
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
 
-  if (!open) return null
-
   const style = STATUS_STYLES[requirement.status]
   const canReview = requirement.status === 'pending' || requirement.status === 'draft'
 
   // 加载原型
   const loadPrototype = useCallback(async () => {
-    if (!requirement.hasPrototype || !requirement.prototypePath || !onReadPrototype) return
+    if (!open || !requirement.hasPrototype || !requirement.prototypePath || !onReadPrototype) return
     setLoadingPrototype(true)
     setPrototypeError(null)
     try {
@@ -89,7 +87,7 @@ export function RequirementDetailDialog({
     } finally {
       setLoadingPrototype(false)
     }
-  }, [requirement.hasPrototype, requirement.prototypePath, onReadPrototype, t])
+  }, [open, requirement.hasPrototype, requirement.prototypePath, onReadPrototype, t])
 
   useEffect(() => {
     if (open && requirement.hasPrototype) {
@@ -109,6 +107,8 @@ export function RequirementDetailDialog({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose, showRejectInput])
+
+  if (!open) return null
 
   // 编辑模式：直接用 RequirementForm
   if (editing) {
@@ -372,8 +372,8 @@ export function RequirementDetailDialog({
                       setShowRejectInput(false)
                       setRejectReason('')
                     }
-                    if (e.key === 'Enter') {
-                      onReject!(requirement, rejectReason || undefined)
+                    if (e.key === 'Enter' && onReject) {
+                      onReject(requirement, rejectReason || undefined)
                       setShowRejectInput(false)
                       setRejectReason('')
                     }
@@ -384,7 +384,7 @@ export function RequirementDetailDialog({
                 />
                 <button
                   onClick={() => {
-                    onReject!(requirement, rejectReason || undefined)
+                    onReject?.(requirement, rejectReason || undefined)
                     setShowRejectInput(false)
                     setRejectReason('')
                   }}

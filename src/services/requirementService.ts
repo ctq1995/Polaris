@@ -141,8 +141,9 @@ export class RequirementService {
     }
 
     if (filter.tags && filter.tags.length > 0) {
+      const tags = filter.tags
       result = result.filter(r =>
-        filter.tags!.some(tag => r.tags.includes(tag))
+        tags.some(tag => r.tags.includes(tag))
       )
     }
 
