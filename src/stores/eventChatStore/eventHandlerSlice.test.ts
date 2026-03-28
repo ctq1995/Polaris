@@ -326,6 +326,7 @@ describe('eventHandlerSlice', () => {
             workDir: expect.any(String),
             contextId: 'main',
             engineId: expect.any(String),
+            enableMcpTools: true,
           }),
         })
       )
@@ -344,7 +345,9 @@ describe('eventHandlerSlice', () => {
         expect.objectContaining({
           sessionId: 'existing-session-id',
           message: expect.any(String),
-          options: expect.any(Object),
+          options: expect.objectContaining({
+            enableMcpTools: true,
+          }),
         })
       )
     })

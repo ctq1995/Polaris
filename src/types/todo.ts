@@ -4,7 +4,7 @@
  * 定义了 Todo 系统的所有数据结构和类型
  */
 
-import type { AIEvent } from '../ai-runtime/event'
+import type { AIEvent } from '@/ai-runtime'
 
 /**
  * 待办事项优先级

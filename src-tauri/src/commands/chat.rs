@@ -11,6 +11,7 @@ use crate::ai::{EngineId, Pagination, PagedResult, SessionOptions};
 use crate::ai::{SessionMeta, HistoryMessage, ClaudeHistoryProvider, IFlowHistoryProvider, SessionHistoryProvider};
 use crate::error::{AppError, Result};
 use crate::models::AIEvent;
+use crate::services::mcp_config_service::WorkspaceMcpConfigService;
 use tauri::{Emitter, State, Window};
 use tauri_plugin_notification::NotificationExt;
 
@@ -54,6 +55,9 @@ pub struct ChatRequestOptions {
     /// 系统提示词
     #[serde(default)]
     pub system_prompt: Option<String>,
+    /// 是否启用 MCP 工具
+    #[serde(default)]
+    pub enable_mcp_tools: Option<bool>,
     /// 上下文 ID
     #[serde(default)]
     pub context_id: Option<String>,
@@ -134,6 +138,27 @@ fn save_attachments(work_dir: &str, attachments: &[Attachment]) -> Result<Vec<St
     Ok(saved_image_paths)
 }
 
+fn prepare_mcp_config_path(options: &ChatRequestOptions, engine: &EngineId) -> Result<Option<String>> {
+    let enable_mcp_tools = options.enable_mcp_tools.unwrap_or(false);
+    if !enable_mcp_tools || !matches!(engine, EngineId::ClaudeCode) {
+        return Ok(None);
+    }
+
+    let work_dir = match options.work_dir.as_deref() {
+        Some(dir) if !dir.trim().is_empty() => dir,
+        _ => return Ok(None),
+    };
+
+    let app_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .ok_or_else(|| AppError::ProcessError("无法确定应用根目录".to_string()))?
+        .to_path_buf();
+
+    let service = WorkspaceMcpConfigService::new(app_root);
+    let config_path = service.prepare_todo_config(work_dir)?;
+    Ok(Some(config_path.to_string_lossy().to_string()))
+}
+
 // ============================================================================
 // Tauri Commands - 聊天
 // ============================================================================
@@ -175,6 +200,7 @@ pub async fn start_chat(
         .unwrap_or(EngineId::ClaudeCode);
 
     tracing::info!("[start_chat] 使用引擎: {:?}", engine);
+    let mcp_config_path = prepare_mcp_config_path(&options, &engine)?;
 
     let window_clone = window.clone();
     let ctx_id = options.context_id.clone();
@@ -231,6 +257,10 @@ pub async fn start_chat(
         session_opts = session_opts.with_system_prompt(prompt.clone());
     }
 
+    if let Some(ref mcp_config_path) = mcp_config_path {
+        session_opts = session_opts.with_mcp_config_path(mcp_config_path.clone());
+    }
+
     let mut registry = state.engine_registry.lock().await;
     registry.start_session(Some(engine), &final_message, session_opts)
 }
@@ -273,6 +303,7 @@ pub async fn continue_chat(
         .ok_or_else(|| AppError::ValidationError("必须提供有效的 engine_id".to_string()))?;
 
     tracing::info!("[continue_chat] 使用引擎: {:?}", engine);
+    let mcp_config_path = prepare_mcp_config_path(&options, &engine)?;
 
     let window_clone = window.clone();
     let ctx_id = options.context_id.clone();
@@ -327,6 +358,10 @@ pub async fn continue_chat(
 
     if let Some(ref prompt) = options.system_prompt {
         session_opts = session_opts.with_system_prompt(prompt.clone());
+    }
+
+    if let Some(ref mcp_config_path) = mcp_config_path {
+        session_opts = session_opts.with_mcp_config_path(mcp_config_path.clone());
     }
 
     let mut registry = state.engine_registry.lock().await;

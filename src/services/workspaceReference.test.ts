@@ -23,11 +23,9 @@ vi.mock('i18next', () => ({
         'systemPrompt:contextWorkspaces': '关联工作区:',
         'systemPrompt:refSyntax': `引用语法: @${params?.name || ''}:filename`,
         'systemPrompt:todoManagement': '待办管理:',
-        'systemPrompt:todoStorage': `待办文件存储在: ${params?.path || ''}/.polaris/todos/`,
-        'systemPrompt:todoTrigger': '当用户要求添加待办时，使用 todo_write 工具',
-        'systemPrompt:todoRead': '使用 todo_read 工具读取当前待办列表',
-        'systemPrompt:todoFormat': '待办格式: JSON 数组',
-        'systemPrompt:todoParse': '解析时使用 JSON.parse',
+        'systemPrompt:todoStorage': `待办能力绑定工作区: ${params?.path || ''}`,
+        'systemPrompt:todoTrigger': '当用户要求添加、更新、开始、完成或删除待办时，优先调用 MCP 待办工具',
+        'systemPrompt:todoRead': '查看待办时优先调用 list_todos，不要直接读写 .polaris/todos.json',
       };
       return translations[key] || key;
     }),
@@ -377,8 +375,10 @@ describe('workspaceReference', () => {
       const result = buildSystemPrompt(mockWorkspaces, [], 'ws-1');
 
       expect(result).toContain('待办管理');
-      expect(result).toContain('todo_write');
-      expect(result).toContain('todo_read');
+      expect(result).toContain('MCP 待办工具');
+      expect(result).toContain('list_todos');
+      expect(result).not.toContain('todo_write');
+      expect(result).not.toContain('todo_read');
     });
 
     it('应返回空字符串当无当前工作区时', () => {
@@ -1914,8 +1914,10 @@ describe('workspaceReference', () => {
 
       expect(result).toContain('Polaris');
       expect(result).toContain('Utils');
-      expect(result).toContain('todo_write');
-      expect(result).toContain('todo_read');
+      expect(result).toContain('MCP 待办工具');
+      expect(result).toContain('list_todos');
+      expect(result).not.toContain('todo_write');
+      expect(result).not.toContain('todo_read');
     });
 
     it('应处理关联工作区为空数组', () => {

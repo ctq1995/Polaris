@@ -225,6 +225,7 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
               workDir: actualWorkspaceDir,
               contextId: 'main',
               engineId: currentEngine,
+              enableMcpTools: currentEngine === 'claude-code',
               attachments: attachmentsForBackend,
             },
           })
@@ -236,6 +237,7 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
               workDir: actualWorkspaceDir,
               contextId: 'main',
               engineId: currentEngine,
+              enableMcpTools: currentEngine === 'claude-code',
               attachments: attachmentsForBackend,
             },
           })
@@ -645,6 +647,7 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
               workDir: actualWorkspaceDir,
               contextId: 'main',
               engineId: currentEngine,
+              enableMcpTools: currentEngine === 'claude-code',
               attachments: attachmentsForBackend,
             },
           })
@@ -824,6 +827,7 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
               workDir: actualWorkspaceDir,
               contextId: 'main',
               engineId: currentEngine,
+              enableMcpTools: currentEngine === 'claude-code',
               attachments: attachmentsForBackend,
             },
           })

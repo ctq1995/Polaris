@@ -97,6 +97,8 @@ pub struct SessionOptions {
     pub work_dir: Option<String>,
     /// 系统提示词
     pub system_prompt: Option<String>,
+    /// Claude Code MCP 配置文件路径
+    pub mcp_config_path: Option<String>,
     /// 事件回调（接收标准化的 AIEvent）
     pub event_callback: Arc<dyn Fn(AIEvent) + Send + Sync>,
     /// 完成回调
@@ -127,6 +129,7 @@ impl SessionOptions {
         Self {
             work_dir: None,
             system_prompt: None,
+            mcp_config_path: None,
             event_callback: Arc::new(event_callback),
             on_complete: None,
             on_error: None,
@@ -145,6 +148,12 @@ impl SessionOptions {
     /// 设置系统提示词
     pub fn with_system_prompt(mut self, prompt: impl Into<String>) -> Self {
         self.system_prompt = Some(prompt.into());
+        self
+    }
+
+    /// 设置 Claude Code MCP 配置路径
+    pub fn with_mcp_config_path(mut self, path: impl Into<String>) -> Self {
+        self.mcp_config_path = Some(path.into());
         self
     }
 

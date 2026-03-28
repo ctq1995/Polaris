@@ -254,8 +254,6 @@ export function buildSystemPrompt(
   lines.push(``);
   lines.push(t('systemPrompt:todoTrigger'));
   lines.push(t('systemPrompt:todoRead'));
-  lines.push(t('systemPrompt:todoFormat'));
-  lines.push(t('systemPrompt:todoParse'));
 
   return lines.join('\n');
 }

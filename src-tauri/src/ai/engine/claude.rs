@@ -102,6 +102,7 @@ impl ClaudeEngine {
         message: &str,
         system_prompt: Option<&str>,
         session_id: Option<&str>,
+        mcp_config_path: Option<&str>,
     ) -> Result<Command> {
         #[cfg(windows)]
         {
@@ -120,6 +121,12 @@ impl ClaudeEngine {
             if let Some(prompt) = system_prompt {
                 if !prompt.is_empty() {
                     cmd.arg("--system-prompt").arg(prompt);
+                }
+            }
+
+            if let Some(path) = mcp_config_path {
+                if !path.is_empty() {
+                    cmd.arg("--mcp-config").arg(path);
                 }
             }
 
@@ -148,6 +155,12 @@ impl ClaudeEngine {
             if let Some(prompt) = system_prompt {
                 if !prompt.is_empty() {
                     cmd.arg("--system-prompt").arg(prompt);
+                }
+            }
+
+            if let Some(path) = mcp_config_path {
+                if !path.is_empty() {
+                    cmd.arg("--mcp-config").arg(path);
                 }
             }
 
@@ -357,7 +370,12 @@ impl AIEngine for ClaudeEngine {
         }
 
         // 构建命令
-        let mut cmd = self.build_command(message, options.system_prompt.as_deref(), None)?;
+        let mut cmd = self.build_command(
+            message,
+            options.system_prompt.as_deref(),
+            None,
+            options.mcp_config_path.as_deref(),
+        )?;
         self.configure_command(&mut cmd, options.work_dir.as_deref());
 
         // 启动进程
@@ -412,7 +430,12 @@ impl AIEngine for ClaudeEngine {
         tracing::info!("[ClaudeEngine] 使用 --resume 参数，session_id: {}", real_session_id);
 
         // 构建命令（带 --resume，使用真实 session_id）
-        let mut cmd = self.build_command(message, options.system_prompt.as_deref(), Some(&real_session_id))?;
+        let mut cmd = self.build_command(
+            message,
+            options.system_prompt.as_deref(),
+            Some(&real_session_id),
+            options.mcp_config_path.as_deref(),
+        )?;
         self.configure_command(&mut cmd, work_dir.as_deref());
 
         tracing::info!("[ClaudeEngine] 命令构建完成，准备启动进程...");
