@@ -13,6 +13,7 @@ use crate::commands::context::ContextMemoryStore;
 use crate::commands::terminal::TerminalManager;
 use crate::integrations::IntegrationManager;
 use crate::services::config_store::ConfigStore;
+use crate::services::file_watcher::FileWatcherManager;
 use crate::services::scheduler::{TaskStoreService, LogStoreService, SchedulerDispatcher};
 use crate::utils::SchedulerLock;
 
@@ -121,6 +122,8 @@ pub struct AppState {
     pub scheduler_lock: AsyncMutex<Option<SchedulerLock>>,
     /// 终端管理器
     pub terminal_manager: Mutex<TerminalManager>,
+    /// 文件监听管理器
+    pub file_watcher_manager: Mutex<FileWatcherManager>,
     /// 待回答问题映射：callId -> PendingQuestion
     pub pending_questions: Arc<Mutex<HashMap<String, PendingQuestion>>>,
     /// 待审批计划映射：planId -> PendingPlan
@@ -161,6 +164,7 @@ pub fn create_app_state(
         scheduler_dispatcher: Arc::new(AsyncMutex::new(dispatcher)),
         scheduler_lock: AsyncMutex::new(None),
         terminal_manager: Mutex::new(TerminalManager::new()),
+        file_watcher_manager: Mutex::new(FileWatcherManager::new()),
         pending_questions: Arc::new(Mutex::new(HashMap::new())),
         pending_plans: Arc::new(Mutex::new(HashMap::new())),
     }

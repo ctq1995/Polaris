@@ -127,9 +127,7 @@ export interface FileExplorerActions {
 
 export type FileExplorerStore = FileExplorerState & FileExplorerActions;
 
-export interface FileSystemEvent {
-  /** 事件类型 */
-  kind: string;
-  /** 受影响的文件路径列表 */
-  paths: string[];
+export interface FsChangeEvent {
+  /** 受影响的父目录路径列表（相对路径） */
+  affectedDirs: string[];
 }

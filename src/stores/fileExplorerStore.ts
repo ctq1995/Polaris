@@ -3,7 +3,8 @@
  */
 
 import { create } from 'zustand';
-import type { FileExplorerStore, FileInfo } from '../types';
+import { listen } from '@tauri-apps/api/event';
+import type { FileExplorerStore, FileInfo, FsChangeEvent } from '../types';
 import * as tauri from '../services/tauri';
 import { createLogger } from '../utils/logger';
 
@@ -518,3 +519,103 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
     set({ clipboard: null });
   },
 }));
+
+// ============================================================================
+// 文件监听器
+// ============================================================================
+
+let fsWatcherCleanup: (() => void) | null = null;
+let fsWatcherDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * 初始化文件监听事件监听器
+ * 监听 Rust 后端推送的文件系统变化事件，刷新受影响的已展开目录
+ */
+export function initFileWatcherListener(): () => void {
+  const unlisten = listen<FsChangeEvent>('file-system-change', (event) => {
+    const { affectedDirs } = event.payload;
+    const store = useFileExplorerStore.getState();
+    const { expanded_folders, current_path } = store;
+
+    if (!current_path) return;
+
+    // 找出需要刷新的目录（受影响且已展开的）
+    const dirsToRefresh: string[] = [];
+
+    for (const relDir of affectedDirs) {
+      // 构建绝对路径
+      const absPath = relDir === '.'
+        ? current_path
+        : `${current_path}/${relDir}`.replace(/\/+/g, '/').replace(/\\/g, '/');
+
+      // 根目录始终刷新
+      if (relDir === '.') {
+        dirsToRefresh.push(current_path);
+        continue;
+      }
+
+      // 检查是否已展开
+      if (expanded_folders.has(absPath)) {
+        dirsToRefresh.push(absPath);
+      }
+
+      // 也检查父目录是否已展开（新文件可能在已展开的目录中）
+      const parentDir = absPath.substring(0, absPath.lastIndexOf('/'));
+      if (expanded_folders.has(parentDir) && !dirsToRefresh.includes(parentDir)) {
+        dirsToRefresh.push(parentDir);
+      }
+    }
+
+    if (dirsToRefresh.length === 0) return;
+
+    // 防抖：合并多次快速变化
+    if (fsWatcherDebounceTimer) {
+      clearTimeout(fsWatcherDebounceTimer);
+    }
+
+    fsWatcherDebounceTimer = setTimeout(() => {
+      for (const dir of dirsToRefresh) {
+        store.refresh_folder(dir);
+      }
+    }, 100);
+  });
+
+  const cleanup = () => {
+    unlisten.then((fn) => fn());
+    if (fsWatcherDebounceTimer) {
+      clearTimeout(fsWatcherDebounceTimer);
+      fsWatcherDebounceTimer = null;
+    }
+  };
+
+  fsWatcherCleanup = cleanup;
+  return cleanup;
+}
+
+/**
+ * 启动文件监听
+ */
+export async function startFileWatcher(rootPath: string): Promise<void> {
+  try {
+    await tauri.fsWatchStart(rootPath);
+    log.info('文件监听已启动', { rootPath });
+  } catch (e) {
+    log.error('启动文件监听失败', e instanceof Error ? e : new Error(String(e)));
+  }
+}
+
+/**
+ * 停止文件监听
+ */
+export async function stopFileWatcher(): Promise<void> {
+  try {
+    await tauri.fsWatchStop();
+    if (fsWatcherCleanup) {
+      fsWatcherCleanup();
+      fsWatcherCleanup = null;
+    }
+    log.info('文件监听已停止');
+  } catch (e) {
+    log.error('停止文件监听失败', e instanceof Error ? e : new Error(String(e)));
+  }
+}

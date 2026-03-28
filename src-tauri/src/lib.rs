@@ -36,7 +36,10 @@ use commands::window::{
 use commands::file_explorer::{
     read_directory, get_file_content, create_file, create_directory,
     delete_file, rename_file, path_exists, read_commands, search_files,
-    copy_path, move_path
+    copy_path, move_path,
+};
+use commands::file_watcher::{
+    fs_watch_start, fs_watch_stop, fs_watch_status,
 };
 use commands::context::{
     context_upsert, context_upsert_many, context_query, context_get_all,
@@ -365,6 +368,10 @@ pub fn run() {
             search_files,
             copy_path,
             move_path,
+            // 文件监听相关
+            fs_watch_start,
+            fs_watch_stop,
+            fs_watch_status,
             // 窗口管理相关
             toggle_devtools,
             set_always_on_top,

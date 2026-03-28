@@ -359,6 +359,25 @@ export async function movePath(source: string, destination: string) {
   return invoke('move_path', { source, destination });
 }
 
+// ============================================================================
+// 文件监听命令
+// ============================================================================
+
+/** 启动文件系统监听 */
+export async function fsWatchStart(rootPath: string) {
+  return invoke('fs_watch_start', { rootPath });
+}
+
+/** 停止文件系统监听 */
+export async function fsWatchStop() {
+  return invoke('fs_watch_stop');
+}
+
+/** 获取文件监听状态 */
+export async function fsWatchStatus(): Promise<boolean> {
+  return invoke('fs_watch_status');
+}
+
 
 
 // ============================================================================

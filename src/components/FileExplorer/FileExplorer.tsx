@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFileExplorerStore, useWorkspaceStore, useCommandStore } from '../../stores';
+import { initFileWatcherListener, startFileWatcher, stopFileWatcher } from '../../stores/fileExplorerStore';
 import { FileTree } from './FileTree';
 import { SearchBar } from './SearchBar';
 import { GitStatusIndicator } from './GitStatusIndicator';
@@ -90,6 +91,30 @@ export function FileExplorer() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [refresh_directory]);
+
+  // 文件系统监听：mount 时启动，unmount 时停止
+  useEffect(() => {
+    const cleanup = initFileWatcherListener();
+
+    // 等待 current_path 就绪后启动监听
+    const viewingWorkspace = getViewingWorkspace();
+    const targetWorkspace = viewingWorkspace || getCurrentWorkspace();
+    if (targetWorkspace?.path) {
+      startFileWatcher(targetWorkspace.path);
+    }
+
+    return () => {
+      stopFileWatcher();
+      cleanup();
+    };
+  }, [getCurrentWorkspace, getViewingWorkspace]);
+
+  // 工作区切换时重启监听
+  useEffect(() => {
+    if (current_path) {
+      startFileWatcher(current_path);
+    }
+  }, [current_path]);
 
   // 初始化加载工作区目录
   // 优先使用 viewingWorkspace，如果没有则使用当前工作区
