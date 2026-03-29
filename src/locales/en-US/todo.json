@@ -5,6 +5,10 @@
   "noWorkspace": "Please open a workspace first",
   "noTodos": "No todos",
   "noTodosWithFilter": "No {{status}} todos",
+  "scope": {
+    "workspace": "Current Workspace",
+    "all": "All"
+  },
   "status": {
     "all": "All",
     "pending": "Pending",
@@ -70,7 +74,9 @@
     "deleteSubtask": "Delete subtask",
     "closeTooltip": "Close (ESC)",
     "createButton": "Create (Ctrl+Enter)",
-    "saveButton": "Save (Ctrl+Enter)"
+    "saveButton": "Save (Ctrl+Enter)",
+    "isGlobalLabel": "Create as Global Todo",
+    "isGlobalHint": "Global todos are visible across all workspaces"
   },
   "detail": {
     "edit": "Edit",

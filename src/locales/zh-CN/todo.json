@@ -5,6 +5,10 @@
   "noWorkspace": "请先打开一个工作区",
   "noTodos": "暂无待办",
   "noTodosWithFilter": "暂无{{status}}的待办",
+  "scope": {
+    "workspace": "当前工作区",
+    "all": "全部"
+  },
   "status": {
     "all": "全部",
     "pending": "待处理",
@@ -70,7 +74,9 @@
     "deleteSubtask": "删除子任务",
     "closeTooltip": "关闭 (ESC)",
     "createButton": "创建 (Ctrl+Enter)",
-    "saveButton": "保存 (Ctrl+Enter)"
+    "saveButton": "保存 (Ctrl+Enter)",
+    "isGlobalLabel": "创建为全局待办",
+    "isGlobalHint": "全局待办在所有工作区可见"
   },
   "detail": {
     "edit": "编辑",
