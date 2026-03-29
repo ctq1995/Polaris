@@ -201,6 +201,9 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
           isStreaming: false,
         }))
       }
+
+      // 触发 TTS 朗读
+      triggerTTS(completedMessage, get)
     } else {
       // 即使没有 currentMessage，也要重置状态
       set({ isStreaming: false })
@@ -1306,3 +1309,46 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
     set({ activePermissionRequestId: requestId })
   },
 })
+
+/**
+ * 触发 TTS 朗读
+ * 在消息完成后异步触发，不阻塞主流程
+ */
+async function triggerTTS(
+  message: { id: string; type: string; blocks: unknown[] },
+  get: () => import('./types').EventChatState
+): Promise<void> {
+  try {
+    // 只处理助手消息
+    if (message.type !== 'assistant') return
+
+    // 获取 TTS 配置
+    const configActions = get().getConfigActions?.()
+    const config = configActions?.getConfig?.()
+    const ttsConfig = config?.tts
+
+    // 检查是否启用
+    if (!ttsConfig?.enabled || !ttsConfig?.autoPlay) {
+      return
+    }
+
+    // 动态导入服务（避免循环依赖）
+    const { ttsService } = await import('../../services/ttsService')
+    const { extractSpeakableText, cleanTextForSpeech, shouldSpeakText } = await import('../../services/ttsTextFilter')
+
+    // 提取可朗读文本
+    const assistantMessage = message as import('../../types/chat').AssistantChatMessage
+    const rawText = extractSpeakableText(assistantMessage)
+    const cleanText = cleanTextForSpeech(rawText)
+
+    // 检查是否应该朗读
+    if (!shouldSpeakText(cleanText)) {
+      return
+    }
+
+    // 异步播放
+    ttsService.speak(cleanText)
+  } catch (error) {
+    console.error('[TTS] 触发朗读失败:', error)
+  }
+}

@@ -1,11 +1,20 @@
 /**
- * 语音输入配置 Tab
+ * 语音配置 Tab
+ * 包含语音输入和语音输出 (TTS) 配置
  */
 
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 import type { Config } from '../../../types';
-import type { SpeechLanguage } from '../../../types/speech';
-import { SPEECH_LANGUAGE_OPTIONS, DEFAULT_SPEECH_CONFIG } from '../../../types/speech';
+import type { SpeechLanguage, TTSVoice } from '../../../types/speech';
+import {
+  SPEECH_LANGUAGE_OPTIONS,
+  DEFAULT_SPEECH_CONFIG,
+  DEFAULT_TTS_CONFIG,
+  TTS_VOICE_OPTIONS,
+  TTS_RATE_OPTIONS,
+} from '../../../types/speech';
+import { ttsService } from '../../../services/ttsService';
 
 interface SpeechTabProps {
   config: Config;
@@ -15,9 +24,11 @@ interface SpeechTabProps {
 
 export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
   const { t } = useTranslation('settings');
+  const [isTestingVoice, setIsTestingVoice] = useState(false);
 
   // 获取语音配置（带默认值）
   const speechConfig = config.speech ?? DEFAULT_SPEECH_CONFIG;
+  const ttsConfig = config.tts ?? DEFAULT_TTS_CONFIG;
 
   const updateSpeechConfig = (updates: Partial<typeof speechConfig>) => {
     onConfigChange({
@@ -29,91 +40,279 @@ export function SpeechTab({ config, onConfigChange, loading }: SpeechTabProps) {
     });
   };
 
+  const updateTTSConfig = (updates: Partial<typeof ttsConfig>) => {
+    const newConfig = {
+      ...config,
+      tts: {
+        ...ttsConfig,
+        ...updates,
+      },
+    };
+    onConfigChange(newConfig);
+
+    // 同步更新 TTS 服务配置
+    ttsService.setConfig(newConfig.tts ?? DEFAULT_TTS_CONFIG);
+  };
+
+  // 测试语音
+  const testVoice = async () => {
+    if (isTestingVoice) return;
+
+    setIsTestingVoice(true);
+    try {
+      // 先停止当前播放
+      ttsService.stop();
+
+      // 更新配置
+      ttsService.setConfig(ttsConfig);
+
+      // 播放测试文本
+      await ttsService.speak('你好，这是语音测试。');
+    } catch (error) {
+      console.error('Voice test failed:', error);
+    } finally {
+      setIsTestingVoice(false);
+    }
+  };
+
+  // 停止测试
+  const stopTest = () => {
+    ttsService.stop();
+    setIsTestingVoice(false);
+  };
+
   return (
     <div className="space-y-6">
-      {/* 启用语音输入 */}
-      <div className="p-4 bg-surface rounded-lg border border-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-text-primary">
-              {t('speech.enabled.title', '启用语音输入')}
-            </h3>
-            <p className="text-xs text-text-secondary mt-1">
-              {t('speech.enabled.desc', '在状态栏点击语音按钮开始连续语音识别')}
-            </p>
+      {/* ========== 语音输入部分 ========== */}
+      <div className="border-b border-border pb-6">
+        <h2 className="text-base font-medium text-text-primary mb-4">
+          {t('speech.input.title', '语音输入')}
+        </h2>
+
+        {/* 启用语音输入 */}
+        <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-text-primary">
+                {t('speech.enabled.title', '启用语音输入')}
+              </h3>
+              <p className="text-xs text-text-secondary mt-1">
+                {t('speech.enabled.desc', '在状态栏点击语音按钮开始连续语音识别')}
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={speechConfig.enabled}
+                onChange={(e) => updateSpeechConfig({ enabled: e.target.checked })}
+                disabled={loading}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-border rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+            </label>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={speechConfig.enabled}
-              onChange={(e) => updateSpeechConfig({ enabled: e.target.checked })}
-              disabled={loading}
-              className="sr-only peer"
-            />
-            <div className="w-9 h-5 bg-border rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-          </label>
+        </div>
+
+        {/* 语言选择 */}
+        <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+          <h3 className="text-sm font-medium text-text-primary mb-3">
+            {t('speech.language.title', '识别语言')}
+          </h3>
+          <select
+            value={speechConfig.language}
+            onChange={(e) => updateSpeechConfig({ language: e.target.value as SpeechLanguage })}
+            disabled={loading}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          >
+            {SPEECH_LANGUAGE_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 语音命令说明 */}
+        <div className="p-4 bg-surface rounded-lg border border-border">
+          <h3 className="text-sm font-medium text-text-primary mb-3">
+            {t('speech.commands.title', '语音命令')}
+          </h3>
+          <div className="space-y-2 text-xs text-text-secondary">
+            <div className="flex items-center gap-2">
+              <code className="px-2 py-1 bg-background rounded text-text-primary">发送</code>
+              <span>{t('speech.commands.send', '发送消息')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="px-2 py-1 bg-background rounded text-text-primary">清空</code>
+              <span>{t('speech.commands.clear', '清空输入框')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="px-2 py-1 bg-background rounded text-text-primary">撤回</code>
+              <span>{t('speech.commands.undo', '撤回最后输入')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="px-2 py-1 bg-background rounded text-text-primary">中断</code>
+              <span>{t('speech.commands.interrupt', '中断对话')}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 语言选择 */}
-      <div className="p-4 bg-surface rounded-lg border border-border">
-        <h3 className="text-sm font-medium text-text-primary mb-3">
-          {t('speech.language.title', '识别语言')}
-        </h3>
-        <select
-          value={speechConfig.language}
-          onChange={(e) => updateSpeechConfig({ language: e.target.value as SpeechLanguage })}
-          disabled={loading}
-          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-        >
-          {SPEECH_LANGUAGE_OPTIONS.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* ========== 语音输出部分 (TTS) ========== */}
+      <div>
+        <h2 className="text-base font-medium text-text-primary mb-4">
+          {t('speech.output.title', '语音输出')}
+        </h2>
 
-      {/* 语音命令说明 */}
-      <div className="p-4 bg-surface rounded-lg border border-border">
-        <h3 className="text-sm font-medium text-text-primary mb-3">
-          {t('speech.commands.title', '语音命令')}
-        </h3>
-        <div className="space-y-2 text-xs text-text-secondary">
-          <div className="flex items-center gap-2">
-            <code className="px-2 py-1 bg-background rounded text-text-primary">发送</code>
-            <span>{t('speech.commands.send', '发送消息')}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <code className="px-2 py-1 bg-background rounded text-text-primary">清空</code>
-            <span>{t('speech.commands.clear', '清空输入框')}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <code className="px-2 py-1 bg-background rounded text-text-primary">撤回</code>
-            <span>{t('speech.commands.undo', '撤回最后输入')}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <code className="px-2 py-1 bg-background rounded text-text-primary">中断</code>
-            <span>{t('speech.commands.interrupt', '中断对话')}</span>
+        {/* 启用语音输出 */}
+        <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-text-primary">
+                {t('speech.tts.enabled.title', '启用语音输出')}
+              </h3>
+              <p className="text-xs text-text-secondary mt-1">
+                {t('speech.tts.enabled.desc', 'AI 回复完成后自动朗读文本内容')}
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ttsConfig.enabled}
+                onChange={(e) => updateTTSConfig({ enabled: e.target.checked })}
+                disabled={loading}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-border rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+            </label>
           </div>
         </div>
-      </div>
 
-      {/* 提示信息 */}
-      <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-        <div className="flex items-start gap-2">
-          <svg className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          <div className="flex-1">
-            <p className="text-xs text-text-primary">
-              <span className="font-medium">{t('speech.tips.title', '使用说明')}：</span>
-            </p>
-            <ul className="text-xs text-text-tertiary mt-1 space-y-1 list-disc list-inside">
-              <li>{t('speech.tips.button', '点击状态栏语音按钮开始/停止识别')}</li>
-              <li>{t('speech.tips.continuous', '开启后持续识别，直到手动关闭')}</li>
-              <li>{t('speech.tips.requirement', '需要麦克风权限和网络连接')}</li>
-            </ul>
+        {/* TTS 详细配置 */}
+        {ttsConfig.enabled && (
+          <>
+            {/* 语音选择 */}
+            <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+              <h3 className="text-sm font-medium text-text-primary mb-3">
+                {t('speech.tts.voice.title', '语音角色')}
+              </h3>
+              <select
+                value={ttsConfig.voice}
+                onChange={(e) => updateTTSConfig({ voice: e.target.value as TTSVoice })}
+                disabled={loading}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                {TTS_VOICE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} - {option.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 语速选择 */}
+            <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+              <h3 className="text-sm font-medium text-text-primary mb-3">
+                {t('speech.tts.rate.title', '语速')}
+              </h3>
+              <select
+                value={ttsConfig.rate}
+                onChange={(e) => updateTTSConfig({ rate: e.target.value })}
+                disabled={loading}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                {TTS_RATE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 音量控制 */}
+            <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+              <h3 className="text-sm font-medium text-text-primary mb-3">
+                {t('speech.tts.volume.title', '音量')}: {Math.round(ttsConfig.volume * 100)}%
+              </h3>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={ttsConfig.volume * 100}
+                onChange={(e) => updateTTSConfig({ volume: parseInt(e.target.value) / 100 })}
+                disabled={loading}
+                className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+            </div>
+
+            {/* 自动播放 */}
+            <div className="p-4 bg-surface rounded-lg border border-border mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-text-primary">
+                    {t('speech.tts.autoPlay.title', '自动播放')}
+                  </h3>
+                  <p className="text-xs text-text-secondary mt-1">
+                    {t('speech.tts.autoPlay.desc', '消息完成后自动朗读，关闭后需手动触发')}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ttsConfig.autoPlay}
+                    onChange={(e) => updateTTSConfig({ autoPlay: e.target.checked })}
+                    disabled={loading}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-border rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+            </div>
+
+            {/* 测试按钮 */}
+            <div className="p-4 bg-surface rounded-lg border border-border">
+              <h3 className="text-sm font-medium text-text-primary mb-3">
+                {t('speech.tts.test.title', '测试语音')}
+              </h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={testVoice}
+                  disabled={loading || isTestingVoice}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isTestingVoice
+                    ? t('speech.tts.test.playing', '播放中...')
+                    : t('speech.tts.test.play', '播放测试')
+                  }
+                </button>
+                <button
+                  onClick={stopTest}
+                  disabled={!isTestingVoice}
+                  className="px-4 py-2 bg-danger text-white rounded-lg text-sm font-medium hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {t('speech.tts.test.stop', '停止')}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* TTS 提示信息 */}
+        <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg mt-4">
+          <div className="flex items-start gap-2">
+            <svg className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-xs text-text-primary">
+                <span className="font-medium">{t('speech.tts.tips.title', '使用说明')}：</span>
+              </p>
+              <ul className="text-xs text-text-tertiary mt-1 space-y-1 list-disc list-inside">
+                <li>{t('speech.tts.tips.filter', '自动过滤代码块、工具调用等内容，只朗读纯文本')}</li>
+                <li>{t('speech.tts.tips.interrupt', '发送新消息或中断对话时会自动停止朗读')}</li>
+                <li>{t('speech.tts.tips.online', '语音合成需要网络连接')}</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

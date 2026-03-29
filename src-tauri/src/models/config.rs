@@ -385,6 +385,48 @@ impl Default for SpeechConfig {
     }
 }
 
+/// TTS 语音合成配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TTSConfig {
+    /// 是否启用语音输出
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// 语音角色 (如 "zh-CN-XiaoxiaoNeural")
+    #[serde(default = "default_tts_voice")]
+    pub voice: String,
+
+    /// 语速调整 (如 "+0%", "+20%", "-20%")
+    #[serde(default = "default_tts_rate")]
+    pub rate: String,
+
+    /// 音量 (0-1)
+    #[serde(default = "default_tts_volume")]
+    pub volume: f64,
+
+    /// 是否自动播放
+    #[serde(default = "default_tts_auto_play")]
+    pub auto_play: bool,
+}
+
+fn default_tts_voice() -> String { "zh-CN-XiaoxiaoNeural".to_string() }
+fn default_tts_rate() -> String { "+0%".to_string() }
+fn default_tts_volume() -> f64 { 1.0 }
+fn default_tts_auto_play() -> bool { true }
+
+impl Default for TTSConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            voice: default_tts_voice(),
+            rate: default_tts_rate(),
+            volume: default_tts_volume(),
+            auto_play: default_tts_auto_play(),
+        }
+    }
+}
+
 /// 应用配置（新版本）
 ///
 /// 使用嵌套结构，支持多个 AI 引擎
@@ -448,6 +490,10 @@ pub struct Config {
     #[serde(default)]
     pub speech: SpeechConfig,
 
+    /// 语音输出配置 (TTS)
+    #[serde(default)]
+    pub tts: TTSConfig,
+
     // === 旧字段，保持向后兼容 ===
     /// @deprecated 请使用 claude_code.cli_path
     #[serde(default)]
@@ -476,6 +522,7 @@ impl Default for Config {
             qqbot: QQBotConfig::default(),
             window: WindowSettings::default(),
             speech: SpeechConfig::default(),
+            tts: TTSConfig::default(),
             claude_cmd: None,
         }
     }

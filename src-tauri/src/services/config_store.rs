@@ -904,6 +904,7 @@ impl OldConfig {
             baidu_translate: None,
             window: Default::default(),
             speech: Default::default(),
+            tts: Default::default(),
             claude_cmd: Some(claude_cmd_clone),
         }
     }

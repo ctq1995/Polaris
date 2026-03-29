@@ -6,6 +6,7 @@
   "saveTab": "保存{{name}}",
   "nav": {
     "general": "通用",
+    "systemPrompt": "系统提示词",
     "window": "窗口",
     "aiEngine": "AI 引擎",
     "openaiProviders": "OpenAI Providers",
@@ -206,6 +207,12 @@
     }
   },
   "speech": {
+    "input": {
+      "title": "语音输入"
+    },
+    "output": {
+      "title": "语音输出"
+    },
     "enabled": {
       "title": "启用语音输入",
       "desc": "在状态栏点击语音按钮开始连续语音识别"
@@ -225,6 +232,70 @@
       "button": "点击状态栏语音按钮开始/停止识别",
       "continuous": "开启后持续识别，直到手动关闭",
       "requirement": "需要麦克风权限和网络连接"
+    },
+    "tts": {
+      "enabled": {
+        "title": "启用语音输出",
+        "desc": "AI 回复完成后自动朗读文本内容"
+      },
+      "voice": {
+        "title": "语音角色"
+      },
+      "rate": {
+        "title": "语速"
+      },
+      "volume": {
+        "title": "音量"
+      },
+      "autoPlay": {
+        "title": "自动播放",
+        "desc": "消息完成后自动朗读，关闭后需手动触发"
+      },
+      "test": {
+        "title": "测试语音",
+        "play": "播放测试",
+        "playing": "播放中...",
+        "stop": "停止"
+      },
+      "tips": {
+        "title": "使用说明",
+        "filter": "自动过滤代码块、工具调用等内容，只朗读纯文本",
+        "interrupt": "发送新消息或中断对话时会自动停止朗读",
+        "online": "语音合成需要网络连接"
+      }
     }
+  },
+  "systemPrompt": {
+    "enable": "启用自定义系统提示词",
+    "enableDesc": "启用后可自定义发送给 AI 的系统提示词",
+    "mode": "模式",
+    "modeDefault": "默认",
+    "modeDefaultDesc": "使用内置提示词",
+    "modeDefaultHint": "使用默认的系统提示词",
+    "modeAppend": "追加",
+    "modeAppendDesc": "追加到默认后",
+    "modeAppendHint": "将自定义内容追加到默认提示词后面",
+    "modeReplace": "替换",
+    "modeReplaceDesc": "完全替换",
+    "modeReplaceHint": "完全使用自定义内容替换默认提示词",
+    "customPrompt": "自定义提示词",
+    "placeholder": "输入自定义系统提示词...\n\n可用变量:\n{{workspaceName}} - 当前工作区名称\n{{workspacePath}} - 当前工作区路径\n{{contextWorkspaces}} - 关联工作区列表\n{{date}} - 当前日期\n{{time}} - 当前时间\n{{defaultPrompt}} - 默认系统提示词",
+    "charCount": "{{count}} 字符",
+    "reset": "重置为默认",
+    "resetConfirm": "确定要重置为默认设置吗？",
+    "showVariables": "显示变量",
+    "hideVariables": "隐藏变量",
+    "variablesHint": "点击变量可插入到下方编辑器：",
+    "variables": {
+      "workspaceName": "当前工作区名称",
+      "workspacePath": "当前工作区路径",
+      "contextWorkspaces": "关联工作区列表",
+      "date": "当前日期",
+      "time": "当前时间",
+      "defaultPrompt": "默认系统提示词"
+    },
+    "preview": "预览",
+    "previewDefault": "（使用默认提示词）",
+    "previewDefaultLabel": "[默认提示词]"
   }
 }

@@ -6,6 +6,7 @@
   "saveTab": "Save {{name}}",
   "nav": {
     "general": "General",
+    "systemPrompt": "System Prompt",
     "window": "Window",
     "aiEngine": "AI Engine",
     "openaiProviders": "OpenAI Providers",
@@ -206,6 +207,12 @@
     }
   },
   "speech": {
+    "input": {
+      "title": "Speech Input"
+    },
+    "output": {
+      "title": "Speech Output"
+    },
     "enabled": {
       "title": "Enable Speech Input",
       "desc": "Click speech button in status bar to start continuous recognition"
@@ -225,6 +232,70 @@
       "button": "Click speech button in status bar to start/stop recognition",
       "continuous": "Keeps listening until manually stopped",
       "requirement": "Requires microphone permission and network connection"
+    },
+    "tts": {
+      "enabled": {
+        "title": "Enable Speech Output",
+        "desc": "Automatically read AI responses when complete"
+      },
+      "voice": {
+        "title": "Voice"
+      },
+      "rate": {
+        "title": "Speed"
+      },
+      "volume": {
+        "title": "Volume"
+      },
+      "autoPlay": {
+        "title": "Auto Play",
+        "desc": "Automatically play when message is complete, disable for manual trigger"
+      },
+      "test": {
+        "title": "Test Voice",
+        "play": "Play Test",
+        "playing": "Playing...",
+        "stop": "Stop"
+      },
+      "tips": {
+        "title": "Instructions",
+        "filter": "Automatically filters code blocks and tool calls, reads only plain text",
+        "interrupt": "Stops automatically when sending new message or interrupting",
+        "online": "Speech synthesis requires network connection"
+      }
     }
+  },
+  "systemPrompt": {
+    "enable": "Enable Custom System Prompt",
+    "enableDesc": "Customize the system prompt sent to AI",
+    "mode": "Mode",
+    "modeDefault": "Default",
+    "modeDefaultDesc": "Use built-in prompt",
+    "modeDefaultHint": "Use the default system prompt",
+    "modeAppend": "Append",
+    "modeAppendDesc": "Append to default",
+    "modeAppendHint": "Append custom content after the default prompt",
+    "modeReplace": "Replace",
+    "modeReplaceDesc": "Full replace",
+    "modeReplaceHint": "Completely replace the default prompt with custom content",
+    "customPrompt": "Custom Prompt",
+    "placeholder": "Enter your custom system prompt...\n\nAvailable variables:\n{{workspaceName}} - Current workspace name\n{{workspacePath}} - Current workspace path\n{{contextWorkspaces}} - Context workspaces list\n{{date}} - Current date\n{{time}} - Current time\n{{defaultPrompt}} - Default system prompt",
+    "charCount": "{{count}} characters",
+    "reset": "Reset to Default",
+    "resetConfirm": "Are you sure you want to reset to default settings?",
+    "showVariables": "Show Variables",
+    "hideVariables": "Hide Variables",
+    "variablesHint": "Click a variable to insert it into the editor:",
+    "variables": {
+      "workspaceName": "Current workspace name",
+      "workspacePath": "Current workspace path",
+      "contextWorkspaces": "Context workspaces list",
+      "date": "Current date",
+      "time": "Current time",
+      "defaultPrompt": "Default system prompt"
+    },
+    "preview": "Preview",
+    "previewDefault": "(Using default prompt)",
+    "previewDefaultLabel": "[Default Prompt]"
   }
 }

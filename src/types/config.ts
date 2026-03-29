@@ -2,7 +2,7 @@
  * 配置相关类型定义
  */
 
-import type { SpeechConfig } from './speech'
+import type { SpeechConfig, TTSConfig } from './speech'
 
 /**  引擎 ID（扩展以支持动态 Provider） */
 export type EngineId = 'claude-code' | 'iflow' | 'codex' | `provider-${string}`
@@ -124,6 +124,8 @@ export interface Config {
   window?: WindowSettings;
   /** 语音输入配置 */
   speech?: SpeechConfig;
+  /** 语音输出配置 (TTS) */
+  tts?: TTSConfig;
 }
 
 /** 健康状态 */
@@ -144,4 +146,17 @@ export interface HealthStatus {
   workDir?: string;
   /** 配置是否有效 */
   configValid: boolean;
+}
+
+/** 系统提示词模式 */
+export type SystemPromptMode = 'default' | 'append' | 'replace';
+
+/** 系统提示词配置（localStorage 独立存储） */
+export interface SystemPromptConfig {
+  /** 模式：default=使用默认, append=追加到默认后, replace=完全替换 */
+  mode: SystemPromptMode;
+  /** 用户自定义提示词内容 */
+  customPrompt: string;
+  /** 是否启用自定义提示词 */
+  enabled: boolean;
 }

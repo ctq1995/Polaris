@@ -96,6 +96,11 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
   },
 
   sendMessage: async (content, workspaceDir, attachments) => {
+    // 停止之前的 TTS 播放
+    import('../../services/ttsService').then(({ ttsService }) => {
+      ttsService.stop()
+    }).catch(() => {})
+
     const { conversationId } = get()
 
     const router = getEventRouter()
@@ -448,6 +453,11 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
   },
 
   interruptChat: async () => {
+    // 停止 TTS 播放
+    import('../../services/ttsService').then(({ ttsService }) => {
+      ttsService.stop()
+    }).catch(() => {})
+
     const { conversationId, providerSessionCache } = get()
 
     // 使用依赖注入获取配置
