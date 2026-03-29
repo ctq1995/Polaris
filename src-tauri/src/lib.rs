@@ -79,6 +79,7 @@ use commands::scheduler::{
     scheduler_validate_trigger, scheduler_parse_interval, scheduler_get_workspace_breakdown,
     scheduler_get_lock_status, scheduler_acquire_lock, scheduler_release_lock,
     scheduler_run_task, scheduler_update_run_status,
+    scheduler_get_status, scheduler_start, scheduler_stop,
 };
 use commands::template_commands::{
     template_list, template_get, template_create, template_update,
@@ -462,6 +463,9 @@ pub fn run() {
             scheduler_release_lock,
             scheduler_run_task,
             scheduler_update_run_status,
+            scheduler_get_status,
+            scheduler_start,
+            scheduler_stop,
             // 终端相关
             terminal_create,
             terminal_write,

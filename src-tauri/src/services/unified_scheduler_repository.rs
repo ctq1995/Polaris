@@ -53,6 +53,10 @@ pub struct TaskUpdateParams {
     pub work_dir: Option<String>,
     pub description: Option<String>,
     pub document_config: Option<crate::models::scheduler::DocumentConfig>,
+    /// 下次执行时间（Unix 时间戳，秒）
+    pub next_run_at: Option<i64>,
+    /// 上次执行时间（Unix 时间戳，秒）
+    pub last_run_at: Option<i64>,
 }
 
 impl UnifiedSchedulerRepository {
@@ -216,8 +220,21 @@ impl UnifiedSchedulerRepository {
             task.document_config = updates.document_config;
         }
 
+        // 更新执行时间字段
+        if updates.next_run_at.is_some() {
+            task.next_run_at = updates.next_run_at;
+        }
+
+        if updates.last_run_at.is_some() {
+            task.last_run_at = updates.last_run_at;
+        }
+
         task.updated_at = Utc::now().timestamp();
-        task.next_run_at = task.trigger_type.calculate_next_run(&task.trigger_value, task.updated_at);
+
+        // 如果没有显式设置 next_run_at，则重新计算
+        if updates.next_run_at.is_none() {
+            task.next_run_at = task.trigger_type.calculate_next_run(&task.trigger_value, task.updated_at);
+        }
 
         let result = task.clone();
         self.write_file_data(&mut data)?;

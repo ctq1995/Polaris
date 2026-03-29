@@ -393,6 +393,7 @@ fn execute_update_task(arguments: Value, repository: &UnifiedSchedulerRepository
         work_dir: optional_trimmed_string(arguments.get("workDir")),
         description: optional_trimmed_string(arguments.get("description")),
         document_config: None,
+        ..Default::default()
     };
 
     let task = repository.update_task(id, updates)?;

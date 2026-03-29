@@ -14,6 +14,7 @@ use crate::commands::terminal::TerminalManager;
 use crate::integrations::IntegrationManager;
 use crate::services::config_store::ConfigStore;
 use crate::services::file_watcher::FileWatcherManager;
+use crate::services::scheduler_daemon::SchedulerDaemon;
 
 /// 待回答问题信息
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -118,6 +119,8 @@ pub struct AppState {
     pub pending_questions: Arc<Mutex<HashMap<String, PendingQuestion>>>,
     /// 待审批计划映射：planId -> PendingPlan
     pub pending_plans: Arc<Mutex<HashMap<String, PendingPlan>>>,
+    /// 调度器守护进程
+    pub scheduler_daemon: AsyncMutex<Option<SchedulerDaemon>>,
 }
 
 /// 创建应用状态
@@ -137,5 +140,6 @@ pub fn create_app_state(
         file_watcher_manager: Mutex::new(FileWatcherManager::new()),
         pending_questions: Arc::new(Mutex::new(HashMap::new())),
         pending_plans: Arc::new(Mutex::new(HashMap::new())),
+        scheduler_daemon: AsyncMutex::new(None),
     }
 }

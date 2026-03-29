@@ -85,6 +85,7 @@ pub async fn scheduler_update_task(
         work_dir: task.work_dir,
         description: task.description,
         document_config: task.document_config,
+        ..Default::default()
     })
 }
 
@@ -164,6 +165,162 @@ pub fn scheduler_acquire_lock() -> Result<bool> {
 pub fn scheduler_release_lock() -> Result<()> {
     crate::utils::release_held_lock()
         .map_err(|e| crate::error::AppError::ProcessError(format!("释放锁失败: {}", e)))
+}
+
+// ============================================================================
+// Scheduler Lifecycle Commands
+// ============================================================================
+
+/// 调度器运行状态
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchedulerStatus {
+    /// 调度器是否正在运行
+    pub is_running: bool,
+    /// 当前实例是否持有锁
+    pub is_holder: bool,
+    /// 是否有其他实例持有锁
+    pub is_locked_by_other: bool,
+    /// 当前进程 PID
+    pub pid: u32,
+    /// 状态消息
+    pub message: Option<String>,
+}
+
+/// 获取调度器完整状态（锁 + 运行状态）
+#[tauri::command]
+pub fn scheduler_get_status() -> Result<SchedulerStatus> {
+    let lock_status = crate::utils::get_lock_status();
+    let pid = std::process::id();
+
+    Ok(SchedulerStatus {
+        is_running: lock_status.is_holder,
+        is_holder: lock_status.is_holder,
+        is_locked_by_other: lock_status.is_locked_by_other,
+        pid,
+        message: if lock_status.is_holder {
+            Some("调度器正在运行".to_string())
+        } else if lock_status.is_locked_by_other {
+            Some("其他实例正在运行调度器".to_string())
+        } else {
+            Some("调度器未运行".to_string())
+        },
+    })
+}
+
+/// 启动调度器
+/// 1. 尝试获取锁
+/// 2. 如果成功，启动后台守护进程
+/// 返回启动结果
+#[tauri::command]
+pub async fn scheduler_start(app: AppHandle) -> Result<SchedulerStatus> {
+    let pid = std::process::id();
+
+    // 检查是否已经在运行
+    if crate::utils::is_holding_lock() {
+        return Ok(SchedulerStatus {
+            is_running: true,
+            is_holder: true,
+            is_locked_by_other: false,
+            pid,
+            message: Some("调度器已在运行".to_string()),
+        });
+    }
+
+    // 尝试获取锁
+    match crate::utils::acquire_and_hold_lock() {
+        Ok(true) => {
+            tracing::info!("[Scheduler] 调度器启动成功，已获取锁");
+
+            // 启动后台守护进程
+            let config_dir = app.path()
+                .app_config_dir()
+                .map_err(|e| crate::error::AppError::ProcessError(format!("获取配置目录失败: {}", e)))?;
+
+            let mut daemon = crate::services::scheduler_daemon::SchedulerDaemon::new(
+                config_dir,
+                None, // workspace_path
+            );
+
+            daemon.start(app.clone())?;
+
+            // 存储守护进程引用
+            {
+                let state = app.state::<crate::AppState>();
+                let mut scheduler_daemon = state.scheduler_daemon.lock().await;
+                *scheduler_daemon = Some(daemon);
+            }
+
+            Ok(SchedulerStatus {
+                is_running: true,
+                is_holder: true,
+                is_locked_by_other: false,
+                pid,
+                message: Some("调度器启动成功".to_string()),
+            })
+        }
+        Ok(false) => {
+            tracing::info!("[Scheduler] 无法启动调度器，其他实例持有锁");
+            Ok(SchedulerStatus {
+                is_running: false,
+                is_holder: false,
+                is_locked_by_other: true,
+                pid,
+                message: Some("无法启动：其他实例正在运行调度器".to_string()),
+            })
+        }
+        Err(e) => {
+            tracing::error!("[Scheduler] 启动失败: {}", e);
+            Err(crate::error::AppError::ProcessError(format!("启动调度器失败: {}", e)))
+        }
+    }
+}
+
+/// 停止调度器
+/// 1. 停止后台守护进程
+/// 2. 释放锁
+#[tauri::command]
+pub async fn scheduler_stop(app: AppHandle) -> Result<SchedulerStatus> {
+    let pid = std::process::id();
+
+    // 检查是否正在运行
+    if !crate::utils::is_holding_lock() {
+        return Ok(SchedulerStatus {
+            is_running: false,
+            is_holder: false,
+            is_locked_by_other: crate::utils::get_lock_status().is_locked_by_other,
+            pid,
+            message: Some("调度器未在运行".to_string()),
+        });
+    }
+
+    // 停止后台守护进程
+    {
+        let state = app.state::<crate::AppState>();
+        let mut scheduler_daemon = state.scheduler_daemon.lock().await;
+        if let Some(mut daemon) = scheduler_daemon.take() {
+            daemon.stop()?;
+            tracing::info!("[Scheduler] 守护进程已停止");
+        }
+    }
+
+    // 释放锁
+    match crate::utils::release_held_lock() {
+        Ok(()) => {
+            tracing::info!("[Scheduler] 调度器已停止，锁已释放");
+            Ok(SchedulerStatus {
+                is_running: false,
+                is_holder: false,
+                is_locked_by_other: false,
+                pid,
+                message: Some("调度器已停止".to_string()),
+            })
+        }
+        Err(e) => {
+            tracing::error!("[Scheduler] 停止失败: {}", e);
+            Err(crate::error::AppError::ProcessError(format!("停止调度器失败: {}", e)))
+        }
+    }
 }
 
 /// 手动触发任务执行
