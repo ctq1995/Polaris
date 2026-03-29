@@ -257,12 +257,6 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       set({ drawerOpen: true, activeTaskId: id });
     }
 
-    // 添加开始日志
-    get().addLog(id, {
-      type: 'session_start',
-      content: '开始执行任务...',
-    });
-
     try {
       const result = await tauri.schedulerRunTask(id);
 
@@ -314,13 +308,6 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
             t.id === id ? { ...t, lastRunStatus: status } : t
           ),
         };
-      });
-
-      // 添加结束日志
-      get().addLog(id, {
-        type: 'session_end',
-        content: status === 'success' ? '任务执行完成' : '任务执行失败',
-        metadata: { success: status === 'success' },
       });
     } catch (e) {
       console.error('更新任务执行状态失败:', e);
