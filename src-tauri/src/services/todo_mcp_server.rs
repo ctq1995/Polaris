@@ -171,7 +171,7 @@ fn handle_tools_list() -> Value {
             },
             {
                 "name": "create_todo",
-                "description": "创建一条新待办事项。默认创建到当前工作区，设置 isGlobal=true 创建全局待办。",
+                "description": "创建一条新待办事项。待办将关联到当前工作区，可通过 workspacePath 字段筛选。",
                 "inputSchema": {
                     "type": "object",
                     "required": ["content"],
@@ -208,10 +208,6 @@ fn handle_tools_list() -> Value {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "description": "预估工时"
-                        },
-                        "isGlobal": {
-                            "type": "boolean",
-                            "description": "是否创建为全局待办，默认 false"
                         }
                     },
                     "additionalProperties": false
@@ -430,11 +426,6 @@ fn execute_create_todo(arguments: Value, repository: &UnifiedTodoRepository) -> 
         .ok_or_else(|| AppError::ValidationError("content 不能为空".to_string()))?
         .to_string();
 
-    let is_global = arguments
-        .get("isGlobal")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-
     let params = TodoCreateParams {
         content,
         description: optional_trimmed_string(arguments.get("description")),
@@ -446,14 +437,13 @@ fn execute_create_todo(arguments: Value, repository: &UnifiedTodoRepository) -> 
             .get("estimatedHours")
             .map(parse_positive_number)
             .transpose()?,
-        is_global,
         ..Default::default()
     };
 
     let todo = repository.create_todo(params)?;
 
-    let location = if todo.workspace_path.is_some() {
-        todo.workspace_name.as_deref().unwrap_or("工作区")
+    let location = if let Some(name) = &todo.workspace_name {
+        name.as_str()
     } else {
         "全局"
     };
@@ -734,8 +724,8 @@ fn optional_string_array(value: Option<&Value>) -> Result<Option<Vec<String>>> {
 
 pub fn current_tool_definitions() -> BTreeMap<&'static str, &'static str> {
     BTreeMap::from([
-        ("list_todos", "列出待办事项。默认仅当前工作区，可通过 scope 参数查询全局和所有工作区。"),
-        ("create_todo", "创建一条新待办事项。默认创建到当前工作区，设置 isGlobal=true 创建全局待办。"),
+        ("list_todos", "列出待办事项。默认仅当前工作区，可通过 scope 参数查询全部。"),
+        ("create_todo", "创建一条新待办事项。待办将关联到当前工作区。"),
         ("update_todo", "更新一条待办事项。"),
         ("delete_todo", "删除一条待办事项。"),
         ("start_todo", "将待办标记为进行中。"),

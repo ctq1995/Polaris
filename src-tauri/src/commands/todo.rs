@@ -99,10 +99,7 @@ pub struct CreateTodoParams {
     pub estimated_hours: Option<f64>,
     /// Subtasks
     pub subtasks: Option<Vec<TodoCreateSubtask>>,
-    /// Is global todo
-    #[serde(default)]
-    pub is_global: bool,
-    /// Workspace path (required if is_global is false)
+    /// Workspace path (for associating todo with workspace)
     pub workspace_path: Option<String>,
 }
 
@@ -142,7 +139,6 @@ pub async fn create_todo(
         related_files: params.related_files,
         due_date: params.due_date,
         estimated_hours: params.estimated_hours,
-        is_global: params.is_global,
         subtasks: params.subtasks.map(|items| {
             items.into_iter().map(|s| crate::models::todo::TodoCreateSubtask {
                 title: s.title,

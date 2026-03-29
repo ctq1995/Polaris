@@ -256,9 +256,6 @@ export interface TodoCreateParams {
 
   /** 子任务（创建时只需要提供标题） */
   subtasks?: TodoCreateSubtask[]
-
-  /** 是否创建为全局待办 */
-  isGlobal?: boolean
 }
 
 /**

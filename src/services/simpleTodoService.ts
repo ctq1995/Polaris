@@ -119,7 +119,6 @@ export class SimpleTodoService {
     dueDate?: string
     estimatedHours?: number
     subtasks?: { title: string }[]
-    isGlobal?: boolean
   }): Promise<TodoItem> {
     const todo = await invoke<TodoItem>('create_todo', {
       params: {
@@ -131,7 +130,6 @@ export class SimpleTodoService {
         dueDate: params.dueDate,
         estimatedHours: params.estimatedHours,
         subtasks: params.subtasks,
-        isGlobal: params.isGlobal || false,
         workspacePath: this.workspacePath,
       }
     })

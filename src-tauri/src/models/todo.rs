@@ -122,8 +122,6 @@ pub struct TodoCreateParams {
     pub subtasks: Option<Vec<TodoCreateSubtask>>,
     pub due_date: Option<String>,
     pub estimated_hours: Option<f64>,
-    /// 是否创建为全局待办（默认 false，即工作区待办）
-    pub is_global: bool,
 }
 
 #[derive(Debug, Clone, Default)]

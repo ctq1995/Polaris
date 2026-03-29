@@ -124,7 +124,6 @@ export function SimpleTodoPanel() {
     dueDate?: string
     estimatedHours?: number
     subtasks?: { title: string }[]
-    isGlobal?: boolean
   }) => {
     try {
       await simpleTodoService.createTodo({
@@ -135,7 +134,6 @@ export function SimpleTodoPanel() {
         estimatedHours: data.estimatedHours,
         subtasks: data.subtasks,
         tags: tags.length > 0 ? tags : undefined,
-        isGlobal: data.isGlobal,
       })
 
       setTags([])

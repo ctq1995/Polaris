@@ -11,7 +11,6 @@ pub mod prompt_store;
 pub mod scheduler;
 pub mod scheduler_repository;
 pub mod scheduler_mcp_server;
-pub mod todo_repository;
 pub mod todo_mcp_server;
 pub mod unified_todo_repository;
 pub mod requirement_repository;
