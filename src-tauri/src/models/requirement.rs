@@ -1,0 +1,129 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementStatus {
+    Draft,
+    Pending,
+    Approved,
+    Rejected,
+    Executing,
+    Completed,
+    Failed,
+}
+
+impl Default for RequirementStatus {
+    fn default() -> Self {
+        Self::Pending
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementPriority {
+    Low,
+    Normal,
+    High,
+    Urgent,
+}
+
+impl Default for RequirementPriority {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementSource {
+    Ai,
+    User,
+}
+
+impl Default for RequirementSource {
+    fn default() -> Self {
+        Self::Ai
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RequirementExecuteConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scheduled_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub engine_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub work_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RequirementItem {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub status: RequirementStatus,
+    pub priority: RequirementPriority,
+    pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prototype_path: Option<String>,
+    pub has_prototype: bool,
+    pub generated_by: RequirementSource,
+    pub generated_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generator_task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reviewed_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub review_note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execute_config: Option<RequirementExecuteConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execute_log: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub executed_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execute_error: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RequirementFileData {
+    pub version: String,
+    pub updated_at: String,
+    pub requirements: Vec<RequirementItem>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RequirementCreateParams {
+    pub title: String,
+    pub description: String,
+    pub priority: Option<RequirementPriority>,
+    pub tags: Option<Vec<String>>,
+    pub has_prototype: Option<bool>,
+    pub generated_by: Option<RequirementSource>,
+    pub generator_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RequirementUpdateParams {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub status: Option<RequirementStatus>,
+    pub priority: Option<RequirementPriority>,
+    pub tags: Option<Vec<String>>,
+    pub prototype_path: Option<String>,
+    pub has_prototype: Option<bool>,
+    pub review_note: Option<String>,
+    pub execute_config: Option<RequirementExecuteConfig>,
+    pub execute_log: Option<String>,
+    pub execute_error: Option<String>,
+    pub generated_by: Option<RequirementSource>,
+    pub session_id: Option<String>,
+}

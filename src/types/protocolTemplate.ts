@@ -286,7 +286,7 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     category: 'requirement',
     builtin: true,
     missionTemplate: '分析项目并生成需求到需求队列。\n\n{scope}\n\n{projectContext}',
-    fullTemplate: `分析当前工作区项目，识别改进点和新功能机会，将需求写入需求队列等待审核。
+    fullTemplate: `分析当前工作区项目，识别改进点和新功能机会，将需求写入需求库等待审核。
 
 ## 分析范围
 
@@ -313,56 +313,21 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
 ### 3. 可选：生成原型
 仅当需求涉及 **UI 界面变更** 时才生成原型：
 - 原型为单文件 HTML（内联 CSS）
-- 文件路径：\`.polaris/requirements/prototypes/{id}.html\`
+- 使用 MCP 工具保存原型，并回写需求的 prototypePath / hasPrototype
 - 原型应展示目标界面的大致布局和交互
 
-### 4. 写入需求文件
-将新需求追加到需求 JSON 文件（不删除已有需求）。
+### 4. 写入需求库
+优先使用当前工作区提供的 Requirements MCP 工具完成需求入库，不要直接读写 \.polaris/requirements/requirements.json。
 
-## 需求文件格式
-
-文件路径：\`.polaris/requirements/requirements.json\`（相对于工作区根目录）
-
-\`\`\`json
-{
-  "version": "1.0.0",
-  "updatedAt": "<ISO 8601 时间>",
-  "requirements": [
-    {
-      "id": "<UUID>",
-      "title": "<需求标题>",
-      "description": "<详细描述>",
-      "status": "pending",
-      "priority": "<low|normal|high|urgent>",
-      "tags": ["<标签1>", "<标签2>"],
-      "hasPrototype": false,
-      "prototypePath": ".polaris/requirements/prototypes/<id>.html",
-      "generatedBy": "ai",
-      "generatedAt": <Unix毫秒时间戳>,
-      "createdAt": <Unix毫秒时间戳>,
-      "updatedAt": <Unix毫秒时间戳>
-    }
-  ]
-}
-\`\`\`
-
-### 文件操作规则
-1. 先读取现有文件（如不存在则创建空结构）
-2. 解析 JSON，向 \`requirements\` 数组末尾追加新需求
-3. 更新 \`updatedAt\` 为当前 ISO 时间
-4. 写回文件（保持 JSON 格式化，缩进 2 空格）
-
-### 优先级参考
-- **low**: 优化建议、代码质量改进
-- **normal**: 常规新功能、体验优化
-- **high**: 重要功能、用户反馈需求
-- **urgent**: 阻塞性问题、安全漏洞
+推荐工具顺序：
+1. 使用 \'list_requirements\' 检查现有需求，避免重复
+2. 使用 \'create_requirement\' 创建新需求
+3. 仅在需要 UI 原型时，使用 \'save_requirement_prototype\' 保存原型 HTML
 
 ### 注意事项
-- 需求状态固定为 \`"pending"\`（待审核），由用户在需求队列面板中审核
-- 每次生成前检查现有需求，避免重复
-- 标签用于分类，如 \`["UI", "性能", "安全", "重构"]\` 等
-- 如需生成原型，先确保 \`.polaris/requirements/prototypes/\` 目录存在`,
+- AI 生成的需求状态固定为 \'pending\'，由用户在需求队列面板中审核
+- 标签用于分类，如 [UI, 性能, 安全, 重构] 等
+- 不要把原始 JSON 读写协议写进对话过程或执行步骤中`,
     templateParams: [
       {
         key: 'scope',
@@ -392,7 +357,7 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     category: 'requirement',
     builtin: true,
     missionTemplate: '从需求队列获取已批准需求并分析。\n\n{focusModule}',
-    fullTemplate: `从需求队列中获取已批准（approved）的需求，进行深入分析，记录执行方案。
+    fullTemplate: `从需求库中获取已批准（approved）的需求，进行深入分析，记录执行方案。
 
 ## 执行范围
 
@@ -403,9 +368,9 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
 每次触发执行以下步骤：
 
 ### 1. 获取待执行需求
-- 读取 \`.polaris/requirements/requirements.json\`
-- 筛选 \`status === "approved"\` 的需求
-- 按优先级排序：\`urgent > high > normal > low\`
+- 优先使用 Requirements MCP 工具读取需求库，不要直接操作 \.polaris/requirements/requirements.json
+- 使用 \'list_requirements\' 获取状态为 approved 的需求
+- 按优先级排序：urgent > high > normal > low
 - 如有指定模块，按标签进一步筛选
 - 选取优先级最高的一条需求进行分析
 
@@ -416,43 +381,23 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
 - 分析潜在风险和依赖关系
 
 ### 3. 记录分析结果
-将分析结果写入需求的 \`executeLog\` 字段，包含：
-- **需求理解**：对需求目标和背景的理解
-- **当前状态**：相关代码的现状分析
-- **实现方案**：推荐的技术实现路径
-- **影响范围**：涉及哪些文件和模块
-- **风险评估**：可能的风险和注意事项
-- **预估工作量**：大致的实现复杂度
+将分析结果写入目标需求，包含：
+- 需求理解：对需求目标和背景的理解
+- 当前状态：相关代码的现状分析
+- 实现方案：推荐的技术实现路径
+- 影响范围：涉及哪些文件和模块
+- 风险评估：可能的风险和注意事项
+- 预估工作量：大致的实现复杂度
+
+推荐工具顺序：
+1. 使用 \'list_requirements\' 选出目标需求
+2. 使用 \'update_requirement\' 写入 executeLog，并将 status 更新为 executing
+3. 如分析失败，同样使用 \'update_requirement\' 写入 executeError
 
 ### 4. 更新需求状态
-- 将需求 \`status\` 更新为 \`"executing"\`
-- 写入 \`executeLog\`
-- 更新 \`executedAt\` 为当前时间戳
-- 写回 JSON 文件
-
-## 需求文件格式
-
-文件路径：\`.polaris/requirements/requirements.json\`（相对于工作区根目录）
-
-\`\`\`json
-{
-  "version": "1.0.0",
-  "updatedAt": "<ISO 8601 时间>",
-  "requirements": [...]
-}
-\`\`\`
-
-### 文件操作规则
-1. 读取 JSON 文件，解析需求列表
-2. 找到目标需求，更新其字段
-3. 更新 \`updatedAt\` 为当前 ISO 时间
-4. 写回文件（保持 JSON 格式化，缩进 2 空格）
-
-### 关键字段说明
-- \`status\`: 需求状态，执行时设为 \`"executing"\`
-- \`executeLog\`: 分析结果（Markdown 格式字符串）
-- \`executedAt\`: 开始执行时间（Unix 毫秒时间戳）
-- \`executeError\`: 如分析失败，记录错误信息
+- 将需求 status 更新为 executing
+- 写入 executeLog
+- 如有需要补充 sessionId / executeError，也通过 MCP 工具更新
 
 ### 注意事项
 - 每次只分析一条需求，不要贪多
@@ -499,8 +444,8 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
 每次触发时按以下顺序执行：
 
 ### 1. 获取待执行需求
-- 读取 \`.polaris/requirements/requirements.json\`
-- 筛选 \`status === "approved"\` 的需求
+优先使用当前工作区提供的 Requirements MCP 工具，不要直接操作 \`.polaris/requirements/requirements.json\`：
+- 使用 \`list_requirements\` 获取状态为 approved 的需求
 - 按优先级排序：\`urgent > high > normal > low\`
 - 同优先级按 \`updatedAt\` 升序（先批准先执行）
 - 若无已批准需求，静默跳过本次执行
@@ -509,9 +454,8 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
 对每个获取到的需求：
 
 #### 2.1 状态更新
-- 将需求 \`status\` 更新为 \`"executing"\`
+- 使用 \`update_requirement\` 将需求 \`status\` 更新为 \`"executing"\`
 - 写入 \`executedAt\` 为当前时间戳
-- 写回 JSON 文件
 
 #### 2.2 执行分析
 - 阅读需求描述，理解需求目标
@@ -521,7 +465,7 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
 - 测试验证
 
 #### 2.3 记录执行结果
-执行完成后更新需求：
+执行完成后使用 \`update_requirement\` 更新需求：
 - **成功**: \`status\` 设为 \`"completed"\`，\`completedAt\` 设为当前时间戳
 - **失败**: \`status\` 设为 \`"failed"\`，\`executeError\` 记录错误信息
 - 无论成功失败，\`executeLog\` 记录执行过程和结果
@@ -536,45 +480,14 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
 
 ---
 
-## 需求文件格式
-
-文件路径：\`.polaris/requirements/requirements.json\`（相对于工作区根目录）
-
-\`\`\`json
-{
-  "version": "1.0.0",
-  "updatedAt": "<ISO 8601 时间>",
-  "requirements": [...]
-}
-\`\`\`
-
-### 关键字段说明
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| status | string | 需求状态：pending/approved/executing/completed/failed |
-| priority | string | 优先级：urgent/high/normal/low |
-| executeLog | string | 执行日志（Markdown 格式） |
-| executedAt | number | 开始执行时间戳 |
-| completedAt | number | 完成时间戳 |
-| executeError | string | 执行失败错误信息 |
-
-### 文件操作规则
-
-1. 读取 JSON 文件，解析需求列表
-2. 找到目标需求，更新相关字段
-3. 更新 \`updatedAt\` 为当前 ISO 时间
-4. 写回文件（保持 JSON 格式化，缩进 2 空格）
-
----
-
 ## 注意事项
 
 - 每次最多执行 {maxRequirements} 条需求
 - 执行前先检查需求状态，避免重复执行
 - 执行过程要写入 \`executeLog\`，便于追踪进度
 - 如果代码修改需要提交 Git，执行完成后自动提交
-- 遇到阻塞问题时，记录到 \`executeLog\` 并继续下一条需求`,
+- 遇到阻塞问题时，记录到 \`executeLog\` 并继续下一条需求
+- 始终使用 MCP 工具操作需求库，避免直接读写 JSON 文件`,
     templateParams: [
       {
         key: 'executionScope',
@@ -596,6 +509,84 @@ export const BUILTIN_PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
           { value: '3', label: '3 条' },
           { value: '5', label: '5 条' },
         ],
+      },
+    ],
+    defaultTriggerType: 'interval',
+    defaultTriggerValue: '1h',
+    defaultEngineId: 'claude',
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: 'scheduler-manager',
+    name: '定时任务管理',
+    description: '通过 MCP 工具管理当前工作区的定时任务，支持创建、查看、更新、删除任务',
+    category: 'custom',
+    builtin: true,
+    missionTemplate: '管理定时任务。\n\n{scope}',
+    fullTemplate: `通过 Scheduler MCP 工具管理当前工作区的定时任务。
+
+## 工作范围
+
+{scope}
+
+## 可用工具
+
+优先使用当前工作区提供的 Scheduler MCP 工具：
+
+### 任务管理
+- \`list_tasks\` - 列出所有定时任务
+- \`get_task\` - 获取单个任务详情（参数: id）
+- \`create_task\` - 创建新任务
+- \`update_task\` - 更新现有任务（参数: id + 要更新的字段）
+- \`delete_task\` - 删除任务（参数: id）
+
+### 日志管理
+- \`list_logs\` - 分页列出执行日志（参数: page, pageSize）
+- \`get_task_logs\` - 获取特定任务的日志（参数: taskId）
+- \`create_log\` - 创建日志条目
+- \`update_log\` - 更新日志（参数: logId + 要更新的字段）
+- \`delete_task_logs\` - 删除任务的所有日志（参数: taskId）
+
+### 配置管理
+- \`get_retention_config\` - 获取日志保留配置
+- \`update_retention_config\` - 更新保留配置
+
+## 任务字段说明
+
+创建任务时需要的字段：
+- **name** (必填): 任务名称
+- **triggerType** (必填): 触发类型 - "once" | "cron" | "interval"
+- **triggerValue** (必填): 触发值
+  - once: ISO 时间戳，如 "2024-03-16T14:00:00Z"
+  - cron: Cron 表达式，如 "0 9 * * 1-5"
+  - interval: 间隔表达式，如 "30s", "5m", "2h", "1d"
+- **engineId** (必填): 使用的引擎 ID
+- **prompt** (必填): 执行时的提示词
+- **workDir** (可选): 工作目录
+- **mode** (可选): "simple" | "protocol"
+- **description** (可选): 任务描述
+- **enabled** (可选): 是否启用，默认 true
+- **maxRuns** (可选): 最大执行次数
+- **maxRetries** (可选): 最大重试次数
+- **retryInterval** (可选): 重试间隔
+- **notifyOnComplete** (可选): 完成后通知，默认 true
+- **timeoutMinutes** (可选): 超时时间（分钟）
+
+## 注意事项
+
+- 不要直接读写 .polaris/scheduler/*.json 文件
+- 始终使用 MCP 工具操作定时任务数据
+- 任务 ID 由系统自动生成，无需手动指定
+- 删除任务不会自动删除其执行日志`,
+    templateParams: [
+      {
+        key: 'scope',
+        label: '工作范围',
+        type: 'textarea',
+        required: false,
+        default: '管理当前工作区的所有定时任务',
+        placeholder: '描述要管理的任务范围，如：只管理测试相关的任务',
       },
     ],
     defaultTriggerType: 'interval',

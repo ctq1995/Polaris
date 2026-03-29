@@ -2,12 +2,22 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{AppError, Result};
 
-const MCP_SERVER_NAME: &str = "polaris-todo";
 const MCP_CONFIG_RELATIVE_PATH: &str = ".polaris/claude/mcp.json";
+const TODO_MCP_SERVER_NAME: &str = "polaris-todo";
 const TODO_MCP_BIN_NAME: &str = "polaris-todo-mcp";
 const TODO_MCP_BUNDLE_RELATIVE_PATH: &str = "bin/polaris-todo-mcp.exe";
 const TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH: &str = "polaris-todo-mcp.exe";
 const TODO_MCP_DEV_RELATIVE_PATH: &str = "src-tauri/target/debug/polaris-todo-mcp.exe";
+const REQUIREMENTS_MCP_SERVER_NAME: &str = "polaris-requirements";
+const REQUIREMENTS_MCP_BIN_NAME: &str = "polaris-requirements-mcp";
+const REQUIREMENTS_MCP_BUNDLE_RELATIVE_PATH: &str = "bin/polaris-requirements-mcp.exe";
+const REQUIREMENTS_MCP_BUNDLE_FALLBACK_RELATIVE_PATH: &str = "polaris-requirements-mcp.exe";
+const REQUIREMENTS_MCP_DEV_RELATIVE_PATH: &str = "src-tauri/target/debug/polaris-requirements-mcp.exe";
+const SCHEDULER_MCP_SERVER_NAME: &str = "polaris-scheduler";
+const SCHEDULER_MCP_BIN_NAME: &str = "polaris-scheduler-mcp";
+const SCHEDULER_MCP_BUNDLE_RELATIVE_PATH: &str = "bin/polaris-scheduler-mcp.exe";
+const SCHEDULER_MCP_BUNDLE_FALLBACK_RELATIVE_PATH: &str = "polaris-scheduler-mcp.exe";
+const SCHEDULER_MCP_DEV_RELATIVE_PATH: &str = "src-tauri/target/debug/polaris-scheduler-mcp.exe";
 
 #[derive(Debug, Clone, serde::Serialize)]
 struct ClaudeMcpServerConfig {
@@ -21,35 +31,90 @@ struct ClaudeMcpConfig {
     mcp_servers: std::collections::BTreeMap<String, ClaudeMcpServerConfig>,
 }
 
-pub struct WorkspaceMcpConfigService {
+#[derive(Debug, Clone)]
+struct ResolvedMcpBinary {
+    server_name: &'static str,
     executable_path: PathBuf,
 }
 
+pub struct WorkspaceMcpConfigService {
+    binaries: Vec<ResolvedMcpBinary>,
+}
+
 impl WorkspaceMcpConfigService {
-    pub fn new(executable_path: PathBuf) -> Self {
-        Self { executable_path }
+    pub fn new(
+        todo_executable_path: PathBuf,
+        requirements_executable_path: Option<PathBuf>,
+        scheduler_executable_path: Option<PathBuf>,
+    ) -> Self {
+        let mut binaries = vec![ResolvedMcpBinary {
+            server_name: TODO_MCP_SERVER_NAME,
+            executable_path: todo_executable_path,
+        }];
+
+        if let Some(path) = requirements_executable_path {
+            binaries.push(ResolvedMcpBinary {
+                server_name: REQUIREMENTS_MCP_SERVER_NAME,
+                executable_path: path,
+            });
+        }
+
+        if let Some(path) = scheduler_executable_path {
+            binaries.push(ResolvedMcpBinary {
+                server_name: SCHEDULER_MCP_SERVER_NAME,
+                executable_path: path,
+            });
+        }
+
+        Self { binaries }
     }
 
     pub fn executable_path(&self) -> &Path {
-        &self.executable_path
+        &self.binaries[0].executable_path
     }
 
     pub fn from_app_paths(resource_dir: Option<PathBuf>, app_root: PathBuf) -> Result<Self> {
-        let executable_path = resolve_mcp_executable_path(resource_dir, app_root)?;
-        Ok(Self::new(executable_path))
+        let todo_executable_path = resolve_mcp_executable_path(
+            resource_dir.clone(),
+            app_root.clone(),
+            TODO_MCP_BIN_NAME,
+            TODO_MCP_BUNDLE_RELATIVE_PATH,
+            TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH,
+            TODO_MCP_DEV_RELATIVE_PATH,
+            "POLARIS_TODO_MCP_PATH",
+        )?;
+
+        let requirements_executable_path = resolve_optional_mcp_executable_path(
+            resource_dir.clone(),
+            app_root.clone(),
+            REQUIREMENTS_MCP_BIN_NAME,
+            REQUIREMENTS_MCP_BUNDLE_RELATIVE_PATH,
+            REQUIREMENTS_MCP_BUNDLE_FALLBACK_RELATIVE_PATH,
+            REQUIREMENTS_MCP_DEV_RELATIVE_PATH,
+            "POLARIS_REQUIREMENTS_MCP_PATH",
+        );
+
+        let scheduler_executable_path = resolve_optional_mcp_executable_path(
+            resource_dir,
+            app_root,
+            SCHEDULER_MCP_BIN_NAME,
+            SCHEDULER_MCP_BUNDLE_RELATIVE_PATH,
+            SCHEDULER_MCP_BUNDLE_FALLBACK_RELATIVE_PATH,
+            SCHEDULER_MCP_DEV_RELATIVE_PATH,
+            "POLARIS_SCHEDULER_MCP_PATH",
+        );
+
+        Ok(Self::new(
+            todo_executable_path,
+            requirements_executable_path,
+            scheduler_executable_path,
+        ))
     }
 
-    pub fn prepare_todo_config(&self, workspace_path: &str) -> Result<PathBuf> {
+    pub fn prepare_workspace_config(&self, workspace_path: &str) -> Result<PathBuf> {
         let normalized_workspace = workspace_path.trim();
         if normalized_workspace.is_empty() {
             return Err(AppError::ValidationError("workspace_path 不能为空".to_string()));
-        }
-
-        if !self.executable_path.exists() {
-            return Err(AppError::ProcessError(format!(
-                "Todo MCP 可执行文件不存在: {}",
-                self.executable_path.display()
-            )));
         }
 
         let workspace_dir = PathBuf::from(normalized_workspace);
@@ -61,14 +126,24 @@ impl WorkspaceMcpConfigService {
             })?;
         }
 
-        let command = self.executable_path.to_string_lossy().to_string();
-        let args = vec![normalized_workspace.to_string()];
-
         let mut servers = std::collections::BTreeMap::new();
-        servers.insert(
-            MCP_SERVER_NAME.to_string(),
-            ClaudeMcpServerConfig { command, args },
-        );
+        for binary in &self.binaries {
+            if !binary.executable_path.exists() {
+                return Err(AppError::ProcessError(format!(
+                    "{} 可执行文件不存在: {}",
+                    binary.server_name,
+                    binary.executable_path.display()
+                )));
+            }
+
+            servers.insert(
+                binary.server_name.to_string(),
+                ClaudeMcpServerConfig {
+                    command: binary.executable_path.to_string_lossy().to_string(),
+                    args: vec![normalized_workspace.to_string()],
+                },
+            );
+        }
 
         let config = ClaudeMcpConfig {
             mcp_servers: servers,
@@ -79,11 +154,45 @@ impl WorkspaceMcpConfigService {
     }
 }
 
-fn resolve_mcp_executable_path(resource_dir: Option<PathBuf>, app_root: PathBuf) -> Result<PathBuf> {
+fn resolve_optional_mcp_executable_path(
+    resource_dir: Option<PathBuf>,
+    app_root: PathBuf,
+    bin_name: &str,
+    bundled_relative_path: &str,
+    bundled_fallback_relative_path: &str,
+    dev_relative_path: &str,
+    env_var_name: &str,
+) -> Option<PathBuf> {
+    match resolve_mcp_executable_path(
+        resource_dir,
+        app_root,
+        bin_name,
+        bundled_relative_path,
+        bundled_fallback_relative_path,
+        dev_relative_path,
+        env_var_name,
+    ) {
+        Ok(path) => Some(path),
+        Err(error) => {
+            tracing::warn!("[MCP] 跳过可选 MCP server {}: {}", bin_name, error.to_message());
+            None
+        }
+    }
+}
+
+fn resolve_mcp_executable_path(
+    resource_dir: Option<PathBuf>,
+    app_root: PathBuf,
+    bin_name: &str,
+    bundled_relative_path: &str,
+    bundled_fallback_relative_path: &str,
+    dev_relative_path: &str,
+    env_var_name: &str,
+) -> Result<PathBuf> {
     if let Some(ref resource_dir) = resource_dir {
         let bundled_candidates = [
-            resource_dir.join(Path::new(TODO_MCP_BUNDLE_RELATIVE_PATH)),
-            resource_dir.join(Path::new(TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH)),
+            resource_dir.join(Path::new(bundled_relative_path)),
+            resource_dir.join(Path::new(bundled_fallback_relative_path)),
         ];
 
         for bundled_path in bundled_candidates {
@@ -93,15 +202,16 @@ fn resolve_mcp_executable_path(resource_dir: Option<PathBuf>, app_root: PathBuf)
         }
 
         tracing::warn!(
-            "[MCP] 未在资源目录找到 Todo MCP 可执行文件，已检查: '{}' 和 '{}'，回退到开发目录",
-            resource_dir.join(Path::new(TODO_MCP_BUNDLE_RELATIVE_PATH)).display(),
+            "[MCP] 未在资源目录找到 {} 可执行文件，已检查: '{}' 和 '{}'，回退到开发目录",
+            bin_name,
+            resource_dir.join(Path::new(bundled_relative_path)).display(),
             resource_dir
-                .join(Path::new(TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH))
+                .join(Path::new(bundled_fallback_relative_path))
                 .display()
         );
     }
 
-    if let Ok(path) = std::env::var("POLARIS_TODO_MCP_PATH") {
+    if let Ok(path) = std::env::var(env_var_name) {
         let trimmed = path.trim();
         if !trimmed.is_empty() {
             let override_path = PathBuf::from(trimmed);
@@ -110,27 +220,28 @@ fn resolve_mcp_executable_path(resource_dir: Option<PathBuf>, app_root: PathBuf)
             }
 
             tracing::warn!(
-                "[MCP] POLARIS_TODO_MCP_PATH 指向的文件不存在，继续回退: {}",
+                "[MCP] {} 指向的文件不存在，继续回退: {}",
+                env_var_name,
                 override_path.display()
             );
         }
     }
 
-    let dev_path = app_root.join(Path::new(TODO_MCP_DEV_RELATIVE_PATH));
+    let dev_path = app_root.join(Path::new(dev_relative_path));
     if dev_path.exists() {
         return Ok(dev_path);
     }
 
     Err(AppError::ProcessError(format!(
         "无法定位 {}。已检查资源路径 '{}'、'{}' 与开发路径 '{}'",
-        TODO_MCP_BIN_NAME,
+        bin_name,
         resource_dir
             .as_ref()
-            .map(|dir| dir.join(Path::new(TODO_MCP_BUNDLE_RELATIVE_PATH)).display().to_string())
+            .map(|dir| dir.join(Path::new(bundled_relative_path)).display().to_string())
             .unwrap_or_else(|| "<无资源目录>".to_string()),
         resource_dir
             .as_ref()
-            .map(|dir| dir.join(Path::new(TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH)).display().to_string())
+            .map(|dir| dir.join(Path::new(bundled_fallback_relative_path)).display().to_string())
             .unwrap_or_else(|| "<无资源目录>".to_string()),
         dev_path.display()
     )))
@@ -159,7 +270,15 @@ mod tests {
         std::fs::write(app_root.join("src-tauri/target/debug/polaris-todo-mcp.exe"), "dev bin").unwrap();
         std::fs::write(resource_dir.join("bin/polaris-todo-mcp.exe"), "bundled bin").unwrap();
 
-        let path = resolve_mcp_executable_path(Some(resource_dir.clone()), app_root.clone()).unwrap();
+        let path = resolve_mcp_executable_path(
+            Some(resource_dir.clone()),
+            app_root.clone(),
+            TODO_MCP_BIN_NAME,
+            TODO_MCP_BUNDLE_RELATIVE_PATH,
+            TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH,
+            TODO_MCP_DEV_RELATIVE_PATH,
+            "POLARIS_TODO_MCP_PATH",
+        ).unwrap();
         assert_eq!(path, resource_dir.join("bin/polaris-todo-mcp.exe"));
 
         let _ = std::fs::remove_dir_all(&temp_root);
@@ -176,7 +295,15 @@ mod tests {
         std::fs::write(app_root.join("src-tauri/target/debug/polaris-todo-mcp.exe"), "dev bin").unwrap();
         std::fs::write(resource_dir.join("polaris-todo-mcp.exe"), "bundled root bin").unwrap();
 
-        let path = resolve_mcp_executable_path(Some(resource_dir.clone()), app_root.clone()).unwrap();
+        let path = resolve_mcp_executable_path(
+            Some(resource_dir.clone()),
+            app_root.clone(),
+            TODO_MCP_BIN_NAME,
+            TODO_MCP_BUNDLE_RELATIVE_PATH,
+            TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH,
+            TODO_MCP_DEV_RELATIVE_PATH,
+            "POLARIS_TODO_MCP_PATH",
+        ).unwrap();
         assert_eq!(path, resource_dir.join("polaris-todo-mcp.exe"));
 
         let _ = std::fs::remove_dir_all(&temp_root);
@@ -192,7 +319,15 @@ mod tests {
         std::fs::create_dir_all(&resource_dir).unwrap();
         std::fs::write(app_root.join("src-tauri/target/debug/polaris-todo-mcp.exe"), "dev bin").unwrap();
 
-        let path = resolve_mcp_executable_path(Some(resource_dir), app_root.clone()).unwrap();
+        let path = resolve_mcp_executable_path(
+            Some(resource_dir),
+            app_root.clone(),
+            TODO_MCP_BIN_NAME,
+            TODO_MCP_BUNDLE_RELATIVE_PATH,
+            TODO_MCP_BUNDLE_FALLBACK_RELATIVE_PATH,
+            TODO_MCP_DEV_RELATIVE_PATH,
+            "POLARIS_TODO_MCP_PATH",
+        ).unwrap();
         assert_eq!(path, app_root.join("src-tauri/target/debug/polaris-todo-mcp.exe"));
 
         let _ = std::fs::remove_dir_all(&temp_root);
@@ -202,27 +337,55 @@ mod tests {
     fn prepares_workspace_scoped_mcp_config() {
         let temp_root = std::env::temp_dir().join(format!("polaris-mcp-test-{}", uuid::Uuid::new_v4()));
         let workspace = temp_root.join("workspace-a");
-        let executable_path = temp_root.join("bin/polaris-todo-mcp.exe");
+        let todo_executable_path = temp_root.join("bin/polaris-todo-mcp.exe");
+        let requirements_executable_path = temp_root.join("bin/polaris-requirements-mcp.exe");
+        let scheduler_executable_path = temp_root.join("bin/polaris-scheduler-mcp.exe");
 
         std::fs::create_dir_all(&workspace).unwrap();
-        std::fs::create_dir_all(executable_path.parent().unwrap()).unwrap();
-        std::fs::write(&executable_path, "bin").unwrap();
+        std::fs::create_dir_all(todo_executable_path.parent().unwrap()).unwrap();
+        std::fs::write(&todo_executable_path, "todo bin").unwrap();
+        std::fs::write(&requirements_executable_path, "requirements bin").unwrap();
+        std::fs::write(&scheduler_executable_path, "scheduler bin").unwrap();
 
-        let service = WorkspaceMcpConfigService::new(executable_path.clone());
-        let config_path = service.prepare_todo_config(workspace.to_string_lossy().as_ref()).unwrap();
+        let service = WorkspaceMcpConfigService::new(
+            todo_executable_path.clone(),
+            Some(requirements_executable_path.clone()),
+            Some(scheduler_executable_path.clone()),
+        );
+        let config_path = service.prepare_workspace_config(workspace.to_string_lossy().as_ref()).unwrap();
 
         assert_eq!(config_path, workspace.join(".polaris/claude/mcp.json"));
 
         let content = std::fs::read_to_string(&config_path).unwrap();
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
 
-        let server = &json["mcpServers"][MCP_SERVER_NAME];
+        let todo_server = &json["mcpServers"][TODO_MCP_SERVER_NAME];
         assert_eq!(
-            server["command"],
-            serde_json::Value::String(executable_path.to_string_lossy().to_string())
+            todo_server["command"],
+            serde_json::Value::String(todo_executable_path.to_string_lossy().to_string())
         );
         assert_eq!(
-            server["args"][0],
+            todo_server["args"][0],
+            serde_json::Value::String(workspace.to_string_lossy().to_string())
+        );
+
+        let requirements_server = &json["mcpServers"][REQUIREMENTS_MCP_SERVER_NAME];
+        assert_eq!(
+            requirements_server["command"],
+            serde_json::Value::String(requirements_executable_path.to_string_lossy().to_string())
+        );
+        assert_eq!(
+            requirements_server["args"][0],
+            serde_json::Value::String(workspace.to_string_lossy().to_string())
+        );
+
+        let scheduler_server = &json["mcpServers"][SCHEDULER_MCP_SERVER_NAME];
+        assert_eq!(
+            scheduler_server["command"],
+            serde_json::Value::String(scheduler_executable_path.to_string_lossy().to_string())
+        );
+        assert_eq!(
+            scheduler_server["args"][0],
             serde_json::Value::String(workspace.to_string_lossy().to_string())
         );
 
@@ -239,10 +402,10 @@ mod tests {
         std::fs::create_dir_all(executable_path.parent().unwrap()).unwrap();
         std::fs::write(&executable_path, "bin").unwrap();
 
-        let service = WorkspaceMcpConfigService::new(executable_path.clone());
-        let first = service.prepare_todo_config(workspace.to_string_lossy().as_ref()).unwrap();
+        let service = WorkspaceMcpConfigService::new(executable_path.clone(), None, None);
+        let first = service.prepare_workspace_config(workspace.to_string_lossy().as_ref()).unwrap();
         let first_content = std::fs::read_to_string(&first).unwrap();
-        let second = service.prepare_todo_config(workspace.to_string_lossy().as_ref()).unwrap();
+        let second = service.prepare_workspace_config(workspace.to_string_lossy().as_ref()).unwrap();
         let second_content = std::fs::read_to_string(&second).unwrap();
 
         assert_eq!(first, second);

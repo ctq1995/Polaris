@@ -249,11 +249,7 @@ export function buildSystemPrompt(
   }
 
   lines.push(``);
-  lines.push(t('systemPrompt:todoManagement'));
-  lines.push(t('systemPrompt:todoStorage', { path: currentWorkspace.path }));
-  lines.push(``);
-  lines.push(t('systemPrompt:todoTrigger'));
-  lines.push(t('systemPrompt:todoRead'));
+  lines.push(t('systemPrompt:workspaceToolGuidance'));
 
   return lines.join('\n');
 }

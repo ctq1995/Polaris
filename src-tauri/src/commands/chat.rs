@@ -156,7 +156,7 @@ fn prepare_mcp_config_path(options: &ChatRequestOptions, engine: &EngineId, wind
     let resource_dir = window.path().resource_dir().ok();
 
     let service = WorkspaceMcpConfigService::from_app_paths(resource_dir, app_root)?;
-    let config_path = service.prepare_todo_config(work_dir)?;
+    let config_path = service.prepare_workspace_config(work_dir)?;
     Ok(Some(config_path.to_string_lossy().to_string()))
 }
 

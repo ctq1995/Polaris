@@ -22,10 +22,7 @@ vi.mock('i18next', () => ({
         'systemPrompt:fileRefSyntax': '文件引用语法: @filename 或 @dir/filename',
         'systemPrompt:contextWorkspaces': '关联工作区:',
         'systemPrompt:refSyntax': `引用语法: @${params?.name || ''}:filename`,
-        'systemPrompt:todoManagement': '待办管理:',
-        'systemPrompt:todoStorage': `待办能力绑定工作区: ${params?.path || ''}`,
-        'systemPrompt:todoTrigger': '当用户要求添加、更新、开始、完成或删除待办时，优先调用 MCP 待办工具',
-        'systemPrompt:todoRead': '查看待办时优先调用 list_todos，不要直接读写 .polaris/todos.json',
+        'systemPrompt:workspaceToolGuidance': '处理待办、定时任务或需求库时，优先使用工作区 MCP 工具，不要直接读写 .polaris/*.json',
       };
       return translations[key] || key;
     }),
@@ -371,12 +368,11 @@ describe('workspaceReference', () => {
       expect(result).toContain('Utils');
     });
 
-    it('应包含待办管理信息', () => {
+    it('应包含 MCP 工具引导信息', () => {
       const result = buildSystemPrompt(mockWorkspaces, [], 'ws-1');
 
-      expect(result).toContain('待办管理');
-      expect(result).toContain('MCP 待办工具');
-      expect(result).toContain('list_todos');
+      // 新版本使用通用的 MCP 工具引导，不再包含具体的待办管理指令
+      expect(result).toContain('MCP 工具');
       expect(result).not.toContain('todo_write');
       expect(result).not.toContain('todo_read');
     });
@@ -1914,8 +1910,8 @@ describe('workspaceReference', () => {
 
       expect(result).toContain('Polaris');
       expect(result).toContain('Utils');
-      expect(result).toContain('MCP 待办工具');
-      expect(result).toContain('list_todos');
+      // 新版本使用通用的 MCP 工具引导
+      expect(result).toContain('MCP 工具');
       expect(result).not.toContain('todo_write');
       expect(result).not.toContain('todo_read');
     });
