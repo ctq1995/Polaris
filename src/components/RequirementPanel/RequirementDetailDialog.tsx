@@ -4,6 +4,11 @@
  * 参考 TodoDetailDialog 模式：open + onClose props，覆盖层点击不关闭
  * 支持三种模式：查看详情、编辑、创建（创建由父组件用 RequirementForm 直接实现）
  * 包含：基本信息展示、审核操作、原型预览、删除
+ *
+ * 布局：
+ * - 有原型：左右分栏，左侧需求信息，右侧原型预览
+ * - 无原型：居中单栏显示需求信息
+ * - 支持全屏预览原型
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -18,16 +23,15 @@ import {
   User,
   Clock,
   Loader2,
-  ExternalLink,
   Play,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { clsx } from 'clsx'
 import type { Requirement, RequirementPriority, RequirementSource } from '@/types/requirement'
 import { RequirementForm } from './RequirementForm'
 import { STATUS_STYLES, PRIORITY_TEXT, formatTime, TIME_FORMAT_FULL } from './constants'
-import { createLogger } from '@/utils/logger'
-
-const log = createLogger('RequirementDetailDialog')
 
 interface RequirementDetailDialogProps {
   requirement: Requirement
@@ -48,8 +52,6 @@ interface RequirementDetailDialogProps {
   }) => void
   /** 读取原型 HTML 内容 */
   onReadPrototype?: (path: string) => Promise<string>
-  /** 获取原型文件绝对路径并打开 */
-  onOpenPrototype?: (path: string) => Promise<void>
   /** 执行需求分析 */
   onExecute?: (req: Requirement) => void
 }
@@ -64,7 +66,6 @@ export function RequirementDetailDialog({
   onReject,
   onEditSubmit,
   onReadPrototype,
-  onOpenPrototype,
   onExecute,
 }: RequirementDetailDialogProps) {
   const { t, i18n } = useTranslation('requirement')
@@ -74,9 +75,11 @@ export function RequirementDetailDialog({
   const [prototypeError, setPrototypeError] = useState<string | null>(null)
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [fullscreen, setFullscreen] = useState(false)
 
   const style = STATUS_STYLES[requirement.status]
   const canReview = requirement.status === 'pending' || requirement.status === 'draft'
+  const hasPrototype = requirement.hasPrototype && requirement.prototypePath
 
   // 加载原型
   const loadPrototype = useCallback(async () => {
@@ -100,17 +103,28 @@ export function RequirementDetailDialog({
     }
   }, [open, requirement.hasPrototype, requirement.id, requirement.prototypePath, loadPrototype])
 
+  // 重置全屏状态
+  useEffect(() => {
+    if (!open) {
+      setFullscreen(false)
+    }
+  }, [open])
+
   // Escape 键关闭弹窗
   useEffect(() => {
     if (!open) return
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !showRejectInput) {
-        onClose()
+      if (e.key === 'Escape') {
+        if (fullscreen) {
+          setFullscreen(false)
+        } else if (!showRejectInput) {
+          onClose()
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [open, onClose, showRejectInput])
+  }, [open, onClose, showRejectInput, fullscreen])
 
   if (!open) return null
 
@@ -136,20 +150,103 @@ export function RequirementDetailDialog({
     )
   }
 
+  // 原型预览内容
+  const renderPrototypeContent = () => {
+    if (loadingPrototype) {
+      return (
+        <div className="flex items-center justify-center h-full text-text-tertiary">
+          <Loader2 size={24} className="animate-spin mr-2" />
+          <span className="text-sm">{t('loading')}</span>
+        </div>
+      )
+    }
+
+    if (prototypeError) {
+      return (
+        <div className="flex items-center justify-center h-full p-4">
+          <div className="p-4 text-sm text-red-400 bg-red-400/10 rounded-lg">
+            {prototypeError}
+          </div>
+        </div>
+      )
+    }
+
+    if (prototypeHtml) {
+      return (
+        <iframe
+          srcDoc={prototypeHtml}
+          className="w-full h-full border-0"
+          title={t('detail.prototype')}
+          sandbox="allow-scripts"
+        />
+      )
+    }
+
+    return (
+      <div className="flex items-center justify-center h-full text-text-tertiary">
+        <p className="text-sm">{t('detail.noPrototype')}</p>
+      </div>
+    )
+  }
+
+  // 全屏模式
+  if (fullscreen && hasPrototype) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('detail.prototype')}
+        className="fixed inset-0 bg-black/90 z-50 flex flex-col"
+      >
+        {/* 头部 */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background-elevated">
+          <div className="flex items-center gap-2">
+            <Eye size={16} className="text-cyan-500" />
+            <span className="text-sm font-medium text-text-primary">
+              {t('detail.prototype')}
+            </span>
+            <span className="text-xs text-text-tertiary">
+              - {requirement.title}
+            </span>
+          </div>
+          <button
+            onClick={() => setFullscreen(false)}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-background-hover rounded transition-all"
+            title={t('detail.exitFullscreen')}
+            aria-label={t('detail.exitFullscreen')}
+          >
+            <Minimize2 size={14} />
+            {t('detail.exitFullscreen')}
+          </button>
+        </div>
+
+        {/* 原型内容 */}
+        <div className="flex-1 bg-white">
+          {renderPrototypeContent()}
+        </div>
+      </div>
+    )
+  }
+
   // 查看模式
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={t('detail.title')}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
     >
       <div
-        className="bg-background-elevated rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+        className={clsx(
+          "bg-background-elevated rounded-lg shadow-xl overflow-hidden flex flex-col",
+          hasPrototype
+            ? "w-full max-w-5xl h-[85vh]"
+            : "w-full max-w-2xl max-h-[85vh]"
+        )}
         onClick={e => e.stopPropagation()}
       >
         {/* 头部 */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-medium text-text-primary">
               {t('detail.title')}
@@ -169,180 +266,162 @@ export function RequirementDetailDialog({
         </div>
 
         {/* 内容区域 */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          {/* 标题 */}
-          <div>
-            <h3 className="text-lg font-semibold text-text-primary break-words">
-              {requirement.title || t('form.titlePlaceholder')}
-            </h3>
-          </div>
-
-          {/* 描述 */}
-          {requirement.description && (
+        <div className="flex flex-1 overflow-hidden">
+          {/* 左侧：需求信息 */}
+          <div
+            className={clsx(
+              "overflow-y-auto p-4 space-y-4 flex-shrink-0",
+              hasPrototype
+                ? "w-[320px] min-w-[280px] max-w-[360px] border-r border-border"
+                : "flex-1"
+            )}
+          >
+            {/* 标题 */}
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">
-                {t('detail.descriptionField')}
-              </label>
-              <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
-                {requirement.description}
-              </p>
-            </div>
-          )}
-
-          {/* 元信息行 */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-secondary">
-            {/* 优先级 */}
-            <div className="flex items-center gap-1">
-              <span>{t('detail.priorityField')}:</span>
-              <span className={PRIORITY_TEXT[requirement.priority]}>
-                {t(`priority.${requirement.priority}`)}
-              </span>
+              <h3 className="text-lg font-semibold text-text-primary break-words">
+                {requirement.title || t('form.titlePlaceholder')}
+              </h3>
             </div>
 
-            {/* 来源 */}
-            <div className="flex items-center gap-1">
-              {requirement.generatedBy === 'ai' ? (
-                <><Sparkles size={12} className="text-purple-500" /> {t('source.ai')}</>
-              ) : (
-                <><User size={12} /> {t('source.user')}</>
+            {/* 描述 */}
+            {requirement.description && (
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  {t('detail.descriptionField')}
+                </label>
+                <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+                  {requirement.description}
+                </p>
+              </div>
+            )}
+
+            {/* 元信息行 */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-secondary">
+              {/* 优先级 */}
+              <div className="flex items-center gap-1">
+                <span>{t('detail.priorityField')}:</span>
+                <span className={PRIORITY_TEXT[requirement.priority]}>
+                  {t(`priority.${requirement.priority}`)}
+                </span>
+              </div>
+
+              {/* 来源 */}
+              <div className="flex items-center gap-1">
+                {requirement.generatedBy === 'ai' ? (
+                  <><Sparkles size={12} className="text-purple-500" /> {t('source.ai')}</>
+                ) : (
+                  <><User size={12} /> {t('source.user')}</>
+                )}
+              </div>
+
+              {/* 原型标识 */}
+              {requirement.hasPrototype && (
+                <div className="flex items-center gap-1 text-cyan-500">
+                  <Eye size={12} />
+                  {t('card.prototype')}
+                </div>
               )}
             </div>
 
-            {/* 原型标识 */}
-            {requirement.hasPrototype && (
-              <div className="flex items-center gap-1 text-cyan-500">
-                <Eye size={12} />
-                {t('card.prototype')}
+            {/* 标签 */}
+            {requirement.tags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {requirement.tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="px-2 py-0.5 text-xs text-text-tertiary bg-background-tertiary rounded"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* 审核信息（pending/approved/rejected 状态显示） */}
+            {requirement.status !== 'draft' && (
+              <div className="p-3 rounded-lg bg-background-surface border border-border-subtle space-y-2">
+                <label className="block text-xs font-medium text-text-secondary">
+                  {t('detail.basicInfo')}
+                </label>
+
+                <div className="grid grid-cols-1 gap-2 text-xs">
+                  <div className="text-text-secondary">
+                    {t('detail.generatedAt')}: {formatTime(requirement.generatedAt, i18n.language, TIME_FORMAT_FULL)}
+                  </div>
+
+                  {requirement.reviewedAt && (
+                    <div className="text-text-secondary">
+                      {t('detail.reviewedAt')}: {formatTime(requirement.reviewedAt, i18n.language, TIME_FORMAT_FULL)}
+                    </div>
+                  )}
+
+                  {requirement.executedAt && (
+                    <div className="text-text-secondary">
+                      <Clock size={12} className="inline mr-0.5" />
+                      {t('detail.executedAt')}: {formatTime(requirement.executedAt, i18n.language, TIME_FORMAT_FULL)}
+                    </div>
+                  )}
+
+                  {requirement.completedAt && (
+                    <div className="text-text-secondary">
+                      {t('detail.completedAt')}: {formatTime(requirement.completedAt, i18n.language, TIME_FORMAT_FULL)}
+                    </div>
+                  )}
+                </div>
+
+                {requirement.reviewNote && (
+                  <div className="text-xs text-text-secondary mt-1">
+                    {t('detail.reviewNote')}: {requirement.reviewNote}
+                  </div>
+                )}
+
+                {requirement.executeError && (
+                  <div className="text-xs text-red-400 mt-1">
+                    {t('detail.executeError')}: {requirement.executeError}
+                  </div>
+                )}
+
+                {requirement.executeLog && (
+                  <div className="mt-2">
+                    <label className="block text-xs text-text-secondary mb-1">{t('detail.executeLog')}</label>
+                    <pre className="text-xs text-text-secondary bg-background-elevated p-2 rounded overflow-x-auto max-h-32 overflow-y-auto">
+                      {requirement.executeLog}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* 标签 */}
-          {requirement.tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {requirement.tags.map(tag => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 text-xs text-text-tertiary bg-background-tertiary rounded"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* 审核信息（pending/approved/rejected 状态显示） */}
-          {requirement.status !== 'draft' && (
-            <div className="p-3 rounded-lg bg-background-surface border border-border-subtle space-y-2">
-              <label className="block text-xs font-medium text-text-secondary">
-                {t('detail.basicInfo')}
-              </label>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="text-text-secondary">
-                  {t('detail.generatedAt')}: {formatTime(requirement.generatedAt, i18n.language, TIME_FORMAT_FULL)}
-                </div>
-
-                {requirement.reviewedAt && (
-                  <div className="text-text-secondary">
-                    {t('detail.reviewedAt')}: {formatTime(requirement.reviewedAt, i18n.language, TIME_FORMAT_FULL)}
-                  </div>
-                )}
-
-                {requirement.executedAt && (
-                  <div className="text-text-secondary">
-                    <Clock size={12} className="inline mr-0.5" />
-                    {t('detail.executedAt')}: {formatTime(requirement.executedAt, i18n.language, TIME_FORMAT_FULL)}
-                  </div>
-                )}
-
-                {requirement.completedAt && (
-                  <div className="text-text-secondary">
-                    {t('detail.completedAt')}: {formatTime(requirement.completedAt, i18n.language, TIME_FORMAT_FULL)}
-                  </div>
-                )}
-              </div>
-
-              {requirement.reviewNote && (
-                <div className="text-xs text-text-secondary mt-1">
-                  {t('detail.reviewNote')}: {requirement.reviewNote}
-                </div>
-              )}
-
-              {requirement.executeError && (
-                <div className="text-xs text-red-400 mt-1">
-                  {t('detail.executeError')}: {requirement.executeError}
-                </div>
-              )}
-
-              {requirement.executeLog && (
-                <div className="mt-2">
-                  <label className="block text-xs text-text-secondary mb-1">{t('detail.executeLog')}</label>
-                  <pre className="text-xs text-text-secondary bg-background-elevated p-2 rounded overflow-x-auto max-h-32 overflow-y-auto">
-                    {requirement.executeLog}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 原型预览 */}
-          {requirement.hasPrototype && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
+          {/* 右侧：原型预览（仅当有原型时显示） */}
+          {hasPrototype && (
+            <div className="flex-1 flex flex-col overflow-hidden bg-background-surface">
+              {/* 原型头部 */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border flex-shrink-0">
                 <label className="text-xs font-medium text-text-secondary">
                   {t('detail.prototype')}
                 </label>
-                <div className="flex items-center gap-2">
-                  {prototypeHtml && (
-                    <button
-                      onClick={async () => {
-                        // 优先使用 onOpenPrototype 打开原型文件
-                        if (onOpenPrototype && requirement.prototypePath) {
-                          try {
-                            await onOpenPrototype(requirement.prototypePath)
-                          } catch (e) {
-                            log.error('打开原型文件失败:', e instanceof Error ? e : new Error(String(e)))
-                          }
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-text-secondary hover:text-text-primary hover:bg-background-hover rounded transition-all"
-                      title={t('detail.prototypeNewTab')}
-                      aria-label={t('detail.prototypeNewTab')}
-                    >
-                      <ExternalLink size={12} />
-                      {t('detail.prototypeNewTab')}
-                    </button>
-                  )}
-                </div>
+                <button
+                  onClick={() => setFullscreen(true)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-text-secondary hover:text-text-primary hover:bg-background-hover rounded transition-all"
+                  title={t('detail.fullscreen')}
+                  aria-label={t('detail.fullscreen')}
+                >
+                  <Maximize2 size={12} />
+                  {t('detail.fullscreen')}
+                </button>
               </div>
-              {loadingPrototype ? (
-                <div className="flex items-center justify-center py-8 text-text-tertiary">
-                  <Loader2 size={20} className="animate-spin mr-2" />
-                  <span className="text-sm">{t('loading')}</span>
-                </div>
-              ) : prototypeError ? (
-                <div className="p-3 text-xs text-red-400 bg-red-400/10 rounded-lg">
-                  {prototypeError}
-                </div>
-              ) : prototypeHtml ? (
-                <div className="border border-border rounded-lg overflow-hidden bg-white">
-                  <iframe
-                    srcDoc={prototypeHtml}
-                    className="w-full h-96 border-0"
-                    title={t('detail.prototype')}
-                    sandbox="allow-scripts"
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-text-tertiary">{t('detail.noPrototype')}</p>
-              )}
+
+              {/* 原型内容 */}
+              <div className="flex-1 overflow-hidden bg-white rounded-bl-lg">
+                {renderPrototypeContent()}
+              </div>
             </div>
           )}
         </div>
 
         {/* 底部操作栏 */}
-        <div className="px-4 py-3 border-t border-border flex items-center justify-between">
+        <div className="px-4 py-3 border-t border-border flex items-center justify-between flex-shrink-0">
           {/* 左侧：审核 + 编辑 */}
           <div className="flex items-center gap-2">
             {canReview && onApprove && (

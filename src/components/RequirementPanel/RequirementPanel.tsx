@@ -21,7 +21,6 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { openPath } from '@tauri-apps/plugin-opener'
 import { useWorkspaceStore, useConfigStore } from '@/stores'
 import { useRequirementStore } from '@/stores/requirementStore'
 import { useSchedulerStore } from '@/stores/schedulerStore'
@@ -77,7 +76,6 @@ export function RequirementPanel() {
     createRequirement,
     updateRequirement,
     readPrototype,
-    getPrototypeAbsolutePath,
   } = useRequirementStore()
 
   // 本地 UI 状态
@@ -200,21 +198,6 @@ export function RequirementPanel() {
 
   const handleSearchChange = (value: string) => {
     setFilter({ search: value })
-  }
-
-  /** 打开原型文件（在默认浏览器中打开） */
-  const handleOpenPrototype = async (prototypePath: string) => {
-    const absolutePath = getPrototypeAbsolutePath(prototypePath)
-    if (!absolutePath) {
-      toast.error(t('toast.prototypeNotFound'))
-      return
-    }
-    try {
-      await openPath(absolutePath)
-    } catch (e) {
-      log.error('打开原型文件失败:', e instanceof Error ? e : new Error(String(e)))
-      toast.error(t('toast.prototypeOpenFailed'))
-    }
   }
 
   /** 触发 AI 生成需求 */
@@ -530,7 +513,6 @@ export function RequirementPanel() {
           onReject={handleReject}
           onExecute={handleExecute}
           onReadPrototype={readPrototype}
-          onOpenPrototype={handleOpenPrototype}
         />
       )}
 

@@ -246,16 +246,6 @@ export class RequirementService {
   }
 
   /**
-   * 获取原型文件的绝对路径（已废弃，保留兼容）
-   * @deprecated 原型现在存储在全局配置目录，不再需要工作区路径
-   */
-  getPrototypeAbsolutePath(_prototypePath: string): string | null {
-    // 原型现在存储在全局配置目录，无法直接获取绝对路径
-    // 返回 null，调用方应该使用 readPrototype 方法读取内容
-    return null
-  }
-
-  /**
    * 获取统计信息
    */
   getStats(): RequirementStats {
