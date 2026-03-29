@@ -12,11 +12,13 @@ import {
   IconSearch,
   IconGeneral,
   IconMic,
+  IconMessageSquareText,
 } from '../Common/Icons';
 import type { ReactNode } from 'react';
 
 export type SettingsTabId =
   | 'general'
+  | 'system-prompt'
   | 'ai-engine'
   | 'openai-providers'
   | 'translate'
@@ -40,6 +42,7 @@ interface SettingsSidebarProps {
 
 const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'general', icon: <IconGeneral size={16} />, labelKey: 'nav.general' },
+  { id: 'system-prompt', icon: <IconMessageSquareText size={16} />, labelKey: 'nav.systemPrompt' },
   { id: 'window', icon: <IconSettings size={16} />, labelKey: 'nav.window' },
   { id: 'ai-engine', icon: <IconAIEngine size={16} />, labelKey: 'nav.aiEngine' },
   { id: 'openai-providers', icon: <IconAPI size={16} />, labelKey: 'nav.openaiProviders' },

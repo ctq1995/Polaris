@@ -283,6 +283,7 @@
     "charCount": "{{count}} 字符",
     "reset": "重置为默认",
     "resetConfirm": "确定要重置为默认设置吗？",
+    "fillDefault": "填入默认",
     "showVariables": "显示变量",
     "hideVariables": "隐藏变量",
     "variablesHint": "点击变量可插入到下方编辑器：",

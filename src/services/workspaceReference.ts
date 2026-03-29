@@ -4,6 +4,7 @@
 
 import i18n from 'i18next';
 import type { Workspace, WorkspaceReference, ParsedWorkspaceMessage } from '../types';
+import { getSystemPromptConfigDirect } from './systemPromptStore';
 
 /**
  * 匹配 @workspace:path 格式
@@ -219,19 +220,12 @@ export function buildWorkspaceContextExtra(
 }
 
 /**
- * 构建系统提示词（用于 --system-prompt 参数）
+ * 构建默认系统提示词（原有逻辑抽取）
  */
-export function buildSystemPrompt(
-  workspaces: Workspace[],
-  contextWorkspaces: Workspace[],
-  currentWorkspaceId: string | null
+function buildDefaultSystemPrompt(
+  currentWorkspace: Workspace,
+  contextWorkspaces: Workspace[]
 ): string {
-  const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId);
-
-  if (!currentWorkspace) {
-    return '';
-  }
-
   const t = i18n.t.bind(i18n);
   const lines: string[] = [];
 
@@ -252,4 +246,89 @@ export function buildSystemPrompt(
   lines.push(t('systemPrompt:workspaceToolGuidance'));
 
   return lines.join('\n');
+}
+
+/**
+ * 解析模板变量
+ *
+ * 支持的变量:
+ * - {{workspaceName}} 当前工作区名称
+ * - {{workspacePath}} 当前工作区路径
+ * - {{contextWorkspaces}} 关联工作区列表
+ * - {{date}} 当前日期
+ * - {{time}} 当前时间
+ * - {{defaultPrompt}} 默认系统提示词
+ */
+function resolveTemplateVariables(
+  template: string,
+  context: {
+    workspaceName: string;
+    workspacePath: string;
+    contextWorkspaces: Workspace[];
+    defaultPrompt: string;
+  }
+): string {
+  const now = new Date();
+  const contextList = context.contextWorkspaces
+    .filter(w => w?.name && w?.path)
+    .map(w => `- ${w.name} (${w.path})`)
+    .join('\n');
+
+  return template
+    .replace(/\{\{workspaceName\}\}/g, context.workspaceName)
+    .replace(/\{\{workspacePath\}\}/g, context.workspacePath)
+    .replace(/\{\{contextWorkspaces\}\}/g, contextList)
+    .replace(/\{\{date\}\}/g, now.toLocaleDateString())
+    .replace(/\{\{time\}\}/g, now.toLocaleTimeString())
+    .replace(/\{\{defaultPrompt\}\}/g, context.defaultPrompt);
+}
+
+/**
+ * 构建系统提示词（支持用户自定义）
+ *
+ * 支持三种模式:
+ * - default: 使用默认提示词
+ * - append: 将自定义内容追加到默认提示词后
+ * - replace: 完全使用自定义内容替换默认提示词
+ */
+export function buildSystemPrompt(
+  workspaces: Workspace[],
+  contextWorkspaces: Workspace[],
+  currentWorkspaceId: string | null
+): string {
+  const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId);
+
+  if (!currentWorkspace) {
+    return '';
+  }
+
+  // 构建默认提示词
+  const defaultPrompt = buildDefaultSystemPrompt(currentWorkspace, contextWorkspaces);
+
+  // 直接从 localStorage 读取配置，绕过 Zustand 的异步水合问题
+  const config = getSystemPromptConfigDirect();
+
+  // 未启用或无自定义内容，返回默认
+  if (!config?.enabled || !config.customPrompt?.trim()) {
+    return defaultPrompt;
+  }
+
+  // 解析变量
+  const resolvedPrompt = resolveTemplateVariables(config.customPrompt, {
+    workspaceName: currentWorkspace.name,
+    workspacePath: currentWorkspace.path,
+    contextWorkspaces,
+    defaultPrompt,
+  });
+
+  // 根据模式组合
+  switch (config.mode) {
+    case 'append':
+      return `${defaultPrompt}\n\n${resolvedPrompt}`;
+    case 'replace':
+      return resolvedPrompt;
+    case 'default':
+    default:
+      return defaultPrompt;
+  }
 }

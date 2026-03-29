@@ -144,8 +144,14 @@ export class TTSService {
         offset += chunk.length;
       }
 
-      // 转换为 base64 Data URL
-      const base64 = btoa(String.fromCharCode(...audioBuffer));
+      // 转换为 base64 Data URL（使用分块处理避免栈溢出）
+      let binary = '';
+      const chunkSize = 0x8000; // 32768 字符分块
+      for (let i = 0; i < audioBuffer.length; i += chunkSize) {
+        const subChunk = audioBuffer.subarray(i, Math.min(i + chunkSize, audioBuffer.length));
+        binary += String.fromCharCode.apply(null, Array.from(subChunk));
+      }
+      const base64 = btoa(binary);
       const dataUrl = `data:audio/mp3;base64,${base64}`;
 
       // 创建音频元素并播放

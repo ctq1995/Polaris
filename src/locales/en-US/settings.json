@@ -283,6 +283,7 @@
     "charCount": "{{count}} characters",
     "reset": "Reset to Default",
     "resetConfirm": "Are you sure you want to reset to default settings?",
+    "fillDefault": "Fill Default",
     "showVariables": "Show Variables",
     "hideVariables": "Hide Variables",
     "variablesHint": "Click a variable to insert it into the editor:",

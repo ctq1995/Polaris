@@ -14,6 +14,7 @@ import { Button } from '../Common';
 import { SettingsSidebar, type SettingsTabId } from './SettingsSidebar';
 import { AIEngineTab } from './tabs/AIEngineTab';
 import { GeneralTab } from './tabs/GeneralTab';
+import { SystemPromptTab } from './tabs/SystemPromptTab';
 import { WindowTab } from './tabs/WindowTab';
 import { OpenAIProvidersTab } from './OpenAIProvidersTab';
 import { TranslateTab } from './tabs/TranslateTab';
@@ -34,6 +35,7 @@ interface SettingsModalProps {
 // Tab 标题映射 - 使用 i18n key
 const TAB_TITLE_KEYS: Record<SettingsTabId, string> = {
   'general': 'nav.general',
+  'system-prompt': 'nav.systemPrompt',
   'window': 'nav.window',
   'ai-engine': 'nav.aiEngine',
   'openai-providers': 'nav.openaiProviders',
@@ -168,6 +170,10 @@ export function SettingsModal({ onClose, initialTab }: SettingsModalProps) {
                   onConfigChange={setLocalConfig}
                   loading={loading}
                 />
+              )}
+
+              {activeTab === 'system-prompt' && (
+                <SystemPromptTab />
               )}
 
               {activeTab === 'window' && (
