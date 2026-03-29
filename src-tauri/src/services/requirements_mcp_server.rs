@@ -1,17 +1,23 @@
+//! Requirements MCP Server
+//!
+//! MCP server for unified requirement management.
+
+use std::collections::BTreeMap;
 use std::io::{self, BufRead, BufReader, Write};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::error::{AppError, Result};
 use crate::models::requirement::{
-    RequirementCreateParams, RequirementExecuteConfig, RequirementPriority, RequirementSource,
-    RequirementStatus, RequirementUpdateParams,
+    QueryScope, RequirementCreateParams, RequirementExecuteConfig, RequirementPriority,
+    RequirementSource, RequirementStatus, RequirementUpdateParams,
 };
-use crate::services::requirement_repository::WorkspaceRequirementRepository;
+use crate::services::unified_requirement_repository::UnifiedRequirementRepository;
 
 const SERVER_NAME: &str = "polaris-requirements-mcp";
-const SERVER_VERSION: &str = "0.1.0";
+const SERVER_VERSION: &str = "0.2.0";
 const PROTOCOL_VERSION: &str = "2024-11-05";
 
 #[derive(Debug, Deserialize)]
@@ -39,9 +45,22 @@ struct JsonRpcError {
     message: String,
 }
 
-pub fn run_requirements_mcp_server(workspace_path: &str) -> Result<()> {
-    let workspace_path = normalize_workspace_path(workspace_path)?;
-    let repository = WorkspaceRequirementRepository::new(workspace_path);
+/// Run the requirements MCP server with unified repository
+pub fn run_requirements_mcp_server(config_dir: &str, workspace_path: Option<&str>) -> Result<()> {
+    let config_dir = normalize_path(config_dir)?;
+    let workspace_path = workspace_path.and_then(|p| {
+        let normalized = p.trim();
+        if normalized.is_empty() {
+            None
+        } else {
+            Some(PathBuf::from(normalized))
+        }
+    });
+
+    let repository = UnifiedRequirementRepository::new(config_dir, workspace_path);
+
+    // Register workspace if provided
+    repository.register_workspace()?;
 
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -82,7 +101,7 @@ pub fn run_requirements_mcp_server(workspace_path: &str) -> Result<()> {
     Ok(())
 }
 
-fn handle_request(request: JsonRpcRequest, repository: &WorkspaceRequirementRepository) -> JsonRpcResponse<'static> {
+fn handle_request(request: JsonRpcRequest, repository: &UnifiedRequirementRepository) -> JsonRpcResponse<'static> {
     let id = request.id.unwrap_or(Value::Null);
 
     if request.jsonrpc != "2.0" {
@@ -127,10 +146,15 @@ fn handle_tools_list() -> Value {
         "tools": [
             {
                 "name": "list_requirements",
-                "description": "列出当前工作区需求库中的需求。",
+                "description": "列出需求。默认仅当前工作区，可通过 scope 参数查询全部。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
+                        "scope": {
+                            "type": "string",
+                            "enum": ["workspace", "all"],
+                            "description": "workspace: 仅当前工作区（默认），all: 全部"
+                        },
                         "status": { "type": "string", "enum": ["draft", "pending", "approved", "rejected", "executing", "completed", "failed"] },
                         "priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
                         "limit": { "type": "integer", "minimum": 1, "maximum": 200 }
@@ -140,7 +164,7 @@ fn handle_tools_list() -> Value {
             },
             {
                 "name": "create_requirement",
-                "description": "在当前工作区需求库中创建一条新需求。",
+                "description": "创建一条新需求。需求将关联到当前工作区。",
                 "inputSchema": {
                     "type": "object",
                     "required": ["title", "description"],
@@ -158,7 +182,7 @@ fn handle_tools_list() -> Value {
             },
             {
                 "name": "update_requirement",
-                "description": "更新当前工作区的一条需求。",
+                "description": "更新一条需求。",
                 "inputSchema": {
                     "type": "object",
                     "required": ["id"],
@@ -191,7 +215,7 @@ fn handle_tools_list() -> Value {
             },
             {
                 "name": "delete_requirement",
-                "description": "删除当前工作区的一条需求。",
+                "description": "删除一条需求。",
                 "inputSchema": {
                     "type": "object",
                     "required": ["id"],
@@ -203,7 +227,7 @@ fn handle_tools_list() -> Value {
             },
             {
                 "name": "save_requirement_prototype",
-                "description": "保存需求原型 HTML，并回写需求的 prototypePath / hasPrototype。",
+                "description": "保存需求原型 HTML。",
                 "inputSchema": {
                     "type": "object",
                     "required": ["id", "html"],
@@ -213,127 +237,234 @@ fn handle_tools_list() -> Value {
                     },
                     "additionalProperties": false
                 }
+            },
+            {
+                "name": "get_workspace_breakdown",
+                "description": "获取各工作区的需求数量统计。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false
+                }
             }
         ]
     })
 }
 
-fn handle_tools_call(params: Value, repository: &WorkspaceRequirementRepository) -> Result<Value> {
+fn handle_tools_call(params: Value, repository: &UnifiedRequirementRepository) -> Result<Value> {
     let name = params
         .get("name")
         .and_then(Value::as_str)
         .ok_or_else(|| AppError::ValidationError("tools/call 缺少 name".to_string()))?;
     let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
-    let workspace_path = repository.workspace_path().to_string_lossy().to_string();
 
     match name {
-        "list_requirements" => {
-            let args = parse_list_requirements_args(arguments)?;
-            let mut requirements = repository.list_requirements()?;
-            if let Some(status) = args.status {
-                requirements.retain(|item| item.status == status);
-            }
-            if let Some(priority) = args.priority {
-                requirements.retain(|item| item.priority == priority);
-            }
-            if let Some(limit) = args.limit {
-                requirements.truncate(limit as usize);
-            }
-
-            Ok(tool_success(
-                format!("已返回 {} 条需求", requirements.len()),
-                &workspace_path,
-                json!({
-                    "workspacePath": workspace_path,
-                    "count": requirements.len(),
-                    "requirements": requirements,
-                }),
-            ))
-        }
-        "create_requirement" => {
-            let args = parse_create_requirement_args(arguments)?;
-            let requirement = repository.create_requirement(args)?;
-            Ok(tool_success(
-                format!("已创建需求：{}", requirement.title),
-                &workspace_path,
-                json!({
-                    "workspacePath": workspace_path,
-                    "requirement": requirement,
-                }),
-            ))
-        }
-        "update_requirement" => {
-            let args = parse_update_requirement_args(arguments)?;
-            let requirement = repository.update_requirement(&args.id, args.updates)?;
-            Ok(tool_success(
-                format!("已更新需求：{}", requirement.title),
-                &workspace_path,
-                json!({
-                    "workspacePath": workspace_path,
-                    "requirement": requirement,
-                }),
-            ))
-        }
-        "delete_requirement" => {
-            let id = parse_id_arg(&arguments)?;
-            let requirement = repository.delete_requirement(&id)?;
-            Ok(tool_success(
-                format!("已删除需求：{}", requirement.title),
-                &workspace_path,
-                json!({
-                    "workspacePath": workspace_path,
-                    "requirement": requirement,
-                }),
-            ))
-        }
-        "save_requirement_prototype" => {
-            let id = parse_id_arg(&arguments)?;
-            let html = arguments
-                .get("html")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .ok_or_else(|| AppError::ValidationError("html 不能为空".to_string()))?;
-            let prototype_path = repository.save_prototype(&id, html)?;
-            let requirement = repository
-                .get_requirement(&id)?
-                .ok_or_else(|| AppError::ValidationError(format!("需求不存在: {}", id)))?;
-            Ok(tool_success(
-                format!("已保存需求原型：{}", requirement.title),
-                &workspace_path,
-                json!({
-                    "workspacePath": workspace_path,
-                    "prototypePath": prototype_path,
-                    "requirement": requirement,
-                }),
-            ))
-        }
+        "list_requirements" => execute_list_requirements(arguments, repository),
+        "create_requirement" => execute_create_requirement(arguments, repository),
+        "update_requirement" => execute_update_requirement(arguments, repository),
+        "delete_requirement" => execute_delete_requirement(arguments, repository),
+        "save_requirement_prototype" => execute_save_prototype(arguments, repository),
+        "get_workspace_breakdown" => execute_get_workspace_breakdown(repository),
         _ => Err(AppError::ValidationError(format!("未知工具: {}", name))),
     }
 }
 
-fn tool_success(summary: String, workspace_path: &str, structured_content: Value) -> Value {
-    json!({
-        "structuredContent": structured_content,
+// ============================================================================
+// Tool implementations
+// ============================================================================
+
+fn execute_list_requirements(arguments: Value, repository: &UnifiedRequirementRepository) -> Result<Value> {
+    let scope = parse_scope(arguments.get("scope"));
+    let status_filter = arguments.get("status").map(parse_status_value).transpose()?;
+    let priority_filter = arguments.get("priority").map(parse_priority_value).transpose()?;
+    let limit = arguments.get("limit").map(parse_limit_value).transpose()?;
+
+    let mut requirements = repository.list_requirements(scope)?;
+
+    if let Some(status) = status_filter {
+        requirements.retain(|req| req.status == status);
+    }
+    if let Some(priority) = priority_filter {
+        requirements.retain(|req| req.priority == priority);
+    }
+    if let Some(limit) = limit {
+        requirements.truncate(limit as usize);
+    }
+
+    let breakdown = if scope == QueryScope::All {
+        Some(repository.get_workspace_breakdown()?)
+    } else {
+        None
+    };
+
+    Ok(tool_success_with_breakdown(
+        format!("已返回 {} 条需求", requirements.len()),
+        requirements,
+        scope,
+        breakdown,
+    ))
+}
+
+fn execute_create_requirement(arguments: Value, repository: &UnifiedRequirementRepository) -> Result<Value> {
+    let title = arguments
+        .get("title")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::ValidationError("title 不能为空".to_string()))?
+        .to_string();
+
+    let description = arguments
+        .get("description")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::ValidationError("description 不能为空".to_string()))?
+        .to_string();
+
+    let params = RequirementCreateParams {
+        title,
+        description,
+        priority: arguments.get("priority").map(parse_priority_value).transpose()?,
+        tags: optional_string_array(arguments.get("tags"))?,
+        has_prototype: arguments.get("hasPrototype").and_then(Value::as_bool),
+        generated_by: arguments.get("generatedBy").map(parse_source_value).transpose()?,
+        generator_task_id: optional_trimmed_string(arguments.get("generatorTaskId")),
+    };
+
+    let requirement = repository.create_requirement(params)?;
+
+    let location = if let Some(name) = &requirement.workspace_name {
+        name.as_str()
+    } else {
+        "全局"
+    };
+
+    Ok(tool_success_single(
+        format!("已在【{}】创建需求：{}", location, requirement.title),
+        requirement,
+    ))
+}
+
+fn execute_update_requirement(arguments: Value, repository: &UnifiedRequirementRepository) -> Result<Value> {
+    let id = parse_id_arg(&arguments)?;
+
+    let updates = RequirementUpdateParams {
+        title: optional_trimmed_string(arguments.get("title")),
+        description: optional_trimmed_string(arguments.get("description")),
+        status: arguments.get("status").map(parse_status_value).transpose()?,
+        priority: arguments.get("priority").map(parse_priority_value).transpose()?,
+        tags: optional_string_array(arguments.get("tags"))?,
+        prototype_path: optional_trimmed_string(arguments.get("prototypePath")),
+        has_prototype: arguments.get("hasPrototype").and_then(Value::as_bool),
+        review_note: optional_trimmed_string(arguments.get("reviewNote")),
+        execute_config: arguments.get("executeConfig").map(parse_execute_config).transpose()?,
+        execute_log: optional_trimmed_string(arguments.get("executeLog")),
+        execute_error: optional_trimmed_string(arguments.get("executeError")),
+        generated_by: arguments.get("generatedBy").map(parse_source_value).transpose()?,
+        session_id: optional_trimmed_string(arguments.get("sessionId")),
+    };
+
+    let requirement = repository.update_requirement(&id, updates)?;
+    Ok(tool_success_single(format!("已更新需求：{}", requirement.title), requirement))
+}
+
+fn execute_delete_requirement(arguments: Value, repository: &UnifiedRequirementRepository) -> Result<Value> {
+    let id = parse_id_arg(&arguments)?;
+    let requirement = repository.delete_requirement(&id)?;
+    Ok(tool_success_single(format!("已删除需求：{}", requirement.title), requirement))
+}
+
+fn execute_save_prototype(arguments: Value, repository: &UnifiedRequirementRepository) -> Result<Value> {
+    let id = parse_id_arg(&arguments)?;
+    let html = arguments
+        .get("html")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::ValidationError("html 不能为空".to_string()))?;
+
+    let prototype_path = repository.save_prototype(&id, html)?;
+    let requirement = repository
+        .get_requirement(&id)?
+        .ok_or_else(|| AppError::ValidationError(format!("需求不存在: {}", id)))?;
+
+    Ok(tool_success_single(
+        format!("已保存原型：{}", requirement.title),
+        json!({
+            "prototypePath": prototype_path,
+            "requirement": requirement
+        }),
+    ))
+}
+
+fn execute_get_workspace_breakdown(repository: &UnifiedRequirementRepository) -> Result<Value> {
+    let breakdown = repository.get_workspace_breakdown()?;
+    let total: usize = breakdown.values().sum();
+
+    Ok(json!({
+        "structuredContent": {
+            "total": total,
+            "breakdown": breakdown
+        },
         "content": [
             {
                 "type": "text",
-                "text": build_summary_text(&summary, workspace_path),
+                "text": format!("共 {} 条需求，分布：{}", total, format_breakdown(&breakdown))
+            }
+        ]
+    }))
+}
+
+// ============================================================================
+// Response helpers
+// ============================================================================
+
+fn tool_success_single(summary: String, data: impl serde::Serialize) -> Value {
+    json!({
+        "structuredContent": data,
+        "content": [
+            {
+                "type": "text",
+                "text": summary
             }
         ]
     })
 }
 
-fn build_summary_text(action: &str, workspace_path: &str) -> String {
-    format!("{}，工作区：{}", action, workspace_path)
+fn tool_success_with_breakdown(
+    summary: String,
+    requirements: Vec<crate::models::requirement::RequirementItem>,
+    scope: QueryScope,
+    breakdown: Option<BTreeMap<String, usize>>,
+) -> Value {
+    let mut structured = json!({
+        "count": requirements.len(),
+        "requirements": requirements,
+        "scope": if scope == QueryScope::All { "all" } else { "workspace" }
+    });
+
+    if let Some(bd) = breakdown {
+        structured["workspaceBreakdown"] = json!(bd);
+    }
+
+    json!({
+        "structuredContent": structured,
+        "content": [
+            {
+                "type": "text",
+                "text": summary
+            }
+        ]
+    })
 }
 
-fn normalize_workspace_path(workspace_path: &str) -> Result<&str> {
-    let normalized = workspace_path.trim();
-    if normalized.is_empty() {
-        return Err(AppError::ValidationError("workspacePath 不能为空".to_string()));
-    }
-    Ok(normalized)
+fn format_breakdown(breakdown: &BTreeMap<String, usize>) -> String {
+    breakdown
+        .iter()
+        .map(|(name, count)| format!("{}: {}", name, count))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn error_response(id: Value, code: i32, message: String) -> JsonRpcResponse<'static> {
@@ -343,6 +474,18 @@ fn error_response(id: Value, code: i32, message: String) -> JsonRpcResponse<'sta
         result: None,
         error: Some(JsonRpcError { code, message }),
     }
+}
+
+// ============================================================================
+// Argument parsers
+// ============================================================================
+
+fn normalize_path(path: &str) -> Result<PathBuf> {
+    let normalized = path.trim();
+    if normalized.is_empty() {
+        return Err(AppError::ValidationError("路径不能为空".to_string()));
+    }
+    Ok(PathBuf::from(normalized))
 }
 
 fn parse_id_arg(arguments: &Value) -> Result<String> {
@@ -355,84 +498,11 @@ fn parse_id_arg(arguments: &Value) -> Result<String> {
     Ok(id.to_string())
 }
 
-struct ListRequirementsArgs {
-    status: Option<RequirementStatus>,
-    priority: Option<RequirementPriority>,
-    limit: Option<u64>,
-}
-
-fn parse_list_requirements_args(arguments: Value) -> Result<ListRequirementsArgs> {
-    let status = arguments.get("status").map(parse_status_value).transpose()?;
-    let priority = arguments.get("priority").map(parse_priority_value).transpose()?;
-    let limit = arguments.get("limit").map(parse_limit_value).transpose()?;
-    Ok(ListRequirementsArgs { status, priority, limit })
-}
-
-fn parse_create_requirement_args(arguments: Value) -> Result<RequirementCreateParams> {
-    let title = arguments
-        .get("title")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::ValidationError("title 不能为空".to_string()))?
-        .to_string();
-    let description = arguments
-        .get("description")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::ValidationError("description 不能为空".to_string()))?
-        .to_string();
-
-    Ok(RequirementCreateParams {
-        title,
-        description,
-        priority: arguments.get("priority").map(parse_priority_value).transpose()?,
-        tags: optional_string_array(arguments.get("tags"))?,
-        has_prototype: arguments.get("hasPrototype").and_then(Value::as_bool),
-        generated_by: arguments.get("generatedBy").map(parse_source_value).transpose()?,
-        generator_task_id: optional_trimmed_string(arguments.get("generatorTaskId")),
-    })
-}
-
-struct UpdateRequirementArgs {
-    id: String,
-    updates: RequirementUpdateParams,
-}
-
-fn parse_update_requirement_args(arguments: Value) -> Result<UpdateRequirementArgs> {
-    let id = parse_id_arg(&arguments)?;
-
-    Ok(UpdateRequirementArgs {
-        id,
-        updates: RequirementUpdateParams {
-            title: optional_trimmed_string(arguments.get("title")),
-            description: optional_trimmed_string(arguments.get("description")),
-            status: arguments.get("status").map(parse_status_value).transpose()?,
-            priority: arguments.get("priority").map(parse_priority_value).transpose()?,
-            tags: optional_string_array(arguments.get("tags"))?,
-            prototype_path: optional_trimmed_string(arguments.get("prototypePath")),
-            has_prototype: arguments.get("hasPrototype").and_then(Value::as_bool),
-            review_note: optional_trimmed_string(arguments.get("reviewNote")),
-            execute_config: arguments.get("executeConfig").map(parse_execute_config).transpose()?,
-            execute_log: optional_trimmed_string(arguments.get("executeLog")),
-            execute_error: optional_trimmed_string(arguments.get("executeError")),
-            generated_by: arguments.get("generatedBy").map(parse_source_value).transpose()?,
-            session_id: optional_trimmed_string(arguments.get("sessionId")),
-        },
-    })
-}
-
-fn parse_execute_config(value: &Value) -> Result<RequirementExecuteConfig> {
-    let object = value
-        .as_object()
-        .ok_or_else(|| AppError::ValidationError("executeConfig 必须是对象".to_string()))?;
-
-    Ok(RequirementExecuteConfig {
-        scheduled_at: object.get("scheduledAt").and_then(Value::as_i64),
-        engine_id: optional_trimmed_string(object.get("engineId")),
-        work_dir: optional_trimmed_string(object.get("workDir")),
-    })
+fn parse_scope(value: Option<&Value>) -> QueryScope {
+    match value.and_then(Value::as_str) {
+        Some("all") => QueryScope::All,
+        _ => QueryScope::Workspace,
+    }
 }
 
 fn parse_limit_value(value: &Value) -> Result<u64> {
@@ -446,43 +516,46 @@ fn parse_limit_value(value: &Value) -> Result<u64> {
 }
 
 fn parse_status_value(value: &Value) -> Result<RequirementStatus> {
-    let raw = value
-        .as_str()
-        .ok_or_else(|| AppError::ValidationError("status 必须是字符串".to_string()))?;
-    match raw {
-        "draft" => Ok(RequirementStatus::Draft),
-        "pending" => Ok(RequirementStatus::Pending),
-        "approved" => Ok(RequirementStatus::Approved),
-        "rejected" => Ok(RequirementStatus::Rejected),
-        "executing" => Ok(RequirementStatus::Executing),
-        "completed" => Ok(RequirementStatus::Completed),
-        "failed" => Ok(RequirementStatus::Failed),
-        _ => Err(AppError::ValidationError(format!("不支持的 status: {}", raw))),
+    match value.as_str() {
+        Some("draft") => Ok(RequirementStatus::Draft),
+        Some("pending") => Ok(RequirementStatus::Pending),
+        Some("approved") => Ok(RequirementStatus::Approved),
+        Some("rejected") => Ok(RequirementStatus::Rejected),
+        Some("executing") => Ok(RequirementStatus::Executing),
+        Some("completed") => Ok(RequirementStatus::Completed),
+        Some("failed") => Ok(RequirementStatus::Failed),
+        _ => Err(AppError::ValidationError("status 非法".to_string())),
     }
 }
 
 fn parse_priority_value(value: &Value) -> Result<RequirementPriority> {
-    let raw = value
-        .as_str()
-        .ok_or_else(|| AppError::ValidationError("priority 必须是字符串".to_string()))?;
-    match raw {
-        "low" => Ok(RequirementPriority::Low),
-        "normal" => Ok(RequirementPriority::Normal),
-        "high" => Ok(RequirementPriority::High),
-        "urgent" => Ok(RequirementPriority::Urgent),
-        _ => Err(AppError::ValidationError(format!("不支持的 priority: {}", raw))),
+    match value.as_str() {
+        Some("low") => Ok(RequirementPriority::Low),
+        Some("normal") => Ok(RequirementPriority::Normal),
+        Some("high") => Ok(RequirementPriority::High),
+        Some("urgent") => Ok(RequirementPriority::Urgent),
+        _ => Err(AppError::ValidationError("priority 非法".to_string())),
     }
 }
 
 fn parse_source_value(value: &Value) -> Result<RequirementSource> {
-    let raw = value
-        .as_str()
-        .ok_or_else(|| AppError::ValidationError("generatedBy 必须是字符串".to_string()))?;
-    match raw {
-        "ai" => Ok(RequirementSource::Ai),
-        "user" => Ok(RequirementSource::User),
-        _ => Err(AppError::ValidationError(format!("不支持的 generatedBy: {}", raw))),
+    match value.as_str() {
+        Some("ai") => Ok(RequirementSource::Ai),
+        Some("user") => Ok(RequirementSource::User),
+        _ => Err(AppError::ValidationError("generatedBy 非法".to_string())),
     }
+}
+
+fn parse_execute_config(value: &Value) -> Result<RequirementExecuteConfig> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| AppError::ValidationError("executeConfig 必须是对象".to_string()))?;
+
+    Ok(RequirementExecuteConfig {
+        scheduled_at: object.get("scheduledAt").and_then(Value::as_i64),
+        engine_id: optional_trimmed_string(object.get("engineId")),
+        work_dir: optional_trimmed_string(object.get("workDir")),
+    })
 }
 
 fn optional_trimmed_string(value: Option<&Value>) -> Option<String> {
@@ -498,19 +571,59 @@ fn optional_string_array(value: Option<&Value>) -> Result<Option<Vec<String>>> {
         return Ok(None);
     };
 
-    let array = value
+    let items = value
         .as_array()
         .ok_or_else(|| AppError::ValidationError("数组字段必须是数组".to_string()))?;
 
-    let mut items = Vec::new();
-    for item in array {
-        let value = item
-            .as_str()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .ok_or_else(|| AppError::ValidationError("数组元素必须是非空字符串".to_string()))?;
-        items.push(value.to_string());
+    let values = items
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| value.to_string())
+                .ok_or_else(|| AppError::ValidationError("数组项必须是非空字符串".to_string()))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if values.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(values))
+    }
+}
+
+// ============================================================================
+// Tool definitions for diagnostics
+// ============================================================================
+
+pub fn current_tool_definitions() -> BTreeMap<&'static str, &'static str> {
+    BTreeMap::from([
+        ("list_requirements", "列出需求。默认仅当前工作区，可通过 scope 参数查询全部。"),
+        ("create_requirement", "创建一条新需求。需求将关联到当前工作区。"),
+        ("update_requirement", "更新一条需求。"),
+        ("delete_requirement", "删除一条需求。"),
+        ("save_requirement_prototype", "保存需求原型 HTML。"),
+        ("get_workspace_breakdown", "获取各工作区的需求数量统计。"),
+    ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exposes_expected_tool_count() {
+        let defs = current_tool_definitions();
+        assert_eq!(defs.len(), 6);
+        assert!(defs.contains_key("create_requirement"));
+        assert!(defs.contains_key("save_requirement_prototype"));
     }
 
-    Ok(Some(items))
+    #[test]
+    fn initialize_returns_protocol_metadata() {
+        let value = handle_initialize().unwrap();
+        assert_eq!(value["protocolVersion"], Value::String(PROTOCOL_VERSION.to_string()));
+        assert_eq!(value["serverInfo"]["name"], Value::String(SERVER_NAME.to_string()));
+    }
 }

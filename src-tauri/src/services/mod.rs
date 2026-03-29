@@ -13,6 +13,6 @@ pub mod scheduler_repository;
 pub mod scheduler_mcp_server;
 pub mod todo_mcp_server;
 pub mod unified_todo_repository;
-pub mod requirement_repository;
+pub mod unified_requirement_repository;
 pub mod requirements_mcp_server;
 

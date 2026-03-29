@@ -139,9 +139,9 @@ impl WorkspaceMcpConfigService {
                 )));
             }
 
-            // Todo MCP needs both config_dir and workspace_path
+            // Todo MCP and Requirements MCP need both config_dir and workspace_path
             // Other MCPs only need workspace_path
-            let args = if binary.server_name == TODO_MCP_SERVER_NAME {
+            let args = if binary.server_name == TODO_MCP_SERVER_NAME || binary.server_name == REQUIREMENTS_MCP_SERVER_NAME {
                 vec![
                     self.config_dir.to_string_lossy().to_string(),
                     normalized_workspace.to_string(),

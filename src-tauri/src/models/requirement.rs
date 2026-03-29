@@ -1,5 +1,16 @@
 use serde::{Deserialize, Serialize};
 
+/// 查询范围
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryScope {
+    /// 仅当前工作区
+    #[default]
+    Workspace,
+    /// 全部
+    All,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RequirementStatus {
@@ -91,6 +102,12 @@ pub struct RequirementItem {
     pub execute_error: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
+    /// 所属工作区路径（None 表示无工作区关联）
+    #[serde(default)]
+    pub workspace_path: Option<String>,
+    /// 所属工作区名称（用于显示）
+    #[serde(default)]
+    pub workspace_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

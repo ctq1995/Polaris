@@ -514,6 +514,14 @@ pub fn run() {
             commands::todo::start_todo,
             commands::todo::complete_todo,
             commands::todo::get_todo_workspace_breakdown,
+            // Requirement 相关
+            commands::requirement::list_requirements,
+            commands::requirement::create_requirement,
+            commands::requirement::update_requirement,
+            commands::requirement::delete_requirement,
+            commands::requirement::save_requirement_prototype,
+            commands::requirement::read_requirement_prototype,
+            commands::requirement::get_requirement_workspace_breakdown,
 
         ])
         .run(tauri::generate_context!())

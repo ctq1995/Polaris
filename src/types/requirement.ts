@@ -75,6 +75,11 @@ export interface Requirement {
   createdAt: number
   /** 更新时间（Unix 时间戳，毫秒） */
   updatedAt: number
+
+  /** 所属工作区路径（null 表示无工作区关联） */
+  workspacePath?: string | null
+  /** 所属工作区名称（用于显示） */
+  workspaceName?: string | null
 }
 
 /** 需求查询过滤器 */
