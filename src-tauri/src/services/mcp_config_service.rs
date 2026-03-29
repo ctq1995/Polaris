@@ -391,7 +391,7 @@ mod tests {
             serde_json::Value::String(workspace.to_string_lossy().to_string())
         );
 
-        // Requirements MCP should have one arg: workspace_path
+        // Requirements MCP should have two args: config_dir and workspace_path
         let requirements_server = &json["mcpServers"][REQUIREMENTS_MCP_SERVER_NAME];
         assert_eq!(
             requirements_server["command"],
@@ -399,6 +399,10 @@ mod tests {
         );
         assert_eq!(
             requirements_server["args"][0],
+            serde_json::Value::String(config_dir.to_string_lossy().to_string())
+        );
+        assert_eq!(
+            requirements_server["args"][1],
             serde_json::Value::String(workspace.to_string_lossy().to_string())
         );
 
