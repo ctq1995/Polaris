@@ -56,9 +56,9 @@ export interface TaskCardProps {
   onDelete: () => void;
   /** 点击切换状态 */
   onToggle: () => void;
-  /** 点击执行（不订阅日志） */
+  /** 点击执行任务 */
   onRun: () => void;
-  /** 点击订阅执行（执行并显示日志） */
+  /** 点击订阅日志（仅订阅正在执行的任务） */
   onSubscribe: () => void;
 }
 
@@ -132,7 +132,7 @@ export function TaskCard({
 
       {/* 操作按钮 */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* 执行按钮组 */}
+        {/* 执行按钮 */}
         <button
           onClick={onRun}
           disabled={isRunning}
@@ -146,17 +146,18 @@ export function TaskCard({
           {isRunning ? t('card.running') : t('card.run')}
         </button>
 
+        {/* 订阅日志按钮 - 仅在任务执行中时可用 */}
         <button
           onClick={onSubscribe}
-          disabled={isRunning}
+          disabled={!isRunning || isSubscribed}
           className={`px-3 py-1 text-sm rounded transition-colors ${
             isSubscribed
               ? 'bg-success text-white'
               : isRunning
-                ? 'bg-info-faint text-info cursor-wait'
-                : 'bg-success-faint text-success hover:bg-success/20'
+                ? 'bg-success-faint text-success hover:bg-success/20'
+                : 'bg-background-hover text-text-muted cursor-not-allowed'
           }`}
-          title={t('card.subscribeHint')}
+          title={isRunning ? t('card.subscribeHint') : t('card.subscribeDisabled')}
         >
           {isSubscribed ? t('card.subscribed') : t('card.subscribe')}
         </button>

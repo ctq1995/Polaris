@@ -332,10 +332,10 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     try {
       const result = await tauri.schedulerRunTask(id);
 
-      // 更新本地任务状态
+      // 更新本地任务状态（时间戳使用整数，与后端 i64 一致）
       set((state) => ({
         tasks: state.tasks.map((t) =>
-          t.id === id ? { ...t, lastRunStatus: 'running' as const, lastRunAt: Date.now() / 1000 } : t
+          t.id === id ? { ...t, lastRunStatus: 'running' as const, lastRunAt: Math.floor(Date.now() / 1000) } : t
         ),
       }));
 

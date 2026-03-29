@@ -58,6 +58,7 @@ export function SchedulerPanel() {
     runTask,
     isTaskRunning,
     isTaskSubscribed,
+    subscribeToEvents,
     loadSchedulerStatus,
     handleTaskDue,
   } = useSchedulerStore();
@@ -215,34 +216,23 @@ export function SchedulerPanel() {
     }
   };
 
-  // 订阅执行（执行并显示日志）
+  // 订阅日志（仅订阅正在执行的任务）
   const handleSubscribe = async (task: ScheduledTask) => {
-    if (isTaskRunning(task.id)) {
-      toast.warning(t('toast.pleaseWait'));
+    if (!isTaskRunning(task.id)) {
+      toast.warning(t('toast.notRunning'));
       return;
     }
 
+    if (isTaskSubscribed(task.id)) {
+      return; // 已订阅，不重复订阅
+    }
+
     try {
-      // 执行任务并订阅日志
-      await runTask(task.id, { subscribe: true });
-
-      // 调用 AI 引擎
-      const engineId = task.engineId || 'claude-code';
-      const sessionId = await invoke<string>('start_chat', {
-        message: task.prompt,
-        options: {
-          workDir: task.workDir,
-          contextId: `scheduler-${task.id}`,
-          engineId,
-          enableMcpTools: engineId === 'claude-code',
-        },
-      });
-
-      console.log('[Scheduler] 订阅执行会话 ID:', sessionId);
-      toast.success(t('toast.subscribeTriggered'));
+      await subscribeToEvents(task.id);
+      toast.success(t('toast.subscribeSuccess'));
     } catch (e) {
-      console.error('[Scheduler] 订阅执行失败:', e);
-      toast.error(t('toast.runFailed'), e instanceof Error ? e.message : '');
+      console.error('[Scheduler] 订阅日志失败:', e);
+      toast.error(t('toast.subscribeFailed'), e instanceof Error ? e.message : '');
     }
   };
 
