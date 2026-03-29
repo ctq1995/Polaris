@@ -74,18 +74,9 @@ use commands::integration::{
     disconnect_integration_instance, update_integration_instance,
 };
 use commands::scheduler::{
-    scheduler_get_tasks, scheduler_get_task, scheduler_create_task,
+    scheduler_list_tasks, scheduler_get_task, scheduler_create_task,
     scheduler_update_task, scheduler_delete_task, scheduler_toggle_task,
-    scheduler_run_task, scheduler_run_task_with_window, scheduler_get_task_logs, scheduler_get_all_logs,
-    scheduler_cleanup_logs, scheduler_validate_trigger, scheduler_parse_interval,
-    scheduler_get_lock_status, scheduler_start, scheduler_stop,
-    scheduler_get_logs_paginated, scheduler_delete_log, scheduler_delete_logs,
-    scheduler_clear_task_logs,
-    scheduler_read_protocol_file, scheduler_write_protocol_file,
-    scheduler_get_protocol_file_path,
-    scheduler_subscribe_task, scheduler_unsubscribe_task,
-    scheduler_export_tasks, scheduler_import_tasks,
-    scheduler_get_log_stats, scheduler_get_log_retention_config, scheduler_update_log_retention_config,
+    scheduler_validate_trigger, scheduler_parse_interval, scheduler_get_workspace_breakdown,
 };
 use commands::terminal::{
     terminal_create, terminal_write, terminal_resize,
@@ -269,27 +260,7 @@ pub fn run() {
             engine_registry_arc,
             integration_manager,
         ))
-        .setup(|app| {
-            // 尝试获取调度器单例锁
-            let state = app.handle().state::<state::AppState>();
-
-            match utils::SchedulerLock::try_acquire() {
-                Ok(Some(lock)) => {
-                    // 成功获取锁，保存并启动调度器
-                    *state.scheduler_lock.blocking_lock() = Some(lock);
-                    // 传递 app_handle 以支持发送事件到前端
-                    state.scheduler_dispatcher.blocking_lock().start(Some(app.handle().clone()));
-                    tracing::info!("[Scheduler] 当前实例获取调度器锁成功，调度器已启动");
-                }
-                Ok(None) => {
-                    // 其他实例已持有锁
-                    tracing::info!("[Scheduler] 其他实例已持有调度器锁，本实例跳过调度器启动");
-                }
-                Err(e) => {
-                    tracing::error!("[Scheduler] 获取调度器锁失败: {:?}", e);
-                }
-            }
-
+        .setup(|_app| {
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -465,40 +436,15 @@ pub fn run() {
             disconnect_integration_instance,
             update_integration_instance,
             // 定时任务相关
-            scheduler_get_tasks,
+            scheduler_list_tasks,
             scheduler_get_task,
             scheduler_create_task,
             scheduler_update_task,
             scheduler_delete_task,
             scheduler_toggle_task,
-            scheduler_run_task,
-            scheduler_run_task_with_window,
-            scheduler_get_task_logs,
-            scheduler_get_all_logs,
-            scheduler_cleanup_logs,
             scheduler_validate_trigger,
             scheduler_parse_interval,
-            scheduler_get_lock_status,
-            scheduler_start,
-            scheduler_stop,
-            scheduler_get_logs_paginated,
-            scheduler_delete_log,
-            scheduler_delete_logs,
-            scheduler_clear_task_logs,
-            // 协议任务文档
-            scheduler_read_protocol_file,
-            scheduler_write_protocol_file,
-            scheduler_get_protocol_file_path,
-            // 订阅任务
-            scheduler_subscribe_task,
-            scheduler_unsubscribe_task,
-            // 任务导出导入
-            scheduler_export_tasks,
-            scheduler_import_tasks,
-            // 日志配置管理
-            scheduler_get_log_stats,
-            scheduler_get_log_retention_config,
-            scheduler_update_log_retention_config,
+            scheduler_get_workspace_breakdown,
             // 终端相关
             terminal_create,
             terminal_write,

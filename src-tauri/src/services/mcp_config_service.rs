@@ -139,9 +139,12 @@ impl WorkspaceMcpConfigService {
                 )));
             }
 
-            // Todo MCP and Requirements MCP need both config_dir and workspace_path
+            // Todo MCP, Requirements MCP, and Scheduler MCP need both config_dir and workspace_path
             // Other MCPs only need workspace_path
-            let args = if binary.server_name == TODO_MCP_SERVER_NAME || binary.server_name == REQUIREMENTS_MCP_SERVER_NAME {
+            let args = if binary.server_name == TODO_MCP_SERVER_NAME
+                || binary.server_name == REQUIREMENTS_MCP_SERVER_NAME
+                || binary.server_name == SCHEDULER_MCP_SERVER_NAME
+            {
                 vec![
                     self.config_dir.to_string_lossy().to_string(),
                     normalized_workspace.to_string(),
@@ -406,7 +409,7 @@ mod tests {
             serde_json::Value::String(workspace.to_string_lossy().to_string())
         );
 
-        // Scheduler MCP should have one arg: workspace_path
+        // Scheduler MCP should have two args: config_dir and workspace_path
         let scheduler_server = &json["mcpServers"][SCHEDULER_MCP_SERVER_NAME];
         assert_eq!(
             scheduler_server["command"],
@@ -414,6 +417,10 @@ mod tests {
         );
         assert_eq!(
             scheduler_server["args"][0],
+            serde_json::Value::String(config_dir.to_string_lossy().to_string())
+        );
+        assert_eq!(
+            scheduler_server["args"][1],
             serde_json::Value::String(workspace.to_string_lossy().to_string())
         );
 

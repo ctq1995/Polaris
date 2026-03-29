@@ -73,8 +73,6 @@ import {
   schedulerGetTasks,
   schedulerCreateTask,
   schedulerDeleteTask,
-  schedulerRunTask,
-  schedulerGetTaskLogs,
   // 集成相关
   startIntegration,
   stopIntegration,
@@ -634,7 +632,7 @@ describe('定时任务命令', () => {
 
       const result = await schedulerGetTasks();
 
-      expect(mockInvoke).toHaveBeenCalledWith('scheduler_get_tasks');
+      expect(mockInvoke).toHaveBeenCalledWith('scheduler_list_tasks');
       expect(result).toEqual(mockTasks);
     });
   });
@@ -649,9 +647,6 @@ describe('定时任务命令', () => {
         triggerValue: '1h',
         engineId: 'claude',
         prompt: 'test',
-        mode: 'chat' as const,
-        runInTerminal: false,
-        notifyOnComplete: false,
       };
 
       const result = await schedulerCreateTask(params);
@@ -668,30 +663,6 @@ describe('定时任务命令', () => {
       await schedulerDeleteTask('task-id');
 
       expect(mockInvoke).toHaveBeenCalledWith('scheduler_delete_task', { id: 'task-id' });
-    });
-  });
-
-  describe('schedulerRunTask', () => {
-    it('应立即执行任务', async () => {
-      const mockResult = { success: true, output: 'done' };
-      mockInvoke.mockResolvedValueOnce(mockResult);
-
-      const result = await schedulerRunTask('task-id');
-
-      expect(mockInvoke).toHaveBeenCalledWith('scheduler_run_task', { id: 'task-id' });
-      expect(result).toEqual(mockResult);
-    });
-  });
-
-  describe('schedulerGetTaskLogs', () => {
-    it('应获取任务日志', async () => {
-      const mockLogs = [{ id: '1', taskId: 'task-id' }];
-      mockInvoke.mockResolvedValueOnce(mockLogs);
-
-      const result = await schedulerGetTaskLogs('task-id');
-
-      expect(mockInvoke).toHaveBeenCalledWith('scheduler_get_task_logs', { taskId: 'task-id' });
-      expect(result).toEqual(mockLogs);
     });
   });
 });

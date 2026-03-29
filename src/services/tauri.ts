@@ -796,14 +796,14 @@ export async function updateIntegrationInstance(
 }
 
 // ============================================================================
-// 定时任务相关命令
+// 定时任务相关命令（精简版）
 // ============================================================================
 
-import type { ScheduledTask, TaskLog, TriggerType, CreateTaskParams, LockStatus, RunTaskResult, PaginatedLogs } from '../types/scheduler';
+import type { ScheduledTask, TriggerType, CreateTaskParams } from '../types/scheduler';
 
 /** 获取所有任务 */
 export async function schedulerGetTasks(): Promise<ScheduledTask[]> {
-  return invoke<ScheduledTask[]>('scheduler_get_tasks');
+  return invoke<ScheduledTask[]>('scheduler_list_tasks');
 }
 
 /** 获取单个任务 */
@@ -831,34 +831,6 @@ export async function schedulerToggleTask(id: string, enabled: boolean): Promise
   return invoke('scheduler_toggle_task', { id, enabled });
 }
 
-/** 立即执行任务 */
-export async function schedulerRunTask(id: string): Promise<RunTaskResult> {
-  return invoke<RunTaskResult>('scheduler_run_task', { id });
-}
-
-/** 立即执行任务（订阅模式 - 发送事件到前端窗口） */
-export async function schedulerRunTaskWithWindow(
-  id: string,
-  contextId?: string
-): Promise<RunTaskResult> {
-  return invoke<RunTaskResult>('scheduler_run_task_with_window', { id, contextId });
-}
-
-/** 获取任务日志 */
-export async function schedulerGetTaskLogs(taskId: string): Promise<TaskLog[]> {
-  return invoke<TaskLog[]>('scheduler_get_task_logs', { taskId });
-}
-
-/** 获取所有日志 */
-export async function schedulerGetAllLogs(limit?: number): Promise<TaskLog[]> {
-  return invoke<TaskLog[]>('scheduler_get_all_logs', { limit });
-}
-
-/** 清理过期日志 */
-export async function schedulerCleanupLogs(): Promise<number> {
-  return invoke<number>('scheduler_cleanup_logs');
-}
-
 /** 验证触发表达式 */
 export async function schedulerValidateTrigger(
   triggerType: TriggerType,
@@ -870,178 +842,4 @@ export async function schedulerValidateTrigger(
 /** 解析间隔表达式 */
 export async function schedulerParseInterval(value: string): Promise<number | null> {
   return invoke<number | null>('scheduler_parse_interval', { value });
-}
-
-/** 获取调度器锁状态 */
-export async function schedulerGetLockStatus(): Promise<LockStatus> {
-  return invoke<LockStatus>('scheduler_get_lock_status');
-}
-
-/** 启动调度器 */
-export async function schedulerStart(): Promise<string> {
-  return invoke<string>('scheduler_start');
-}
-
-/** 停止调度器 */
-export async function schedulerStop(): Promise<string> {
-  return invoke<string>('scheduler_stop');
-}
-
-/** 分页获取日志 */
-export async function schedulerGetLogsPaginated(
-  taskId?: string,
-  page: number = 1,
-  pageSize: number = 20
-): Promise<PaginatedLogs> {
-  return invoke<PaginatedLogs>('scheduler_get_logs_paginated', { taskId, page, pageSize });
-}
-
-/** 删除单条日志 */
-export async function schedulerDeleteLog(logId: string): Promise<boolean> {
-  return invoke<boolean>('scheduler_delete_log', { logId });
-}
-
-/** 批量删除日志 */
-export async function schedulerDeleteLogs(logIds: string[]): Promise<number> {
-  return invoke<number>('scheduler_delete_logs', { logIds });
-}
-
-/** 清理任务的所有日志 */
-export async function schedulerClearTaskLogs(taskId: string): Promise<number> {
-  return invoke<number>('scheduler_clear_task_logs', { taskId });
-}
-
-/** 协议文档类型 */
-export type ProtocolFileType = 'task' | 'supplement' | 'memory_index' | 'memory_tasks';
-
-/** 读取协议任务文档 */
-export async function schedulerReadProtocolFile(
-  workDir: string,
-  taskPath: string,
-  fileType: ProtocolFileType
-): Promise<string> {
-  return invoke<string>('scheduler_read_protocol_file', { workDir, taskPath, fileType });
-}
-
-/** 写入协议任务文档 */
-export async function schedulerWriteProtocolFile(
-  workDir: string,
-  taskPath: string,
-  fileType: ProtocolFileType,
-  content: string
-): Promise<void> {
-  return invoke('scheduler_write_protocol_file', { workDir, taskPath, fileType, content });
-}
-
-/** 获取协议任务文档路径 */
-export async function schedulerGetProtocolFilePath(
-  workDir: string,
-  taskPath: string,
-  fileType: ProtocolFileType
-): Promise<string> {
-  return invoke<string>('scheduler_get_protocol_file_path', { workDir, taskPath, fileType });
-}
-
-/** 订阅任务（设置任务的 subscribedContextId） */
-export async function schedulerSubscribeTask(
-  id: string,
-  contextId: string
-): Promise<void> {
-  return invoke('scheduler_subscribe_task', { id, contextId });
-}
-
-/** 取消订阅任务 */
-export async function schedulerUnsubscribeTask(id: string): Promise<void> {
-  return invoke('scheduler_unsubscribe_task', { id });
-}
-
-// ============================================================================
-// 任务导出导入
-// ============================================================================
-
-/** 任务导出格式 */
-export interface TaskExportData {
-  /** 版本号 */
-  version: string;
-  /** 导出时间 (ISO 格式) */
-  exportedAt: string;
-  /** 任务列表 */
-  tasks: TaskExportItem[];
-}
-
-/** 任务导出项（不包含运行时状态） */
-export interface TaskExportItem {
-  name: string;
-  enabled: boolean;
-  triggerType: string;
-  triggerValue: string;
-  engineId: string;
-  prompt: string;
-  workDir?: string;
-  mode: string;
-  group?: string;
-  maxRuns?: number;
-  runInTerminal: boolean;
-  templateId?: string;
-  templateParamValues?: Record<string, string>;
-  maxRetries?: number;
-  retryInterval?: string;
-  notifyOnComplete: boolean;
-}
-
-/** 导出任务到 JSON 文件 */
-export async function schedulerExportTasks(tasks: TaskExportItem[]): Promise<boolean> {
-  return invoke<boolean>('scheduler_export_tasks', { tasks });
-}
-
-/** 从 JSON 文件导入任务 */
-export async function schedulerImportTasks(): Promise<TaskExportItem[]> {
-  return invoke<TaskExportItem[]>('scheduler_import_tasks');
-}
-
-// ============================================================================
-// 日志配置管理
-// ============================================================================
-
-/** 日志保留配置 */
-export interface LogRetentionConfig {
-  /** 保留天数（0 表示不限） */
-  retentionDays: number;
-  /** 每任务最大日志数（0 表示不限） */
-  maxLogsPerTask: number;
-  /** 是否启用自动清理 */
-  autoCleanupEnabled: boolean;
-  /** 自动清理间隔（小时） */
-  autoCleanupIntervalHours: number;
-}
-
-/** 日志统计信息 */
-export interface LogStats {
-  /** 总日志数 */
-  totalLogs: number;
-  /** 有日志的任务数 */
-  totalTasks: number;
-  /** 日志文件大小（字节） */
-  totalSizeBytes: number;
-  /** 保留配置 */
-  retentionConfig: LogRetentionConfig;
-  /** 上次清理时间 */
-  lastCleanupAt?: number;
-}
-
-/** 获取日志统计信息 */
-export async function schedulerGetLogStats(): Promise<LogStats> {
-  return invoke<LogStats>('scheduler_get_log_stats');
-}
-
-/** 获取日志保留配置 */
-export async function schedulerGetLogRetentionConfig(): Promise<LogRetentionConfig> {
-  return invoke<LogRetentionConfig>('scheduler_get_log_retention_config');
-}
-
-/** 更新日志保留配置 */
-export async function schedulerUpdateLogRetentionConfig(
-  config: LogRetentionConfig
-): Promise<void> {
-  return invoke('scheduler_update_log_retention_config', { config });
 }

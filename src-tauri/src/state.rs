@@ -14,8 +14,6 @@ use crate::commands::terminal::TerminalManager;
 use crate::integrations::IntegrationManager;
 use crate::services::config_store::ConfigStore;
 use crate::services::file_watcher::FileWatcherManager;
-use crate::services::scheduler::{TaskStoreService, LogStoreService, SchedulerDispatcher};
-use crate::utils::SchedulerLock;
 
 /// 待回答问题信息
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -112,14 +110,6 @@ pub struct AppState {
     pub integration_manager: AsyncMutex<IntegrationManager>,
     /// AI 引擎注册表（使用 tokio::sync::Mutex 支持异步操作和共享）
     pub engine_registry: Arc<AsyncMutex<EngineRegistry>>,
-    /// 定时任务存储
-    pub scheduler_task_store: Arc<AsyncMutex<TaskStoreService>>,
-    /// 定时任务日志存储
-    pub scheduler_log_store: Arc<AsyncMutex<LogStoreService>>,
-    /// 定时任务调度器
-    pub scheduler_dispatcher: Arc<AsyncMutex<SchedulerDispatcher>>,
-    /// 调度器单例锁（持有表示当前实例负责调度）
-    pub scheduler_lock: AsyncMutex<Option<SchedulerLock>>,
     /// 终端管理器
     pub terminal_manager: Mutex<TerminalManager>,
     /// 文件监听管理器
@@ -136,22 +126,6 @@ pub fn create_app_state(
     engine_registry: Arc<AsyncMutex<EngineRegistry>>,
     integration_manager: IntegrationManager,
 ) -> AppState {
-    // 初始化定时任务服务
-    let task_store = Arc::new(AsyncMutex::new(
-        TaskStoreService::new().expect("无法初始化任务存储")
-    ));
-    let log_store = Arc::new(AsyncMutex::new(
-        LogStoreService::new().expect("无法初始化日志存储")
-    ));
-
-    let dispatcher = SchedulerDispatcher::new(
-        task_store.clone(),
-        log_store.clone(),
-        engine_registry.clone(),
-    );
-
-    // 注意：调度器启动需要在 Tauri 运行时中进行，在 lib.rs 的 setup hook 中启动
-
     AppState {
         config_store: Mutex::new(config_store),
         sessions: Arc::new(Mutex::new(HashMap::new())),
@@ -159,10 +133,6 @@ pub fn create_app_state(
         context_store: Arc::new(Mutex::new(ContextMemoryStore::new())),
         integration_manager: AsyncMutex::new(integration_manager),
         engine_registry,
-        scheduler_task_store: task_store,
-        scheduler_log_store: log_store,
-        scheduler_dispatcher: Arc::new(AsyncMutex::new(dispatcher)),
-        scheduler_lock: AsyncMutex::new(None),
         terminal_manager: Mutex::new(TerminalManager::new()),
         file_watcher_manager: Mutex::new(FileWatcherManager::new()),
         pending_questions: Arc::new(Mutex::new(HashMap::new())),

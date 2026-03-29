@@ -1,76 +1,40 @@
+//! Scheduler Models (Simplified)
+//!
+//! Simplified data models for scheduled task management.
+
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-/// 创建任务参数
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateTaskParams {
-    /// 任务名称
-    pub name: String,
-    /// 是否启用
-    #[serde(default = "default_enabled")]
-    pub enabled: bool,
-    /// 触发类型
-    pub trigger_type: TriggerType,
-    /// 触发值
-    pub trigger_value: String,
-    /// 使用的引擎 ID
-    pub engine_id: String,
-    /// 提示词
-    pub prompt: String,
-    /// 工作目录（可选）
-    pub work_dir: Option<String>,
-    /// 任务模式
-    #[serde(default)]
-    pub mode: TaskMode,
-    /// 分组名称（可选）
-    pub group: Option<String>,
-    /// 任务描述/备注（可选，用于记录任务用途、注意事项等）
-    pub description: Option<String>,
-    /// 任务目标（protocol 模式使用）
-    pub mission: Option<String>,
-    /// 最大执行轮次（可选，None 表示不限）
-    pub max_runs: Option<u32>,
-    /// 是否在终端中执行（便于用户查看过程）
-    #[serde(default)]
-    pub run_in_terminal: bool,
-    /// 使用的协议模板ID（protocol 模式使用，用于编辑时回显）
-    pub template_id: Option<String>,
-    /// 模板参数值（protocol 模式使用，用于编辑时回显）
-    pub template_param_values: Option<HashMap<String, String>>,
-    /// 最大重试次数（None 表示不重试，默认 None）
-    pub max_retries: Option<u32>,
-    /// 重试间隔（如 "30s", "5m", "1h"）
-    pub retry_interval: Option<String>,
-    /// 任务完成后是否发送桌面通知
-    #[serde(default = "default_notify_on_complete")]
-    pub notify_on_complete: bool,
-    /// 执行超时时间（分钟，None 或 0 表示不限）
-    pub timeout_minutes: Option<u32>,
-    /// 用户补充内容（一次性提示词，每次执行时可以修改）
-    pub user_supplement: Option<String>,
-}
+// ============================================================================
+// Core Types
+// ============================================================================
 
-fn default_notify_on_complete() -> bool {
-    true
-}
-
-fn default_enabled() -> bool {
-    true
-}
-
-/// 任务模式
+/// 触发类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum TaskMode {
-    /// 简单模式：直接使用 prompt
+pub enum TriggerType {
+    /// 单次执行
+    Once,
+    /// Cron 表达式
+    Cron,
+    /// 间隔执行（支持 s/m/h/d）
     #[default]
-    Simple,
-    /// 协议模式：读取 task.md + memory + supplement
-    Protocol,
+    Interval,
 }
 
-/// 定时任务
+/// 任务状态
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskStatus {
+    Running,
+    Success,
+    Failed,
+}
+
+// ============================================================================
+// Task Model
+// ============================================================================
+
+/// 定时任务（精简版）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledTask {
@@ -89,24 +53,14 @@ pub struct ScheduledTask {
     pub trigger_value: String,
     /// 使用的引擎 ID
     pub engine_id: String,
-    /// 提示词 (simple 模式使用)
+    /// 提示词
     pub prompt: String,
     /// 工作目录（可选）
     pub work_dir: Option<String>,
-    /// 任务模式
-    #[serde(default)]
-    pub mode: TaskMode,
-    /// 分组名称（可选）
-    #[serde(default)]
-    pub group: Option<String>,
-    /// 任务描述/备注（可选，用于记录任务用途、注意事项等）
-    #[serde(default)]
+    /// 任务描述（可选）
     pub description: Option<String>,
-    /// 任务路径 (protocol 模式使用，相对于 workDir)
-    pub task_path: Option<String>,
-    /// 任务目标 (protocol 模式使用，保存协议文档中的任务目标)
-    #[serde(default)]
-    pub mission: Option<String>,
+
+    // 状态字段
     /// 上次执行时间
     pub last_run_at: Option<i64>,
     /// 上次执行状态
@@ -117,162 +71,41 @@ pub struct ScheduledTask {
     pub created_at: i64,
     /// 更新时间
     pub updated_at: i64,
-    /// 最大执行轮次（可选，None 表示不限）
+
+    // 工作区关联
+    /// 所属工作区路径
     #[serde(default)]
-    pub max_runs: Option<u32>,
-    /// 当前已执行轮次
+    pub workspace_path: Option<String>,
+    /// 所属工作区名称
     #[serde(default)]
-    pub current_runs: u32,
-    /// 是否在终端中执行（便于用户查看过程）
-    #[serde(default)]
-    pub run_in_terminal: bool,
-    /// 使用的协议模板ID（protocol 模式使用，用于编辑时回显）
-    #[serde(default)]
-    pub template_id: Option<String>,
-    /// 模板参数值（protocol 模式使用，用于编辑时回显）
-    #[serde(default)]
-    pub template_param_values: Option<HashMap<String, String>>,
-    /// 订阅的上下文 ID（持久化订阅状态，定时执行时会发送事件到该上下文）
-    #[serde(default)]
-    pub subscribed_context_id: Option<String>,
-    /// 最大重试次数（None 表示不重试，默认 None）
-    #[serde(default)]
-    pub max_retries: Option<u32>,
-    /// 当前已重试次数
-    #[serde(default)]
-    pub retry_count: u32,
-    /// 重试间隔（如 "30s", "5m", "1h"）
-    #[serde(default)]
-    pub retry_interval: Option<String>,
-    /// 任务完成后是否发送桌面通知
-    #[serde(default = "default_notify_on_complete")]
-    pub notify_on_complete: bool,
-    /// 执行超时时间（分钟，None 或 0 表示不限）
-    #[serde(default)]
-    pub timeout_minutes: Option<u32>,
-    /// 用户补充内容（一次性提示词，每次执行时可以修改）
-    #[serde(default)]
-    pub user_supplement: Option<String>,
+    pub workspace_name: Option<String>,
 }
 
-impl From<CreateTaskParams> for ScheduledTask {
-    fn from(params: CreateTaskParams) -> Self {
-        Self {
-            id: String::new(),
-            name: params.name,
-            enabled: params.enabled,
-            trigger_type: params.trigger_type,
-            trigger_value: params.trigger_value,
-            engine_id: params.engine_id,
-            prompt: params.prompt,
-            work_dir: params.work_dir,
-            mode: params.mode,
-            group: params.group,
-            description: params.description,
-            task_path: None, // 将在创建任务目录后设置
-            mission: params.mission,
-            last_run_at: None,
-            last_run_status: None,
-            next_run_at: None,
-            created_at: 0,
-            updated_at: 0,
-            max_runs: params.max_runs,
-            current_runs: 0,
-            run_in_terminal: params.run_in_terminal,
-            template_id: params.template_id,
-            template_param_values: params.template_param_values,
-            subscribed_context_id: None,
-            max_retries: params.max_retries,
-            retry_count: 0,
-            retry_interval: params.retry_interval,
-            notify_on_complete: params.notify_on_complete,
-            timeout_minutes: params.timeout_minutes,
-            user_supplement: params.user_supplement,
-        }
-    }
-}
-
-/// 触发类型
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum TriggerType {
-    /// 单次执行
-    Once,
-    /// Cron 表达式
-    Cron,
-    /// 间隔执行（支持 s/m/h/d）
-    Interval,
-}
-
-/// 任务状态
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum TaskStatus {
-    Running,
-    Success,
-    Failed,
-}
-
-/// 执行日志
+/// 创建任务参数（精简版）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TaskLog {
-    /// 日志 ID
-    pub id: String,
-    /// 任务 ID
-    pub task_id: String,
+pub struct CreateTaskParams {
     /// 任务名称
-    pub task_name: String,
+    pub name: String,
+    /// 是否启用
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// 触发类型
+    pub trigger_type: TriggerType,
+    /// 触发值
+    pub trigger_value: String,
     /// 使用的引擎 ID
     pub engine_id: String,
-    /// AI 会话 ID（可用于跳转查看详情）
-    pub session_id: Option<String>,
-    /// 开始时间
-    pub started_at: i64,
-    /// 结束时间
-    pub finished_at: Option<i64>,
-    /// 执行耗时（毫秒）
-    pub duration_ms: Option<i64>,
-    /// 状态
-    pub status: TaskStatus,
-    /// 执行时的提示词
+    /// 提示词
     pub prompt: String,
-    /// AI 返回内容（截取前 2000 字符）
-    pub output: Option<String>,
-    /// 错误信息
-    pub error: Option<String>,
-    /// 思考过程摘要
-    pub thinking_summary: Option<String>,
-    /// 工具调用次数
-    pub tool_call_count: u32,
-    /// Token 消耗
-    pub token_count: Option<u32>,
+    /// 工作目录（可选）
+    pub work_dir: Option<String>,
+    /// 任务描述（可选）
+    pub description: Option<String>,
 }
 
-/// 执行任务结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RunTaskResult {
-    /// 日志 ID
-    pub log_id: String,
-    /// 提示信息
-    pub message: String,
-}
-
-/// 分页日志结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaginatedLogs {
-    /// 日志列表
-    pub logs: Vec<TaskLog>,
-    /// 总数
-    pub total: usize,
-    /// 当前页（1-indexed）
-    pub page: u32,
-    /// 每页大小
-    pub page_size: u32,
-    /// 总页数
-    pub total_pages: usize,
+fn default_enabled() -> bool {
+    true
 }
 
 /// 任务存储
@@ -281,68 +114,8 @@ pub struct TaskStore {
     pub tasks: Vec<ScheduledTask>,
 }
 
-/// 日志保留配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LogRetentionConfig {
-    /// 保留天数（0 表示不限）
-    #[serde(default = "default_retention_days")]
-    pub retention_days: u32,
-    /// 每任务最大日志数（0 表示不限）
-    #[serde(default = "default_max_logs_per_task")]
-    pub max_logs_per_task: u32,
-    /// 是否启用自动清理
-    #[serde(default = "default_auto_cleanup_enabled")]
-    pub auto_cleanup_enabled: bool,
-    /// 自动清理间隔（小时）
-    #[serde(default = "default_auto_cleanup_interval_hours")]
-    pub auto_cleanup_interval_hours: u32,
-}
-
-fn default_retention_days() -> u32 {
-    30
-}
-
-fn default_max_logs_per_task() -> u32 {
-    100
-}
-
-fn default_auto_cleanup_enabled() -> bool {
-    true
-}
-
-fn default_auto_cleanup_interval_hours() -> u32 {
-    24
-}
-
-impl Default for LogRetentionConfig {
-    fn default() -> Self {
-        Self {
-            retention_days: default_retention_days(),
-            max_logs_per_task: default_max_logs_per_task(),
-            auto_cleanup_enabled: default_auto_cleanup_enabled(),
-            auto_cleanup_interval_hours: default_auto_cleanup_interval_hours(),
-        }
-    }
-}
-
-/// 日志存储
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LogStore {
-    /// 按任务 ID 分组的日志
-    pub logs: HashMap<String, Vec<TaskLog>>,
-    /// 所有日志（按时间倒序）
-    pub all_logs: Vec<TaskLog>,
-    /// 保留配置
-    #[serde(default)]
-    pub retention_config: LogRetentionConfig,
-    /// 上次自动清理时间
-    #[serde(default)]
-    pub last_cleanup_at: Option<i64>,
-}
-
 // ============================================================================
-// 辅助函数
+// Helper Methods
 // ============================================================================
 
 impl TriggerType {
@@ -412,5 +185,12 @@ mod tests {
         assert_eq!(parse_interval("2h"), Some(7200));
         assert_eq!(parse_interval("1d"), Some(86400));
         assert_eq!(parse_interval("invalid"), None);
+    }
+
+    #[test]
+    fn test_calculate_next_run_interval() {
+        let now = 1000i64;
+        let next = TriggerType::Interval.calculate_next_run("5m", now);
+        assert_eq!(next, Some(1000 + 300));
     }
 }

@@ -1,5 +1,5 @@
 /**
- * 定时任务类型定义
+ * 定时任务类型定义（精简版）
  */
 
 /** 触发类型 */
@@ -8,10 +8,7 @@ export type TriggerType = 'once' | 'cron' | 'interval';
 /** 任务状态 */
 export type TaskStatus = 'running' | 'success' | 'failed';
 
-/** 任务模式 */
-export type TaskMode = 'simple' | 'protocol';
-
-/** 定时任务 */
+/** 定时任务（精简版） */
 export interface ScheduledTask {
   /** 任务 ID */
   id: string;
@@ -25,20 +22,12 @@ export interface ScheduledTask {
   triggerValue: string;
   /** 使用的引擎 ID */
   engineId: string;
-  /** 提示词 (simple 模式使用) */
+  /** 提示词 */
   prompt: string;
   /** 工作目录 */
   workDir?: string;
-  /** 任务模式 */
-  mode: TaskMode;
-  /** 分组名称（可选，未分组则为 undefined） */
-  group?: string;
-  /** 任务描述/备注（可选，用于记录任务用途、注意事项等） */
+  /** 任务描述 */
   description?: string;
-  /** 任务路径 (protocol 模式使用，相对于 workDir) */
-  taskPath?: string;
-  /** 任务目标 (protocol 模式使用，用于保存协议文档中的任务目标) */
-  mission?: string;
   /** 上次执行时间 */
   lastRunAt?: number;
   /** 上次执行状态 */
@@ -49,67 +38,13 @@ export interface ScheduledTask {
   createdAt: number;
   /** 更新时间 */
   updatedAt: number;
-  /** 最大执行轮次 (可选，undefined 表示不限) */
-  maxRuns?: number;
-  /** 当前已执行轮次 */
-  currentRuns: number;
-  /** 是否在终端中执行 (便于用户查看过程) */
-  runInTerminal: boolean;
-  /** 使用的协议模板ID (protocol 模式使用，用于编辑时回显) */
-  templateId?: string;
-  /** 模板参数值 (protocol 模式使用，用于编辑时回显) */
-  templateParamValues?: Record<string, string>;
-  /** 订阅的上下文 ID（持久化订阅状态，定时执行时会发送事件到该上下文） */
-  subscribedContextId?: string;
-  /** 最大重试次数（None 或 0 表示不重试） */
-  maxRetries?: number;
-  /** 当前已重试次数 */
-  retryCount: number;
-  /** 重试间隔（如 "30s", "5m", "1h"） */
-  retryInterval?: string;
-  /** 任务完成后是否发送桌面通知 */
-  notifyOnComplete?: boolean;
-  /** 执行超时时间（分钟，undefined 或 0 表示不限） */
-  timeoutMinutes?: number;
-  /** 用户补充内容（一次性提示词，每次执行时可以修改） */
-  userSupplement?: string;
+  /** 所属工作区路径 */
+  workspacePath?: string;
+  /** 所属工作区名称 */
+  workspaceName?: string;
 }
 
-/** 执行日志 */
-export interface TaskLog {
-  /** 日志 ID */
-  id: string;
-  /** 任务 ID */
-  taskId: string;
-  /** 任务名称 */
-  taskName: string;
-  /** 使用的引擎 ID */
-  engineId: string;
-  /** AI 会话 ID（可用于跳转查看详情） */
-  sessionId?: string;
-  /** 开始时间 */
-  startedAt: number;
-  /** 结束时间 */
-  finishedAt?: number;
-  /** 执行耗时（毫秒） */
-  durationMs?: number;
-  /** 状态 */
-  status: TaskStatus;
-  /** 执行时的提示词 */
-  prompt: string;
-  /** AI 返回内容 */
-  output?: string;
-  /** 错误信息 */
-  error?: string;
-  /** 思考过程摘要 */
-  thinkingSummary?: string;
-  /** 工具调用次数 */
-  toolCallCount: number;
-  /** Token 消耗 */
-  tokenCount?: number;
-}
-
-/** 创建任务参数 */
+/** 创建任务参数（精简版） */
 export interface CreateTaskParams {
   name: string;
   enabled?: boolean;
@@ -118,55 +53,8 @@ export interface CreateTaskParams {
   engineId: string;
   prompt: string;
   workDir?: string;
-  /** 任务模式 */
-  mode?: TaskMode;
-  /** 分组名称（可选） */
-  group?: string;
-  /** 任务描述/备注（可选，用于记录任务用途、注意事项等） */
   description?: string;
-  /** 任务目标 (protocol 模式使用，用于生成协议文档) */
-  mission?: string;
-  /** 最大执行轮次 (可选，undefined 表示不限) */
-  maxRuns?: number;
-  /** 是否在终端中执行 (便于用户查看过程) */
-  runInTerminal?: boolean;
-  /** 使用的协议模板ID (protocol 模式使用，用于编辑时回显) */
-  templateId?: string;
-  /** 模板参数值 (protocol 模式使用，用于编辑时回显) */
-  templateParamValues?: Record<string, string>;
-  /** 最大重试次数（None 或 0 表示不重试） */
-  maxRetries?: number;
-  /** 重试间隔（如 "30s", "5m", "1h"） */
-  retryInterval?: string;
-  /** 任务完成后是否发送桌面通知 */
-  notifyOnComplete?: boolean;
-  /** 执行超时时间（分钟，undefined 或 0 表示不限） */
-  timeoutMinutes?: number;
-  /** 用户补充内容（一次性提示词，每次执行时可以修改） */
-  userSupplement?: string;
 }
-
-/** 协议任务目录结构 */
-export interface ProtocolTaskFiles {
-  /** 任务 ID */
-  taskId: string;
-  /** 任务路径 */
-  taskPath: string;
-  /** 协议文档内容 */
-  taskContent: string;
-  /** 用户补充文档内容 */
-  supplementContent: string;
-  /** 记忆索引内容 */
-  memoryIndexContent: string;
-  /** 记忆任务内容 */
-  memoryTasksContent: string;
-}
-
-/** 任务模式显示名称 */
-export const TaskModeLabels: Record<TaskMode, string> = {
-  simple: '简单模式',
-  protocol: '协议模式',
-};
 
 /** 触发类型显示名称 */
 export const TriggerTypeLabels: Record<TriggerType, string> = {
@@ -199,62 +87,4 @@ export function parseIntervalValue(value: string): { num: number; unit: Interval
 /** 格式化间隔表达式 */
 export function formatIntervalValue(num: number, unit: IntervalUnit): string {
   return `${num}${unit}`;
-}
-
-/** 调度器锁状态 */
-export interface LockStatus {
-  /** 当前实例是否持有锁 */
-  isHolder: boolean;
-  /** 是否有其他实例持有锁 */
-  isLockedByOther: boolean;
-  /** 当前进程 PID */
-  pid: number;
-}
-
-/** 执行任务结果 */
-export interface RunTaskResult {
-  /** 日志 ID */
-  logId: string;
-  /** 提示信息 */
-  message: string;
-}
-
-/** 分页日志结果 */
-export interface PaginatedLogs {
-  /** 日志列表 */
-  logs: TaskLog[];
-  /** 总数 */
-  total: number;
-  /** 当前页（1-indexed） */
-  page: number;
-  /** 每页大小 */
-  pageSize: number;
-  /** 总页数 */
-  totalPages: number;
-}
-
-/** 日志保留配置 */
-export interface LogRetentionConfig {
-  /** 保留天数（0 表示不限） */
-  retentionDays: number;
-  /** 每任务最大日志数（0 表示不限） */
-  maxLogsPerTask: number;
-  /** 是否启用自动清理 */
-  autoCleanupEnabled: boolean;
-  /** 自动清理间隔（小时） */
-  autoCleanupIntervalHours: number;
-}
-
-/** 日志统计信息 */
-export interface LogStats {
-  /** 总日志数 */
-  totalLogs: number;
-  /** 有日志的任务数 */
-  totalTasks: number;
-  /** 日志文件大小（字节） */
-  totalSizeBytes: number;
-  /** 保留配置 */
-  retentionConfig: LogRetentionConfig;
-  /** 上次清理时间 */
-  lastCleanupAt?: number;
 }

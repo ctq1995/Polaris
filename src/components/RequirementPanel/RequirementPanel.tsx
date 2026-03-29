@@ -230,22 +230,16 @@ export function RequirementPanel() {
       const scopeLabel = t(`generate.scope${scope.charAt(0).toUpperCase() + scope.slice(1)}` as 'generate.scopeAll' | 'generate.scopeFrontend' | 'generate.scopeBackend')
       const taskName = `[需求生成] ${scopeLabel}`
 
-      const task = await useSchedulerStore.getState().createTask({
+      await useSchedulerStore.getState().createTask({
         name: taskName,
         triggerType: 'once',
         triggerValue: '',
         engineId,
-        prompt: '分析项目并生成需求',
-        mode: 'protocol',
-        templateId: 'req-generate',
-        templateParamValues: {
-          scope,
-          projectContext: context,
-        },
+        prompt: `分析项目并生成需求。范围: ${scope}。项目上下文: ${context}`,
         workDir: workspacePath,
       })
 
-      await useSchedulerStore.getState().runTaskWithSubscription(task.id, taskName)
+      toast.success(t('toast.generateTaskCreated'))
       toast.success(t('toast.generateTriggered'))
     } catch (e) {
       log.error('触发生成需求失败:', e instanceof Error ? e : new Error(String(e)))
@@ -267,21 +261,16 @@ export function RequirementPanel() {
 
       const taskName = `[需求执行] ${req.title}`
 
-      const task = await useSchedulerStore.getState().createTask({
+      await useSchedulerStore.getState().createTask({
         name: taskName,
         triggerType: 'once',
         triggerValue: '',
         engineId,
         prompt: `执行需求分析: ${req.title}`,
-        mode: 'protocol',
-        templateId: 'req-execute',
-        templateParamValues: {
-          focusModule: req.title,
-        },
         workDir: workspacePath,
       })
 
-      await useSchedulerStore.getState().runTaskWithSubscription(task.id, taskName)
+      toast.success(t('toast.executeTaskCreated'))
       toast.success(t('toast.executeTriggered'))
     } catch (e) {
       log.error('触发执行需求失败:', e instanceof Error ? e : new Error(String(e)))

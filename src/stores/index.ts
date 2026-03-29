@@ -31,6 +31,5 @@ export {
 export { useToastStore, type Toast, type ToastType } from './toastStore';
 export { useSchedulerStore } from './schedulerStore';
 export { useTerminalStore } from './terminalStore';
-export { useProtocolTemplateStore } from './protocolTemplateStore';
 export { useChatInputStore } from './chatInputStore';
 export { useRequirementStore } from './requirementStore';
