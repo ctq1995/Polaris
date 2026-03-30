@@ -8,15 +8,38 @@ export type Platform = 'qqbot' | 'wechat' | 'telegram';
 /** 实例 ID */
 export type InstanceId = string;
 
+/** QQ Bot 实例配置（用于实例管理，与 config.ts 中的 QQBotInstanceConfig 对应） */
+export interface QQBotInstanceConfig {
+  /** 实例 ID */
+  id: InstanceId;
+  /** 显示名称 */
+  name: string;
+  /** 是否启用 */
+  enabled: boolean;
+  /** 应用 ID */
+  appId: string;
+  /** 应用密钥 */
+  clientSecret: string;
+  /** 是否沙箱环境 */
+  sandbox: boolean;
+  /** 消息显示模式 */
+  displayMode: IntegrationDisplayMode;
+  /** 启动时自动连接 */
+  autoConnect: boolean;
+  /** 创建时间 (ISO 8601) */
+  createdAt?: string;
+  /** 最后活跃时间 (ISO 8601) */
+  lastActive?: string;
+}
+
 /** 实例配置枚举 */
 export interface InstanceConfig {
   type: 'qqbot';
-  // QQ Bot 配置字段
   enabled: boolean;
   appId: string;
   clientSecret: string;
   sandbox: boolean;
-  displayMode: 'chat' | 'separate' | 'both';
+  displayMode: IntegrationDisplayMode;
   autoConnect: boolean;
 }
 

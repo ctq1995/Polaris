@@ -251,33 +251,125 @@ pub struct BaiduTranslateConfig {
     pub secret_key: String,
 }
 
+/// QQ Bot 实例配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QQBotInstanceConfig {
+    /// 实例 ID
+    pub id: String,
+    /// 显示名称
+    pub name: String,
+    /// 是否启用
+    #[serde(default = "default_instance_enabled")]
+    pub enabled: bool,
+    /// 应用 ID
+    #[serde(default)]
+    pub app_id: String,
+    /// 应用密钥
+    #[serde(default)]
+    pub client_secret: String,
+    /// 是否沙箱环境
+    #[serde(default)]
+    pub sandbox: bool,
+    /// 消息显示模式
+    #[serde(default)]
+    pub display_mode: IntegrationDisplayMode,
+    /// 启动时自动连接
+    #[serde(default = "default_auto_connect")]
+    pub auto_connect: bool,
+    /// 创建时间 (ISO 8601 格式)
+    #[serde(default)]
+    pub created_at: Option<String>,
+    /// 最后活跃时间 (ISO 8601 格式)
+    #[serde(default)]
+    pub last_active: Option<String>,
+}
+
+fn default_instance_enabled() -> bool { true }
+fn default_auto_connect() -> bool { true }
+
+impl Default for QQBotInstanceConfig {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: "QQ Bot".to_string(),
+            enabled: true,
+            app_id: String::new(),
+            client_secret: String::new(),
+            sandbox: false,
+            display_mode: IntegrationDisplayMode::default(),
+            auto_connect: true,
+            created_at: None,
+            last_active: None,
+        }
+    }
+}
+
+/// QQ Bot 单个实例运行时配置（用于适配器）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QQBotRuntimeConfig {
+    /// 是否启用
+    #[serde(default)]
+    pub enabled: bool,
+    /// 应用 ID
+    #[serde(default)]
+    pub app_id: String,
+    /// 应用密钥
+    #[serde(default)]
+    pub client_secret: String,
+    /// 是否沙箱环境
+    #[serde(default)]
+    pub sandbox: bool,
+    /// 消息显示模式
+    #[serde(default)]
+    pub display_mode: IntegrationDisplayMode,
+    /// 启动时自动连接
+    #[serde(default = "default_auto_connect")]
+    pub auto_connect: bool,
+}
+
+impl Default for QQBotRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            app_id: String::new(),
+            client_secret: String::new(),
+            sandbox: false,
+            display_mode: IntegrationDisplayMode::default(),
+            auto_connect: true,
+        }
+    }
+}
+
+impl From<&QQBotInstanceConfig> for QQBotRuntimeConfig {
+    fn from(instance: &QQBotInstanceConfig) -> Self {
+        Self {
+            enabled: instance.enabled,
+            app_id: instance.app_id.clone(),
+            client_secret: instance.client_secret.clone(),
+            sandbox: instance.sandbox,
+            display_mode: instance.display_mode.clone(),
+            auto_connect: instance.auto_connect,
+        }
+    }
+}
+
 /// QQ Bot 集成配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QQBotConfig {
-    /// 是否启用 QQ Bot 集成
+    /// 是否启用 QQ Bot 集成（全局开关）
     #[serde(default)]
     pub enabled: bool,
 
-    /// 应用 ID
+    /// QQ Bot 实例列表（统一存储）
     #[serde(default)]
-    pub app_id: String,
+    pub instances: Vec<QQBotInstanceConfig>,
 
-    /// 应用密钥
+    /// 当前激活的实例 ID
     #[serde(default)]
-    pub client_secret: String,
-
-    /// 是否沙箱环境
-    #[serde(default)]
-    pub sandbox: bool,
-
-    /// 消息显示模式
-    #[serde(default)]
-    pub display_mode: IntegrationDisplayMode,
-
-    /// 启动时自动连接
-    #[serde(default)]
-    pub auto_connect: bool,
+    pub active_instance_id: Option<String>,
 }
 
 /// 消息显示模式
@@ -297,11 +389,8 @@ impl Default for QQBotConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            app_id: String::new(),
-            client_secret: String::new(),
-            sandbox: false,
-            display_mode: IntegrationDisplayMode::default(),
-            auto_connect: true,
+            instances: Vec::new(),
+            active_instance_id: None,
         }
     }
 }
@@ -482,6 +571,10 @@ pub struct Config {
     #[serde(default)]
     pub qqbot: QQBotConfig,
 
+    /// 当前激活的 QQ Bot 实例 ID（运行时状态，不持久化）
+    #[serde(skip)]
+    pub active_qqbot_instance_id: Option<String>,
+
     /// 窗口设置
     #[serde(default)]
     pub window: WindowSettings,
@@ -520,6 +613,7 @@ impl Default for Config {
             floating_window: FloatingWindowConfig::default(),
             baidu_translate: None,
             qqbot: QQBotConfig::default(),
+            active_qqbot_instance_id: None,
             window: WindowSettings::default(),
             speech: SpeechConfig::default(),
             tts: TTSConfig::default(),

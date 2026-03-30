@@ -1,12 +1,13 @@
 /*! 实例注册表
  *
  * 管理多个平台实例配置，支持实例切换和数据隔离。
+ * 注意：实例数据现在统一存储在 config.json 中，此模块仅作为运行时缓存。
  */
 
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use crate::models::config::QQBotConfig;
+use crate::models::config::QQBotRuntimeConfig;
 use super::types::Platform;
 
 /// 实例 ID
@@ -35,7 +36,7 @@ pub struct PlatformInstance {
 
 impl PlatformInstance {
     /// 创建新的 QQ Bot 实例
-    pub fn new_qqbot(name: impl Into<String>, config: QQBotConfig) -> Self {
+    pub fn new_qqbot(name: impl Into<String>, config: QQBotRuntimeConfig) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name: name.into(),
@@ -57,20 +58,20 @@ impl PlatformInstance {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum InstanceConfig {
-    QQBot(QQBotConfig),
+    QQBot(QQBotRuntimeConfig),
     // DingTalk(DingTalkConfig), // 未来扩展
 }
 
 impl InstanceConfig {
     /// 获取 QQ Bot 配置
-    pub fn as_qqbot(&self) -> Option<&QQBotConfig> {
+    pub fn as_qqbot(&self) -> Option<&QQBotRuntimeConfig> {
         match self {
             InstanceConfig::QQBot(config) => Some(config),
         }
     }
 
     /// 获取可变的 QQ Bot 配置
-    pub fn as_qqbot_mut(&mut self) -> Option<&mut QQBotConfig> {
+    pub fn as_qqbot_mut(&mut self) -> Option<&mut QQBotRuntimeConfig> {
         match self {
             InstanceConfig::QQBot(config) => Some(config),
         }

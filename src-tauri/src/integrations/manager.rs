@@ -6,7 +6,6 @@
  */
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex, oneshot};
 use tauri::{AppHandle, Emitter};
@@ -19,7 +18,7 @@ use super::commands::{BotCommand, CommandParser, get_help_text, PromptMode};
 use super::instance_registry::{InstanceRegistry, PlatformInstance, InstanceConfig, InstanceId};
 use crate::ai::{EngineRegistry, SessionOptions};
 use crate::error::Result;
-use crate::models::config::QQBotConfig;
+use crate::models::config::{QQBotConfig, QQBotRuntimeConfig};
 use crate::services::prompt_store::PromptStore;
 
 /// 集成管理器
@@ -49,8 +48,6 @@ pub struct IntegrationManager {
     active_sessions: Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
     /// 实例注册表（多配置管理）
     instance_registry: Arc<Mutex<InstanceRegistry>>,
-    /// 实例数据存储路径
-    instances_path: Option<PathBuf>,
 }
 
 /// AI 消息处理上下文
@@ -81,7 +78,6 @@ impl IntegrationManager {
             session_map: HashMap::new(),
             active_sessions: Arc::new(Mutex::new(HashMap::new())),
             instance_registry: Arc::new(Mutex::new(InstanceRegistry::new())),
-            instances_path: None,
         }
     }
 
@@ -100,83 +96,59 @@ impl IntegrationManager {
     pub async fn init(&mut self, qqbot_config: Option<QQBotConfig>, app_handle: AppHandle) {
         self.app_handle = Some(app_handle.clone());
 
-        // 初始化实例存储路径
-        if let Some(config_dir) = dirs::config_dir() {
-            let data_dir = config_dir.join("claude-code-pro");
-            if let Err(e) = std::fs::create_dir_all(&data_dir) {
-                tracing::warn!("[IntegrationManager] 无法创建数据目录: {}", e);
-            }
-            self.instances_path = Some(data_dir.join("instances.json"));
-            tracing::info!("[IntegrationManager] 实例存储路径: {:?}", self.instances_path);
-        }
-
         // 创建消息通道
         let (tx, rx) = mpsc::channel(100);
         self.message_tx = Some(tx);
         self.message_rx = Some(rx);
 
-        // 加载已保存的实例
-        self.load_instances_from_file();
+        // 从传入的配置中加载实例
+        if let Some(config) = qqbot_config {
+            // 将配置中的实例转换为 InstanceRegistry 格式
+            let mut registry = self.instance_registry.lock().await;
+            for instance_config in &config.instances {
+                let runtime_config = QQBotRuntimeConfig::from(instance_config);
+                let platform_instance = PlatformInstance {
+                    id: instance_config.id.clone(),
+                    name: instance_config.name.clone(),
+                    platform: Platform::QQBot,
+                    config: InstanceConfig::QQBot(runtime_config),
+                    created_at: instance_config.created_at.as_ref()
+                        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                        .unwrap_or_else(chrono::Utc::now),
+                    last_active: instance_config.last_active.as_ref()
+                        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                        .map(|dt| dt.with_timezone(&chrono::Utc)),
+                    enabled: instance_config.enabled,
+                };
+                registry.add(platform_instance);
+            }
 
-        // 初始化 QQ Bot（仅当没有已保存的实例时使用传入的配置）
-        if self.instance_registry.lock().await.count() == 0 {
-            if let Some(config) = qqbot_config {
-                if config.enabled && !config.app_id.is_empty() && !config.client_secret.is_empty() {
-                    let adapter = QQBotAdapter::new(config);
+            // 设置激活的实例
+            if let Some(ref active_id) = config.active_instance_id {
+                registry.activate(active_id);
+            }
+
+            tracing::info!("[IntegrationManager] ✅ 从配置加载了 {} 个 QQ Bot 实例", registry.count());
+
+            // 如果有激活的实例，创建 adapter 并连接
+            if let Some(active_instance) = registry.get_active(Platform::QQBot) {
+                let InstanceConfig::QQBot(qqbot_cfg) = &active_instance.config;
+                if qqbot_cfg.enabled && !qqbot_cfg.app_id.is_empty() && !qqbot_cfg.client_secret.is_empty() {
+                    let adapter = QQBotAdapter::new(qqbot_cfg.clone());
                     let mut adapters = self.adapters.lock().await;
                     adapters.insert(Platform::QQBot, Box::new(adapter));
-                    tracing::info!("[IntegrationManager] QQBot adapter registered");
+                    tracing::info!("[IntegrationManager] ✅ 激活实例: {}", active_instance.name);
                 }
             }
         }
     }
 
-    /// 从文件加载实例
-    fn load_instances_from_file(&mut self) {
-        if let Some(ref path) = self.instances_path {
-            if path.exists() {
-                match std::fs::read_to_string(path) {
-                    Ok(content) => {
-                        match InstanceRegistry::from_json(&content) {
-                            Ok(registry) => {
-                                let count = registry.count();
-                                // 同步更新实例注册表
-                                if let Ok(mut instance_registry) = self.instance_registry.try_lock() {
-                                    *instance_registry = registry;
-                                    tracing::info!("[IntegrationManager] ✅ 已加载 {} 个实例", count);
-                                }
-                            }
-                            Err(e) => {
-                                tracing::warn!("[IntegrationManager] 解析实例文件失败: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!("[IntegrationManager] 读取实例文件失败: {}", e);
-                    }
-                }
-            }
-        }
-    }
-
-    /// 保存实例到文件
+    /// 保存实例到配置（通过回调通知 ConfigStore 保存）
     fn save_instances_to_file(&self) {
-        if let Some(ref path) = self.instances_path {
-            if let Ok(registry) = self.instance_registry.try_lock() {
-                match registry.to_json() {
-                    Ok(json) => {
-                        if let Err(e) = std::fs::write(path, json) {
-                            tracing::warn!("[IntegrationManager] 保存实例文件失败: {}", e);
-                        } else {
-                            tracing::debug!("[IntegrationManager] ✅ 已保存 {} 个实例", registry.count());
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!("[IntegrationManager] 序列化实例失败: {}", e);
-                    }
-                }
-            }
-        }
+        // 不再使用单独的 instances.json 文件
+        // 实例数据现在存储在 config.json 中，由 ConfigStore 统一管理
+        tracing::debug!("[IntegrationManager] 实例保存已由 ConfigStore 统一管理");
     }
 
     /// 启动指定平台

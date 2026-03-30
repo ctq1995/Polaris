@@ -12,7 +12,7 @@ use tokio::sync::{mpsc::Sender, RwLock};
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 
 use crate::error::{AppError, Result};
-use crate::models::config::QQBotConfig;
+use crate::models::config::{QQBotRuntimeConfig, QQBotInstanceConfig};
 use super::super::common::MessageDedup;
 use super::super::traits::PlatformIntegration;
 use super::super::types::*;
@@ -48,7 +48,7 @@ struct InnerState {
 /// QQ Bot 适配器
 pub struct QQBotAdapter {
     /// 配置
-    config: QQBotConfig,
+    config: QQBotRuntimeConfig,
     /// Access Token
     access_token: Option<String>,
     /// Token 过期时间
@@ -69,7 +69,7 @@ pub struct QQBotAdapter {
 
 impl QQBotAdapter {
     /// 创建新的 QQ Bot 适配器
-    pub fn new(config: QQBotConfig) -> Self {
+    pub fn new(config: QQBotRuntimeConfig) -> Self {
         Self {
             config,
             access_token: None,
@@ -81,6 +81,11 @@ impl QQBotAdapter {
             shutdown_tx: None,
             app_handle: None,
         }
+    }
+
+    /// 从实例配置创建适配器
+    pub fn from_instance(instance: &QQBotInstanceConfig) -> Self {
+        Self::new(QQBotRuntimeConfig::from(instance))
     }
 
     /// 设置 App Handle（用于发送状态变化事件）

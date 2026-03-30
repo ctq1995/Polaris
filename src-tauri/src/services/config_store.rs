@@ -897,6 +897,7 @@ impl OldConfig {
             openai_providers: Vec::new(),
             active_provider_id: None,
             qqbot: Default::default(),
+            active_qqbot_instance_id: None,
             work_dir: self.work_dir,
             session_dir: self.session_dir,
             git_bin_path: self.git_bin_path,

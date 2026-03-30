@@ -55,9 +55,13 @@ export interface BaiduTranslateConfig {
 /** 消息显示模式 */
 export type IntegrationDisplayMode = 'chat' | 'separate' | 'both';
 
-/** QQ Bot 集成配置 */
-export interface QQBotConfig {
-  /** 是否启用 QQ Bot 集成 */
+/** QQ Bot 实例配置 */
+export interface QQBotInstanceConfig {
+  /** 实例 ID */
+  id: string;
+  /** 显示名称 */
+  name: string;
+  /** 是否启用 */
   enabled: boolean;
   /** 应用 ID */
   appId: string;
@@ -69,6 +73,20 @@ export interface QQBotConfig {
   displayMode: IntegrationDisplayMode;
   /** 启动时自动连接 */
   autoConnect: boolean;
+  /** 创建时间 (ISO 8601) */
+  createdAt?: string;
+  /** 最后活跃时间 (ISO 8601) */
+  lastActive?: string;
+}
+
+/** QQ Bot 集成配置 */
+export interface QQBotConfig {
+  /** 是否启用 QQ Bot 集成（全局开关） */
+  enabled: boolean;
+  /** QQ Bot 实例列表 */
+  instances: QQBotInstanceConfig[];
+  /** 当前激活的实例 ID */
+  activeInstanceId?: string;
 }
 
 /** 窗口设置 */
