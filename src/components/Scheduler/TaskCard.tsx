@@ -4,7 +4,7 @@
 
 import { useTranslation } from 'react-i18next';
 import type { ScheduledTask, TaskStatus } from '../../types/scheduler';
-import { TRIGGER_TYPE_LABELS, formatRelativeTime } from '../../types/scheduler';
+import { TRIGGER_TYPE_LABELS, TASK_MODE_LABELS, TASK_CATEGORY_LABELS, formatRelativeTime } from '../../types/scheduler';
 
 /** 状态徽章 */
 function StatusBadge({ status, isRunning }: { status?: TaskStatus; isRunning?: boolean }) {
@@ -117,7 +117,7 @@ export function TaskCard({
       </div>
 
       {/* 信息行 */}
-      <div className="mb-3 pt-3 border-t border-border-subtle flex items-center gap-4 text-sm">
+      <div className="mb-3 pt-3 border-t border-border-subtle flex items-center gap-4 text-sm flex-wrap">
         <span className="text-text-muted">
           {t('card.trigger')}:{' '}
           <span className="text-text-secondary">
@@ -128,6 +128,21 @@ export function TaskCard({
           {t('card.engine')}:{' '}
           <span className="text-text-secondary">{task.engineId}</span>
         </span>
+        <span className="text-text-muted">
+          {t('card.mode')}:{' '}
+          <span className="text-text-secondary">{TASK_MODE_LABELS[task.mode]}</span>
+        </span>
+        {task.category !== 'custom' && (
+          <span className="text-text-muted">
+            {t('card.category')}:{' '}
+            <span className="text-text-secondary">{TASK_CATEGORY_LABELS[task.category]}</span>
+          </span>
+        )}
+        {task.group && (
+          <span className="text-text-muted">
+            <span className="text-text-secondary">{task.group}</span>
+          </span>
+        )}
       </div>
 
       {/* 操作按钮 */}

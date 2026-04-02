@@ -20,6 +20,19 @@
     "interval": "间隔执行"
   },
 
+  "taskMode": {
+    "simple": "简单模式",
+    "protocol": "协议模式"
+  },
+
+  "taskCategory": {
+    "development": "开发任务",
+    "review": "审查任务",
+    "news": "新闻搜索",
+    "monitor": "监控任务",
+    "custom": "自定义"
+  },
+
   "control": {
     "running": "调度器运行中",
     "stopped": "调度器已停止",
@@ -51,7 +64,9 @@
     "copy": "复制",
     "delete": "删除",
     "enable": "启用",
-    "disable": "禁用"
+    "disable": "禁用",
+    "mode": "模式",
+    "category": "分类"
   },
 
   "filter": {
@@ -78,12 +93,30 @@
     "nameRequired": "请填写任务名称",
     "description": "描述",
     "descriptionPlaceholder": "任务描述（可选）",
+    "mode": "任务模式",
+    "category": "任务分类",
+    "protocolConfig": "协议模式配置",
+    "mission": "任务目标",
+    "missionPlaceholder": "描述任务的主要目标，AI 将根据此目标持续执行...",
+    "missionRequired": "协议模式需要填写任务目标",
+    "group": "分组",
+    "groupPlaceholder": "用于分组管理，可选",
+    "maxRuns": "最大执行次数",
+    "maxRunsPlaceholder": "如：10",
+    "maxRetries": "最大重试次数",
+    "maxRetriesPlaceholder": "如：3",
+    "retryInterval": "重试间隔",
+    "retryIntervalPlaceholder": "如：5m（5分钟）",
+    "timeoutMinutes": "超时时间（分钟）",
+    "timeoutMinutesPlaceholder": "如：30",
     "trigger": "触发配置",
     "engine": "AI 引擎",
     "workDir": "工作目录",
     "workDirPlaceholder": "留空使用默认目录",
     "prompt": "提示词",
     "promptPlaceholder": "输入 AI 要执行的提示词...",
+    "promptPlaceholderProtocol": "可选：额外的提示词补充（协议模式主要使用任务目标）",
+    "promptHintProtocol": "协议模式下，提示词为可选补充，AI 主要根据任务目标执行",
     "promptRequired": "请填写提示词",
     "promptTemplate": "提示词模板",
     "noTemplate": "不使用模板",

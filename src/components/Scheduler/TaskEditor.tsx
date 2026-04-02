@@ -4,8 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ScheduledTask, CreateTaskParams, TriggerType } from '../../types/scheduler';
-import { TEMPLATE_VARIABLES } from '../../types/scheduler';
+import type { ScheduledTask, CreateTaskParams, TriggerType, TaskMode, TaskCategory } from '../../types/scheduler';
+import { TEMPLATE_VARIABLES, TASK_MODE_LABELS, TASK_CATEGORY_LABELS } from '../../types/scheduler';
 import { TriggerConfig } from './TriggerConfig';
 import { useToastStore, useWorkspaceStore, useConfigStore, useSchedulerStore } from '../../stores';
 
@@ -48,6 +48,10 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
   const [prompt, setPrompt] = useState(task?.prompt || '');
   const [workDir, setWorkDir] = useState(task?.workDir || defaultWorkDir);
 
+  // 任务模式与分类
+  const [mode, setMode] = useState<TaskMode>(task?.mode || 'simple');
+  const [category, setCategory] = useState<TaskCategory>(task?.category || 'custom');
+
   // 触发配置
   const [triggerType, setTriggerType] = useState<TriggerType>(task?.triggerType || 'interval');
   const [triggerValue, setTriggerValue] = useState(task?.triggerValue || '1h');
@@ -57,6 +61,16 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
 
   // 模板配置
   const [templateId, setTemplateId] = useState<string | null>(task?.templateId || null);
+
+  // 协议模式字段
+  const [mission, setMission] = useState(task?.mission || '');
+  const [group, setGroup] = useState(task?.group || '');
+
+  // 执行控制
+  const [maxRuns, setMaxRuns] = useState<number | undefined>(task?.maxRuns);
+  const [maxRetries, setMaxRetries] = useState<number | undefined>(task?.maxRetries);
+  const [retryInterval, setRetryInterval] = useState(task?.retryInterval || '');
+  const [timeoutMinutes, setTimeoutMinutes] = useState<number | undefined>(task?.timeoutMinutes);
 
   // 加载模板
   useEffect(() => {
@@ -87,7 +101,14 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
       return;
     }
 
-    if (!prompt.trim()) {
+    // 协议模式下 mission 必填
+    if (mode === 'protocol' && !mission.trim()) {
+      toast.warning(t('editor.missionRequired'));
+      return;
+    }
+
+    // 简单模式下 prompt 必填
+    if (mode === 'simple' && !prompt.trim()) {
       toast.warning(t('editor.promptRequired'));
       return;
     }
@@ -101,7 +122,19 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
       engineId,
       workDir: workDir.trim() || undefined,
       enabled: task?.enabled ?? true,
+      // 任务模式
+      mode,
+      category,
       templateId: templateId || undefined,
+      // 协议模式
+      mission: mode === 'protocol' ? mission.trim() : undefined,
+      // 执行控制
+      maxRuns: maxRuns || undefined,
+      maxRetries: maxRetries || undefined,
+      retryInterval: retryInterval.trim() || undefined,
+      timeoutMinutes: timeoutMinutes || undefined,
+      // 其他
+      group: group.trim() || undefined,
     });
   };
 
@@ -175,6 +208,131 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
               className="w-full px-3 py-2 bg-background-surface border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
+
+          {/* 任务模式与分类 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">
+                {t('editor.mode')}
+              </label>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as TaskMode)}
+                className="w-full px-3 py-2 bg-background-surface border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                {Object.entries(TASK_MODE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">
+                {t('editor.category')}
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as TaskCategory)}
+                className="w-full px-3 py-2 bg-background-surface border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                {Object.entries(TASK_CATEGORY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 协议模式配置 */}
+          {mode === 'protocol' && (
+            <div className="space-y-4 p-4 bg-background-surface rounded-lg border border-border-subtle">
+              <h4 className="text-sm font-medium text-text-primary">{t('editor.protocolConfig')}</h4>
+
+              {/* 任务目标 */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-1">
+                  {t('editor.mission')} <span className="text-danger">*</span>
+                </label>
+                <textarea
+                  value={mission}
+                  onChange={(e) => setMission(e.target.value)}
+                  rows={2}
+                  placeholder={t('editor.missionPlaceholder')}
+                  className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-text-primary resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* 分组 */}
+              <div>
+                <label className="block text-sm text-text-secondary mb-1">
+                  {t('editor.group')}
+                </label>
+                <input
+                  type="text"
+                  value={group}
+                  onChange={(e) => setGroup(e.target.value)}
+                  placeholder={t('editor.groupPlaceholder')}
+                  className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* 执行控制 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    {t('editor.maxRuns')}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={maxRuns ?? ''}
+                    onChange={(e) => setMaxRuns(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                    placeholder={t('editor.maxRunsPlaceholder')}
+                    className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    {t('editor.maxRetries')}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={maxRetries ?? ''}
+                    onChange={(e) => setMaxRetries(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                    placeholder={t('editor.maxRetriesPlaceholder')}
+                    className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    {t('editor.retryInterval')}
+                  </label>
+                  <input
+                    type="text"
+                    value={retryInterval}
+                    onChange={(e) => setRetryInterval(e.target.value)}
+                    placeholder={t('editor.retryIntervalPlaceholder')}
+                    className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    {t('editor.timeoutMinutes')}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={timeoutMinutes ?? ''}
+                    onChange={(e) => setTimeoutMinutes(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                    placeholder={t('editor.timeoutMinutesPlaceholder')}
+                    className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 触发配置 */}
           <div>
@@ -335,15 +493,24 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
           {/* 提示词 */}
           <div>
             <label className="block text-sm text-text-secondary mb-1">
-              {t('editor.prompt')} <span className="text-danger">*</span>
+              {mode === 'simple' ? (
+                <>
+                  {t('editor.prompt')} <span className="text-danger">*</span>
+                </>
+              ) : (
+                t('editor.prompt')
+              )}
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={5}
-              placeholder={t('editor.promptPlaceholder')}
+              placeholder={mode === 'protocol' ? t('editor.promptPlaceholderProtocol') : t('editor.promptPlaceholder')}
               className="w-full px-3 py-2 bg-background-surface border border-border-subtle rounded-lg text-text-primary resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
+            {mode === 'protocol' && (
+              <p className="mt-1 text-xs text-text-muted">{t('editor.promptHintProtocol')}</p>
+            )}
           </div>
 
           {/* 模板预览 */}

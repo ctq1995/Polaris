@@ -20,6 +20,19 @@
     "interval": "Interval"
   },
 
+  "taskMode": {
+    "simple": "Simple Mode",
+    "protocol": "Protocol Mode"
+  },
+
+  "taskCategory": {
+    "development": "Development",
+    "review": "Review",
+    "news": "News Search",
+    "monitor": "Monitor",
+    "custom": "Custom"
+  },
+
   "control": {
     "running": "Scheduler Running",
     "stopped": "Scheduler Stopped",
@@ -51,7 +64,9 @@
     "copy": "Copy",
     "delete": "Delete",
     "enable": "Enable",
-    "disable": "Disable"
+    "disable": "Disable",
+    "mode": "Mode",
+    "category": "Category"
   },
 
   "filter": {
@@ -78,19 +93,37 @@
     "nameRequired": "Please enter task name",
     "description": "Description",
     "descriptionPlaceholder": "Task description (optional)",
+    "mode": "Task Mode",
+    "category": "Category",
+    "protocolConfig": "Protocol Mode Configuration",
+    "mission": "Mission",
+    "missionPlaceholder": "Describe the main goal of the task, AI will execute based on this...",
+    "missionRequired": "Mission is required for protocol mode",
+    "group": "Group",
+    "groupPlaceholder": "For grouping tasks, optional",
+    "maxRuns": "Max Runs",
+    "maxRunsPlaceholder": "e.g., 10",
+    "maxRetries": "Max Retries",
+    "maxRetriesPlaceholder": "e.g., 3",
+    "retryInterval": "Retry Interval",
+    "retryIntervalPlaceholder": "e.g., 5m (5 minutes)",
+    "timeoutMinutes": "Timeout (minutes)",
+    "timeoutMinutesPlaceholder": "e.g., 30",
     "trigger": "Trigger Configuration",
     "engine": "AI Engine",
     "workDir": "Working Directory",
     "workDirPlaceholder": "Leave empty for default directory",
     "prompt": "Prompt",
     "promptPlaceholder": "Enter the prompt for AI to execute...",
+    "promptPlaceholderProtocol": "Optional: additional prompt supplement (protocol mode mainly uses mission)",
+    "promptHintProtocol": "In protocol mode, prompt is optional. AI mainly executes based on mission.",
     "promptRequired": "Please enter prompt",
-    "documentMode": "Document Mode",
-    "selectTemplate": "Select Template",
+    "promptTemplate": "Prompt Template",
     "noTemplate": "No Template",
-    "builtinTemplates": "Built-in Templates",
-    "customTemplates": "Custom Templates",
-    "documentModeHelp": "When enabled, AI will maintain context across multiple executions",
+    "templatePreview": "Template Preview",
+    "templateVariables": "Available Variables",
+    "promptPreviewPlaceholder": "User prompt",
+    "taskNamePlaceholder": "Task name",
     "cancel": "Cancel",
     "save": "Save",
     "selectProvider": "Select Provider",
@@ -99,6 +132,37 @@
     "noProviderConfigured": "No OpenAI Provider configured",
     "providerInvalid": "Current provider is invalid or disabled, please select another engine",
     "goConfig": "Configure"
+  },
+
+  "template": {
+    "title": "Template Manager",
+    "newTemplate": "New Template",
+    "editTemplate": "Edit Template",
+    "deleteConfirm": "Are you sure you want to delete this template?",
+    "createSuccess": "Template created",
+    "updateSuccess": "Template updated",
+    "deleteSuccess": "Template deleted",
+    "name": "Template Name",
+    "namePlaceholder": "e.g., Daily Report Template",
+    "nameRequired": "Please enter template name",
+    "description": "Description",
+    "descriptionPlaceholder": "Template description (optional)",
+    "content": "Content",
+    "contentPlaceholder": "Enter template content, use {{prompt}} for user prompt...",
+    "contentRequired": "Please enter template content",
+    "variables": "Variables",
+    "promptVar": "User Prompt",
+    "taskNameVar": "Task Name",
+    "dateVar": "Current Date",
+    "timeVar": "Current Time",
+    "datetimeVar": "Date Time",
+    "weekdayVar": "Weekday",
+    "insertVar": "Insert Variable",
+    "preview": "Preview",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "noTemplates": "No templates",
+    "createFirst": "Click the button above to create your first template"
   },
 
   "confirm": {
