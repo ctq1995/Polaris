@@ -5,8 +5,8 @@
 
 use crate::error::{AppError, Result};
 use crate::models::scheduler::{
-    CreateTaskParams, CreateTemplateParams, PromptTemplate, ScheduledTask, TaskStatus, TaskStore,
-    TemplateStore, TriggerType,
+    CreateTaskParams, CreateTemplateParams, PromptTemplate, ScheduledTask, TaskCategory, TaskMode,
+    TaskStatus, TaskStore, TemplateStore, TriggerType,
 };
 use chrono::Utc;
 use std::collections::BTreeMap;
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 const TASKS_FILE_NAME: &str = "tasks.json";
-const SCHEDULER_FILE_VERSION: &str = "1.0.0";
+const SCHEDULER_FILE_VERSION: &str = "1.1.0";
 const WORKSPACES_FILE_NAME: &str = "workspaces.json";
 const TEMPLATES_FILE_NAME: &str = "templates.json";
 
@@ -59,6 +59,22 @@ pub struct TaskUpdateParams {
     pub next_run_at: Option<i64>,
     /// 上次执行时间（Unix 时间戳，秒）
     pub last_run_at: Option<i64>,
+    // === 任务模式 ===
+    pub mode: Option<TaskMode>,
+    pub category: Option<TaskCategory>,
+    // === 协议模式属性 ===
+    pub mission: Option<String>,
+    pub template_params: Option<std::collections::HashMap<String, String>>,
+    // === 执行控制 ===
+    pub max_runs: Option<u32>,
+    pub current_runs: Option<u32>,
+    pub max_retries: Option<u32>,
+    pub retry_count: Option<u32>,
+    pub retry_interval: Option<String>,
+    pub timeout_minutes: Option<u32>,
+    // === 其他 ===
+    pub group: Option<String>,
+    pub notify_on_complete: Option<bool>,
 }
 
 impl UnifiedSchedulerRepository {
@@ -166,7 +182,24 @@ impl UnifiedSchedulerRepository {
             updated_at: now,
             workspace_path,
             workspace_name,
-            template_id: params.template_id,
+            // === 任务模式 ===
+            mode: params.mode,
+            category: params.category,
+            // === 协议模式属性 ===
+            task_path: None, // 将在后续创建文档时设置
+            mission: sanitize_optional_string(params.mission),
+            template_id: sanitize_optional_string(params.template_id),
+            template_params: params.template_params,
+            // === 执行控制 ===
+            max_runs: params.max_runs,
+            current_runs: 0,
+            max_retries: params.max_retries,
+            retry_count: 0,
+            retry_interval: sanitize_optional_string(params.retry_interval),
+            timeout_minutes: params.timeout_minutes,
+            // === 其他 ===
+            group: sanitize_optional_string(params.group),
+            notify_on_complete: params.notify_on_complete,
         };
 
         data.tasks.push(task.clone());
@@ -219,7 +252,7 @@ impl UnifiedSchedulerRepository {
         }
 
         if updates.template_id.is_some() {
-            task.template_id = updates.template_id;
+            task.template_id = sanitize_optional_string(updates.template_id);
         }
 
         // 更新执行时间字段
@@ -229,6 +262,58 @@ impl UnifiedSchedulerRepository {
 
         if updates.last_run_at.is_some() {
             task.last_run_at = updates.last_run_at;
+        }
+
+        // === 任务模式 ===
+        if let Some(mode) = updates.mode {
+            task.mode = mode;
+        }
+
+        if let Some(category) = updates.category {
+            task.category = category;
+        }
+
+        // === 协议模式属性 ===
+        if updates.mission.is_some() {
+            task.mission = sanitize_optional_string(updates.mission);
+        }
+
+        if updates.template_params.is_some() {
+            task.template_params = updates.template_params;
+        }
+
+        // === 执行控制 ===
+        if let Some(max_runs) = updates.max_runs {
+            task.max_runs = Some(max_runs);
+        }
+
+        if let Some(current_runs) = updates.current_runs {
+            task.current_runs = current_runs;
+        }
+
+        if let Some(max_retries) = updates.max_retries {
+            task.max_retries = Some(max_retries);
+        }
+
+        if let Some(retry_count) = updates.retry_count {
+            task.retry_count = retry_count;
+        }
+
+        if updates.retry_interval.is_some() {
+            task.retry_interval = sanitize_optional_string(updates.retry_interval);
+        }
+
+        if let Some(timeout_minutes) = updates.timeout_minutes {
+            task.timeout_minutes = Some(timeout_minutes);
+        }
+
+        // === 其他 ===
+        if updates.group.is_some() {
+            task.group = sanitize_optional_string(updates.group);
+        }
+
+        if let Some(notify_on_complete) = updates.notify_on_complete {
+            task.notify_on_complete = notify_on_complete;
         }
 
         task.updated_at = Utc::now().timestamp();
@@ -535,7 +620,24 @@ fn normalize_task_item(value: &serde_json::Value) -> Option<ScheduledTask> {
         updated_at: object.get("updatedAt").and_then(|v| v.as_i64()).unwrap_or(now),
         workspace_path: optional_string_field(object.get("workspacePath")),
         workspace_name: optional_string_field(object.get("workspaceName")),
+        // === 任务模式 ===
+        mode: parse_task_mode(object.get("mode")).unwrap_or_default(),
+        category: parse_task_category(object.get("category")).unwrap_or_default(),
+        // === 协议模式属性 ===
+        task_path: optional_string_field(object.get("taskPath")),
+        mission: optional_string_field(object.get("mission")),
         template_id: optional_string_field(object.get("templateId")),
+        template_params: parse_template_params(object.get("templateParams")),
+        // === 执行控制 ===
+        max_runs: object.get("maxRuns").and_then(|v| v.as_u64()).map(|n| n as u32),
+        current_runs: object.get("currentRuns").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        max_retries: object.get("maxRetries").and_then(|v| v.as_u64()).map(|n| n as u32),
+        retry_count: object.get("retryCount").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        retry_interval: optional_string_field(object.get("retryInterval")),
+        timeout_minutes: object.get("timeoutMinutes").and_then(|v| v.as_u64()).map(|n| n as u32),
+        // === 其他 ===
+        group: optional_string_field(object.get("group")),
+        notify_on_complete: object.get("notifyOnComplete").and_then(|v| v.as_bool()).unwrap_or(true),
     })
 }
 
@@ -555,6 +657,33 @@ fn parse_task_status(value: Option<&serde_json::Value>) -> Option<TaskStatus> {
         Some("failed") => Some(TaskStatus::Failed),
         _ => None,
     }
+}
+
+fn parse_task_mode(value: Option<&serde_json::Value>) -> Option<TaskMode> {
+    match value.and_then(|v| v.as_str()) {
+        Some("simple") => Some(TaskMode::Simple),
+        Some("protocol") => Some(TaskMode::Protocol),
+        _ => None,
+    }
+}
+
+fn parse_task_category(value: Option<&serde_json::Value>) -> Option<TaskCategory> {
+    match value.and_then(|v| v.as_str()) {
+        Some("development") => Some(TaskCategory::Development),
+        Some("review") => Some(TaskCategory::Review),
+        Some("news") => Some(TaskCategory::News),
+        Some("monitor") => Some(TaskCategory::Monitor),
+        Some("custom") => Some(TaskCategory::Custom),
+        _ => None,
+    }
+}
+
+fn parse_template_params(value: Option<&serde_json::Value>) -> Option<std::collections::HashMap<String, String>> {
+    value.and_then(|v| v.as_object()).map(|obj| {
+        obj.iter()
+            .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+            .collect()
+    })
 }
 
 fn optional_string_field(value: Option<&serde_json::Value>) -> Option<String> {

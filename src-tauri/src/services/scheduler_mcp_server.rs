@@ -349,7 +349,19 @@ fn execute_create_task(arguments: Value, repository: &UnifiedSchedulerRepository
         prompt,
         work_dir: optional_trimmed_string(arguments.get("workDir")),
         description: optional_trimmed_string(arguments.get("description")),
+        workspace_path: None,
+        workspace_name: None,
+        mode: Default::default(),
+        category: Default::default(),
+        mission: None,
         template_id: None,
+        template_params: None,
+        max_runs: None,
+        max_retries: None,
+        retry_interval: None,
+        timeout_minutes: None,
+        group: None,
+        notify_on_complete: true,
     };
 
     let task = repository.create_task(params)?;

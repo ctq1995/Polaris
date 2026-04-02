@@ -1,9 +1,11 @@
-//! Scheduler Models (Simplified)
+//! Scheduler Models
 //!
-//! Simplified data models for scheduled task management.
+//! Data models for scheduled task management with support for both
+//! simple mode and protocol mode (document-driven workflow).
 
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // ============================================================================
 // Core Types
@@ -29,6 +31,34 @@ pub enum TaskStatus {
     Running,
     Success,
     Failed,
+}
+
+/// 任务模式
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskMode {
+    /// 简单模式：直接使用 prompt
+    #[default]
+    Simple,
+    /// 协议模式：使用文档驱动的工作流
+    Protocol,
+}
+
+/// 任务分类（用于模板分组）
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskCategory {
+    /// 开发任务
+    #[default]
+    Development,
+    /// 审查任务
+    Review,
+    /// 新闻搜索
+    News,
+    /// 监控任务
+    Monitor,
+    /// 自定义
+    Custom,
 }
 
 // ============================================================================
@@ -84,10 +114,11 @@ pub struct TemplateStore {
 // Task Model
 // ============================================================================
 
-/// 定时任务（精简版）
+/// 定时任务
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledTask {
+    // === 基础属性 ===
     /// 任务 ID
     pub id: String,
     /// 任务名称
@@ -103,14 +134,14 @@ pub struct ScheduledTask {
     pub trigger_value: String,
     /// 使用的引擎 ID
     pub engine_id: String,
-    /// 提示词
+    /// 提示词 (simple 模式使用)
     pub prompt: String,
     /// 工作目录（可选）
     pub work_dir: Option<String>,
     /// 任务描述（可选）
     pub description: Option<String>,
 
-    // 状态字段
+    // === 状态属性 ===
     /// 上次执行时间
     pub last_run_at: Option<i64>,
     /// 上次执行状态
@@ -122,22 +153,70 @@ pub struct ScheduledTask {
     /// 更新时间
     pub updated_at: i64,
 
-    // 工作区关联
+    // === 工作区关联 ===
     /// 所属工作区路径
     #[serde(default)]
     pub workspace_path: Option<String>,
     /// 所属工作区名称
     #[serde(default)]
     pub workspace_name: Option<String>,
-    /// 提示词模板 ID
+
+    // === 任务模式 ===
+    /// 任务模式
+    #[serde(default)]
+    pub mode: TaskMode,
+    /// 任务分类
+    #[serde(default)]
+    pub category: TaskCategory,
+
+    // === 协议模式属性 ===
+    /// 任务文档路径 (protocol 模式)
+    #[serde(default)]
+    pub task_path: Option<String>,
+    /// 任务目标 (protocol 模式)
+    #[serde(default)]
+    pub mission: Option<String>,
+    /// 模板 ID
     #[serde(default)]
     pub template_id: Option<String>,
+    /// 模板参数
+    #[serde(default)]
+    pub template_params: Option<HashMap<String, String>>,
+
+    // === 执行控制 ===
+    /// 最大执行次数 (protocol 模式)
+    #[serde(default)]
+    pub max_runs: Option<u32>,
+    /// 当前执行次数
+    #[serde(default)]
+    pub current_runs: u32,
+    /// 最大重试次数
+    #[serde(default)]
+    pub max_retries: Option<u32>,
+    /// 当前重试次数
+    #[serde(default)]
+    pub retry_count: u32,
+    /// 重试间隔
+    #[serde(default)]
+    pub retry_interval: Option<String>,
+    /// 超时时间（分钟）
+    #[serde(default)]
+    pub timeout_minutes: Option<u32>,
+
+    // === 其他 ===
+    /// 分组
+    #[serde(default)]
+    pub group: Option<String>,
+    /// 完成通知
+    #[serde(default = "default_true")]
+    pub notify_on_complete: bool,
 }
 
-/// 创建任务参数（精简版）
+/// 创建任务参数
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTaskParams {
+    // === 基础属性 ===
     /// 任务名称
     pub name: String,
     /// 是否启用
@@ -149,18 +228,68 @@ pub struct CreateTaskParams {
     pub trigger_value: String,
     /// 使用的引擎 ID
     pub engine_id: String,
-    /// 提示词
+    /// 提示词 (simple 模式使用)
     pub prompt: String,
     /// 工作目录（可选）
     pub work_dir: Option<String>,
     /// 任务描述（可选）
     pub description: Option<String>,
-    /// 提示词模板 ID
+
+    // === 工作区关联 ===
+    /// 所属工作区路径
+    #[serde(default)]
+    pub workspace_path: Option<String>,
+    /// 所属工作区名称
+    #[serde(default)]
+    pub workspace_name: Option<String>,
+
+    // === 任务模式 ===
+    /// 任务模式
+    #[serde(default)]
+    pub mode: TaskMode,
+    /// 任务分类
+    #[serde(default)]
+    pub category: TaskCategory,
+
+    // === 协议模式属性 ===
+    /// 任务目标 (protocol 模式)
+    #[serde(default)]
+    pub mission: Option<String>,
+    /// 模板 ID
     #[serde(default)]
     pub template_id: Option<String>,
+    /// 模板参数
+    #[serde(default)]
+    pub template_params: Option<HashMap<String, String>>,
+
+    // === 执行控制 ===
+    /// 最大执行次数 (protocol 模式)
+    #[serde(default)]
+    pub max_runs: Option<u32>,
+    /// 最大重试次数
+    #[serde(default)]
+    pub max_retries: Option<u32>,
+    /// 重试间隔
+    #[serde(default)]
+    pub retry_interval: Option<String>,
+    /// 超时时间（分钟）
+    #[serde(default)]
+    pub timeout_minutes: Option<u32>,
+
+    // === 其他 ===
+    /// 分组
+    #[serde(default)]
+    pub group: Option<String>,
+    /// 完成通知
+    #[serde(default = "default_true")]
+    pub notify_on_complete: bool,
 }
 
 fn default_enabled() -> bool {
+    true
+}
+
+fn default_true() -> bool {
     true
 }
 

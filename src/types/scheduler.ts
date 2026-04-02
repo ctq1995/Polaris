@@ -13,6 +13,12 @@ export type TaskStatus = 'running' | 'success' | 'failed';
 /** 间隔单位 */
 export type IntervalUnit = 's' | 'm' | 'h' | 'd';
 
+/** 任务模式 */
+export type TaskMode = 'simple' | 'protocol';
+
+/** 任务分类 */
+export type TaskCategory = 'development' | 'review' | 'news' | 'monitor' | 'custom';
+
 // ============ 提示词模板 ============
 
 /** 提示词模板 */
@@ -59,6 +65,7 @@ export const TEMPLATE_VARIABLES = [
 
 /** 定时任务 */
 export interface ScheduledTask {
+  // === 基础属性 ===
   /** 任务 ID */
   id: string;
   /** 任务名称 */
@@ -71,12 +78,14 @@ export interface ScheduledTask {
   triggerValue: string;
   /** 使用的引擎 ID */
   engineId: string;
-  /** 提示词 */
+  /** 提示词 (simple 模式使用) */
   prompt: string;
   /** 工作目录 */
   workDir?: string;
   /** 任务描述 */
   description?: string;
+
+  // === 状态属性 ===
   /** 上次执行时间 (Unix 时间戳，秒) */
   lastRunAt?: number;
   /** 上次执行状态 */
@@ -87,16 +96,53 @@ export interface ScheduledTask {
   createdAt: number;
   /** 更新时间 (Unix 时间戳，秒) */
   updatedAt: number;
+
+  // === 工作区关联 ===
   /** 所属工作区路径 */
   workspacePath?: string;
   /** 所属工作区名称 */
   workspaceName?: string;
-  /** 提示词模板 ID */
+
+  // === 任务模式 ===
+  /** 任务模式 */
+  mode: TaskMode;
+  /** 任务分类 */
+  category: TaskCategory;
+
+  // === 协议模式属性 ===
+  /** 任务文档路径 (protocol 模式) */
+  taskPath?: string;
+  /** 任务目标 (protocol 模式) */
+  mission?: string;
+  /** 模板 ID */
   templateId?: string;
+  /** 模板参数 */
+  templateParams?: Record<string, string>;
+
+  // === 执行控制 ===
+  /** 最大执行次数 (protocol 模式) */
+  maxRuns?: number;
+  /** 当前执行次数 */
+  currentRuns: number;
+  /** 最大重试次数 */
+  maxRetries?: number;
+  /** 当前重试次数 */
+  retryCount: number;
+  /** 重试间隔 */
+  retryInterval?: string;
+  /** 超时时间（分钟） */
+  timeoutMinutes?: number;
+
+  // === 其他 ===
+  /** 分组 */
+  group?: string;
+  /** 完成通知 */
+  notifyOnComplete: boolean;
 }
 
 /** 创建任务参数 */
 export interface CreateTaskParams {
+  // === 基础属性 ===
   /** 任务名称 */
   name: string;
   /** 是否启用 */
@@ -107,14 +153,48 @@ export interface CreateTaskParams {
   triggerValue: string;
   /** 使用的引擎 ID */
   engineId: string;
-  /** 提示词 */
+  /** 提示词 (simple 模式使用) */
   prompt: string;
   /** 工作目录 */
   workDir?: string;
   /** 任务描述 */
   description?: string;
-  /** 提示词模板 ID */
+
+  // === 工作区关联 ===
+  /** 所属工作区路径 */
+  workspacePath?: string;
+  /** 所属工作区名称 */
+  workspaceName?: string;
+
+  // === 任务模式 ===
+  /** 任务模式 */
+  mode?: TaskMode;
+  /** 任务分类 */
+  category?: TaskCategory;
+
+  // === 协议模式属性 ===
+  /** 任务目标 (protocol 模式) */
+  mission?: string;
+  /** 模板 ID */
   templateId?: string;
+  /** 模板参数 */
+  templateParams?: Record<string, string>;
+
+  // === 执行控制 ===
+  /** 最大执行次数 (protocol 模式) */
+  maxRuns?: number;
+  /** 最大重试次数 */
+  maxRetries?: number;
+  /** 重试间隔 */
+  retryInterval?: string;
+  /** 超时时间（分钟） */
+  timeoutMinutes?: number;
+
+  // === 其他 ===
+  /** 分组 */
+  group?: string;
+  /** 完成通知 */
+  notifyOnComplete?: boolean;
 }
 
 // ============ 调度器状态 ============
@@ -224,6 +304,21 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   running: '执行中',
   success: '成功',
   failed: '失败',
+};
+
+/** 任务模式标签 */
+export const TASK_MODE_LABELS: Record<TaskMode, string> = {
+  simple: '简单模式',
+  protocol: '协议模式',
+};
+
+/** 任务分类标签 */
+export const TASK_CATEGORY_LABELS: Record<TaskCategory, string> = {
+  development: '开发任务',
+  review: '审查任务',
+  news: '新闻搜索',
+  monitor: '监控任务',
+  custom: '自定义',
 };
 
 // ============ 工具函数 ============

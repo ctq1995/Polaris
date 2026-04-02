@@ -84,6 +84,23 @@ pub async fn scheduler_update_task(
         prompt: Some(task.prompt),
         work_dir: task.work_dir,
         description: task.description,
+        // === 任务模式 ===
+        mode: Some(task.mode),
+        category: Some(task.category),
+        // === 协议模式属性 ===
+        mission: task.mission,
+        template_id: task.template_id,
+        template_params: task.template_params,
+        // === 执行控制 ===
+        max_runs: task.max_runs,
+        current_runs: Some(task.current_runs),
+        max_retries: task.max_retries,
+        retry_count: Some(task.retry_count),
+        retry_interval: task.retry_interval,
+        timeout_minutes: task.timeout_minutes,
+        // === 其他 ===
+        group: task.group,
+        notify_on_complete: Some(task.notify_on_complete),
         ..Default::default()
     })
 }
