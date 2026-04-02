@@ -231,8 +231,7 @@ mod tests {
                 trigger_value: "1h".to_string(),
                 engine_id: "claude-code".to_string(),
                 prompt: "测试提示词".to_string(),
-                work_dir: None,
-                description: None,
+                ..Default::default()
             })
             .unwrap();
 
@@ -260,8 +259,6 @@ mod tests {
             trigger_value: "1h".to_string(),
             engine_id: "test".to_string(),
             prompt: "test".to_string(),
-            work_dir: None,
-            description: None,
             mode: TaskMode::Protocol,
             category: TaskCategory::Development,
             ..Default::default()
@@ -275,8 +272,6 @@ mod tests {
             trigger_value: "1h".to_string(),
             engine_id: "test".to_string(),
             prompt: "test".to_string(),
-            work_dir: None,
-            description: None,
             mode: TaskMode::Simple,
             category: TaskCategory::Review,
             ..Default::default()
@@ -308,8 +303,7 @@ mod tests {
                 trigger_value: "30m".to_string(),
                 engine_id: "test".to_string(),
                 prompt: "test".to_string(),
-                work_dir: None,
-                description: None,
+                ..Default::default()
             })
             .unwrap();
 
@@ -351,8 +345,7 @@ mod tests {
                 trigger_value: "1h".to_string(),
                 engine_id: "test".to_string(),
                 prompt: "test".to_string(),
-                work_dir: None,
-                description: None,
+                ..Default::default()
             })
             .unwrap();
 

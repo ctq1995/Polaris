@@ -207,3 +207,265 @@ impl ProtocolTemplateService {
         *self.cache.lock().unwrap() = None;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::scheduler::{ProtocolTemplateConfig, TemplateParam, TemplateParamType};
+    use tempfile::TempDir;
+
+    fn temp_config_dir() -> (TempDir, PathBuf) {
+        let temp_dir = TempDir::new().unwrap();
+        let config_dir = temp_dir.path().to_path_buf();
+        (temp_dir, config_dir)
+    }
+
+    fn create_test_params() -> CreateProtocolTemplateParams {
+        CreateProtocolTemplateParams {
+            name: "测试模板".to_string(),
+            description: Some("测试描述".to_string()),
+            category: TaskCategory::Development,
+            protocol_config: ProtocolTemplateConfig {
+                mission_template: "任务目标: {{task}}".to_string(),
+                execution_rules: None,
+                memory_rules: None,
+                custom_sections: None,
+            },
+            prompt_template: Some("测试提示词模板".to_string()),
+            params: vec![TemplateParam {
+                key: "param1".to_string(),
+                label: "参数1".to_string(),
+                param_type: TemplateParamType::Text,
+                required: false,
+                default_value: None,
+                placeholder: None,
+                options: None,
+            }],
+            default_trigger_type: Some(TriggerType::Interval),
+            default_trigger_value: Some("1h".to_string()),
+            default_engine_id: Some("claude-code".to_string()),
+            default_max_runs: None,
+            default_timeout_minutes: None,
+            enabled: true,
+        }
+    }
+
+    #[test]
+    fn creates_custom_template() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        let params = create_test_params();
+        let template = service.create_template(params).unwrap();
+        assert_eq!(template.name, "测试模板");
+        assert!(!template.builtin);
+        assert!(template.id.starts_with("custom-"));
+
+        // Verify template is persisted
+        let all = service.list_templates().unwrap();
+        let found = all.iter().find(|t| t.id == template.id);
+        assert!(found.is_some());
+    }
+
+    #[test]
+    fn lists_builtin_templates() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        let templates = service.list_templates().unwrap();
+        // Should have at least 5 built-in templates
+        let builtins: Vec<_> = templates.iter().filter(|t| t.builtin).collect();
+        assert!(builtins.len() >= 5);
+
+        // Verify built-in template IDs
+        let ids: Vec<&str> = builtins.iter().map(|t| t.id.as_str()).collect();
+        assert!(ids.contains(&"dev-feature"));
+        assert!(ids.contains(&"protocol-assist"));
+        assert!(ids.contains(&"review-code"));
+        assert!(ids.contains(&"news-search"));
+        assert!(ids.contains(&"monitor-service"));
+    }
+
+    #[test]
+    fn filters_by_category() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        let dev_templates = service.list_templates_by_category(TaskCategory::Development).unwrap();
+        assert!(dev_templates.iter().any(|t| t.id == "dev-feature"));
+
+        let review_templates = service.list_templates_by_category(TaskCategory::Review).unwrap();
+        assert!(review_templates.iter().any(|t| t.id == "review-code"));
+    }
+
+    #[test]
+    fn cannot_update_builtin_template() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        let params = CreateProtocolTemplateParams {
+            name: "修改内置模板".to_string(),
+            description: None,
+            category: TaskCategory::Development,
+            protocol_config: ProtocolTemplateConfig::default(),
+            prompt_template: None,
+            params: vec![],
+            default_trigger_type: Some(TriggerType::Interval),
+            default_trigger_value: Some("1h".to_string()),
+            default_engine_id: Some("claude-code".to_string()),
+            default_max_runs: None,
+            default_timeout_minutes: None,
+            enabled: true,
+        };
+
+        let result = service.update_template("dev-feature", params);
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn cannot_delete_builtin_template() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        let result = service.delete_template("dev-feature");
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn updates_custom_template() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        // Create a template
+        let create_params = CreateProtocolTemplateParams {
+            name: "原始名称".to_string(),
+            description: None,
+            category: TaskCategory::Development,
+            protocol_config: ProtocolTemplateConfig::default(),
+            prompt_template: None,
+            params: vec![],
+            default_trigger_type: Some(TriggerType::Interval),
+            default_trigger_value: Some("1h".to_string()),
+            default_engine_id: Some("claude-code".to_string()),
+            default_max_runs: None,
+            default_timeout_minutes: None,
+            enabled: true,
+        };
+        let created = service.create_template(create_params).unwrap();
+
+        // Update the template
+        let update_params = CreateProtocolTemplateParams {
+            name: "更新后的名称".to_string(),
+            description: Some("更新描述".to_string()),
+            category: TaskCategory::Development,
+            protocol_config: ProtocolTemplateConfig::default(),
+            prompt_template: None,
+            params: vec![],
+            default_trigger_type: Some(TriggerType::Interval),
+            default_trigger_value: Some("2h".to_string()),
+            default_engine_id: Some("claude-code".to_string()),
+            default_max_runs: None,
+            default_timeout_minutes: None,
+            enabled: true,
+        };
+
+        let updated = service.update_template(&created.id, update_params).unwrap();
+        assert!(updated.is_some());
+        assert_eq!(updated.unwrap().name, "更新后的名称");
+    }
+
+    #[test]
+    fn deletes_custom_template() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        // Create a template
+        let params = CreateProtocolTemplateParams {
+            name: "待删除模板".to_string(),
+            description: None,
+            category: TaskCategory::Development,
+            protocol_config: ProtocolTemplateConfig::default(),
+            prompt_template: None,
+            params: vec![],
+            default_trigger_type: Some(TriggerType::Interval),
+            default_trigger_value: Some("1h".to_string()),
+            default_engine_id: Some("claude-code".to_string()),
+            default_max_runs: None,
+            default_timeout_minutes: None,
+            enabled: true,
+        };
+        let created = service.create_template(params).unwrap();
+
+        // Delete the template
+        let result = service.delete_template(&created.id);
+        assert!(result.unwrap());
+
+        // Verify it's deleted
+        let found = service.get_template(&created.id).unwrap();
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn toggles_template_enabled_state() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        // Create a template
+        let params = CreateProtocolTemplateParams {
+            name: "测试模板".to_string(),
+            description: None,
+            category: TaskCategory::Development,
+            protocol_config: ProtocolTemplateConfig::default(),
+            prompt_template: None,
+            params: vec![],
+            default_trigger_type: Some(TriggerType::Interval),
+            default_trigger_value: Some("1h".to_string()),
+            default_engine_id: Some("claude-code".to_string()),
+            default_max_runs: None,
+            default_timeout_minutes: None,
+            enabled: true,
+        };
+        let created = service.create_template(params).unwrap();
+        assert!(created.enabled);
+
+        // Disable the template
+        let disabled = service.toggle_template(&created.id, false).unwrap();
+        assert!(disabled.is_some());
+        assert!(!disabled.unwrap().enabled);
+
+        // Enable again
+        let enabled = service.toggle_template(&created.id, true).unwrap();
+        assert!(enabled.is_some());
+        assert!(enabled.unwrap().enabled);
+    }
+
+    #[test]
+    fn caches_templates() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        // First load - reads from file (or creates default)
+        let _ = service.list_templates().unwrap();
+
+        // Second load - should use cache
+        let _ = service.list_templates().unwrap();
+
+        // Clear cache
+        service.clear_cache();
+
+        // Third load - reads from file again
+        let _ = service.list_templates().unwrap();
+    }
+
+    #[test]
+    fn builtin_template_is_always_enabled() {
+        let (_temp_dir, config_dir) = temp_config_dir();
+        let service = ProtocolTemplateService::new(&config_dir);
+
+        // Try to disable a built-in template
+        let result = service.toggle_template("dev-feature", false).unwrap();
+        assert!(result.is_some());
+        // Built-in templates should remain enabled
+        assert!(result.unwrap().enabled);
+    }
+}

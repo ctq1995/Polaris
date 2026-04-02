@@ -204,13 +204,14 @@ impl InstanceRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::config::QQBotRuntimeConfig;
 
     #[test]
     fn test_instance_registry() {
         let mut registry = InstanceRegistry::new();
 
         // 创建 QQ Bot 实例
-        let config = QQBotConfig {
+        let config = QQBotRuntimeConfig {
             enabled: true,
             app_id: "test_app_id".to_string(),
             client_secret: "test_secret".to_string(),
@@ -241,7 +242,7 @@ mod tests {
     #[test]
     fn test_json_serialization() {
         let mut registry = InstanceRegistry::new();
-        let config = QQBotConfig {
+        let config = QQBotRuntimeConfig {
             enabled: true,
             app_id: "test_app_id".to_string(),
             client_secret: "test_secret".to_string(),

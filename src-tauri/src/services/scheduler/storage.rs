@@ -144,3 +144,48 @@ pub enum StorageBackend {
     // /// Cloud storage (S3, etc.)
     // Cloud,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_task_update_params_default() {
+        let params = TaskUpdateParams::default();
+        assert!(params.name.is_none());
+        assert!(params.enabled.is_none());
+        assert!(params.mode.is_none());
+        assert!(params.category.is_none());
+    }
+
+    #[test]
+    fn test_workspace_info_serialization() {
+        let info = WorkspaceInfo {
+            path: "/path/to/workspace".to_string(),
+            name: "my-workspace".to_string(),
+            last_accessed_at: "2024-01-01T00:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&info).unwrap();
+        let parsed: WorkspaceInfo = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.path, info.path);
+        assert_eq!(parsed.name, info.name);
+        assert_eq!(parsed.last_accessed_at, info.last_accessed_at);
+    }
+
+    #[test]
+    fn test_storage_backend_enum() {
+        // Test equality
+        assert_eq!(StorageBackend::LocalFile, StorageBackend::LocalFile);
+
+        // Test debug and clone
+        let backend = StorageBackend::LocalFile;
+        let cloned = backend.clone();
+        assert_eq!(backend, cloned);
+
+        // Test debug output
+        let debug_str = format!("{:?}", backend);
+        assert!(debug_str.contains("LocalFile"));
+    }
+}

@@ -117,10 +117,11 @@ pub struct TemplateParam {
 }
 
 /// 协议模板配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolTemplateConfig {
     /// 任务目标模板
+    #[serde(default)]
     pub mission_template: String,
     /// 执行规则模板（可选）
     #[serde(default)]
@@ -405,7 +406,7 @@ pub struct ScheduledTask {
 }
 
 /// 创建任务参数
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTaskParams {
     // === 基础属性 ===
