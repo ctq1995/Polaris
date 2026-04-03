@@ -25,12 +25,72 @@ interface TaskFilter {
   triggerType: 'all' | TriggerType;
 }
 
+/** 排序条件 */
+interface TaskSort {
+  field: 'name' | 'createdAt' | 'updatedAt' | 'lastRunAt' | 'nextRunAt';
+  order: 'asc' | 'desc';
+}
+
 const DEFAULT_FILTER: TaskFilter = {
   search: '',
   status: 'all',
   engineId: 'all',
   triggerType: 'all',
 };
+
+const DEFAULT_SORT: TaskSort = {
+  field: 'createdAt',
+  order: 'desc',
+};
+
+const FILTER_STORAGE_KEY = 'scheduler-filter';
+const SORT_STORAGE_KEY = 'scheduler-sort';
+
+/** 从 localStorage 加载筛选条件 */
+function loadFilterFromStorage(): TaskFilter {
+  try {
+    const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...DEFAULT_FILTER, ...parsed };
+    }
+  } catch (e) {
+    console.warn('加载筛选条件失败:', e);
+  }
+  return DEFAULT_FILTER;
+}
+
+/** 保存筛选条件到 localStorage */
+function saveFilterToStorage(filter: TaskFilter): void {
+  try {
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filter));
+  } catch (e) {
+    console.warn('保存筛选条件失败:', e);
+  }
+}
+
+/** 从 localStorage 加载排序条件 */
+function loadSortFromStorage(): TaskSort {
+  try {
+    const saved = localStorage.getItem(SORT_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...DEFAULT_SORT, ...parsed };
+    }
+  } catch (e) {
+    console.warn('加载排序条件失败:', e);
+  }
+  return DEFAULT_SORT;
+}
+
+/** 保存排序条件到 localStorage */
+function saveSortToStorage(sort: TaskSort): void {
+  try {
+    localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sort));
+  } catch (e) {
+    console.warn('保存排序条件失败:', e);
+  }
+}
 
 /** 筛选任务 */
 function filterTasks(tasks: ScheduledTask[], filter: TaskFilter): ScheduledTask[] {
@@ -43,6 +103,44 @@ function filterTasks(tasks: ScheduledTask[], filter: TaskFilter): ScheduledTask[
     if (filter.engineId !== 'all' && task.engineId !== filter.engineId) return false;
     if (filter.triggerType !== 'all' && task.triggerType !== filter.triggerType) return false;
     return true;
+  });
+}
+
+/** 排序任务 */
+function sortTasks(tasks: ScheduledTask[], sort: TaskSort): ScheduledTask[] {
+  return [...tasks].sort((a, b) => {
+    let aValue: string | number | undefined;
+    let bValue: string | number | undefined;
+
+    switch (sort.field) {
+      case 'name':
+        aValue = a.name.toLowerCase();
+        bValue = b.name.toLowerCase();
+        break;
+      case 'createdAt':
+        aValue = a.createdAt;
+        bValue = b.createdAt;
+        break;
+      case 'updatedAt':
+        aValue = a.updatedAt;
+        bValue = b.updatedAt;
+        break;
+      case 'lastRunAt':
+        aValue = a.lastRunAt || 0;
+        bValue = b.lastRunAt || 0;
+        break;
+      case 'nextRunAt':
+        aValue = a.nextRunAt || 0;
+        bValue = b.nextRunAt || 0;
+        break;
+    }
+
+    if (aValue === bValue) return 0;
+    if (aValue === undefined || aValue === null) return 1;
+    if (bValue === undefined || bValue === null) return -1;
+
+    const comparison = aValue < bValue ? -1 : 1;
+    return sort.order === 'asc' ? comparison : -comparison;
   });
 }
 
@@ -81,8 +179,11 @@ export function SchedulerPanel() {
   // 协议文档查看状态
   const [viewingProtocolTask, setViewingProtocolTask] = useState<ScheduledTask | null>(null);
 
-  // 筛选状态
-  const [filter, setFilter] = useState<TaskFilter>(DEFAULT_FILTER);
+  // 筛选状态（从 localStorage 恢复）
+  const [filter, setFilter] = useState<TaskFilter>(loadFilterFromStorage);
+
+  // 排序状态（从 localStorage 恢复）
+  const [sort, setSort] = useState<TaskSort>(loadSortFromStorage);
 
   // 确认对话框
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -103,6 +204,16 @@ export function SchedulerPanel() {
     const interval = setInterval(loadSchedulerStatus, 5000);
     return () => clearInterval(interval);
   }, [loadSchedulerStatus]);
+
+  // 筛选条件变化时保存到 localStorage
+  useEffect(() => {
+    saveFilterToStorage(filter);
+  }, [filter]);
+
+  // 排序条件变化时保存到 localStorage
+  useEffect(() => {
+    saveSortToStorage(sort);
+  }, [sort]);
 
   // 监听任务到期事件
   useEffect(() => {
@@ -262,7 +373,16 @@ export function SchedulerPanel() {
 
   // 筛选后的任务
   const engineOptions = [...new Set(tasks.map((t) => t.engineId))].sort();
-  const filteredTasks = filterTasks(tasks, filter);
+  const filteredTasks = sortTasks(filterTasks(tasks, filter), sort);
+
+  // 排序字段选项
+  const sortFieldOptions = [
+    { value: 'createdAt', label: t('sort.createdAt', '创建时间') },
+    { value: 'updatedAt', label: t('sort.updatedAt', '更新时间') },
+    { value: 'name', label: t('sort.name', '任务名称') },
+    { value: 'lastRunAt', label: t('sort.lastRunAt', '上次执行') },
+    { value: 'nextRunAt', label: t('sort.nextRunAt', '下次执行') },
+  ];
 
   return (
     <div className="h-full flex flex-col bg-background-base">
@@ -355,6 +475,27 @@ export function SchedulerPanel() {
               {filteredTasks.length}/{tasks.length}
             </span>
           )}
+          {/* 排序控件 */}
+          <div className="flex items-center gap-1 ml-2 pl-2 border-l border-border-subtle">
+            <select
+              value={sort.field}
+              onChange={(e) => setSort({ ...sort, field: e.target.value as TaskSort['field'] })}
+              className="px-2 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              {sortFieldOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setSort({ ...sort, order: sort.order === 'asc' ? 'desc' : 'asc' })}
+              className="px-2 py-1.5 text-sm bg-background-base border border-border-subtle rounded-lg text-text-primary hover:bg-background-hover transition-colors"
+              title={sort.order === 'asc' ? t('sort.ascending', '升序') : t('sort.descending', '降序')}
+            >
+              {sort.order === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
         </div>
       </div>
 

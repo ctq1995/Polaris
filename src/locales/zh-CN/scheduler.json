@@ -81,6 +81,16 @@
     "clear": "清除筛选"
   },
 
+  "sort": {
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "name": "任务名称",
+    "lastRunAt": "上次执行",
+    "nextRunAt": "下次执行",
+    "ascending": "升序",
+    "descending": "降序"
+  },
+
   "trigger": {
     "cronHelp": "示例: \"0 9 * * 1-5\" 表示工作日早9点，格式为：分 时 日 月 周"
   },

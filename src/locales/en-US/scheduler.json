@@ -81,6 +81,16 @@
     "clear": "Clear Filter"
   },
 
+  "sort": {
+    "createdAt": "Created Time",
+    "updatedAt": "Updated Time",
+    "name": "Task Name",
+    "lastRunAt": "Last Run",
+    "nextRunAt": "Next Run",
+    "ascending": "Ascending",
+    "descending": "Descending"
+  },
+
   "trigger": {
     "cronHelp": "Example: \"0 9 * * 1-5\" means weekdays at 9am. Format: min hour day month weekday"
   },
