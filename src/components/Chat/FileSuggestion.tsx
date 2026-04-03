@@ -3,7 +3,6 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import type { FileMatch } from '../../services/fileSearch';
 import type { Workspace } from '../../types';
 
@@ -112,73 +111,6 @@ export function FileSuggestion({
 }
 
 /**
- * 命令建议组件 - 用于 /commands
- */
-export interface CommandSuggestionProps {
-  commands: Array<{ name: string; description: string }>;
-  selectedIndex: number;
-  onSelect: (command: { name: string; description: string }) => void;
-  onHover: (index: number) => void;
-  position: { top: number; left: number };
-}
-
-export function CommandSuggestion({
-  commands,
-  selectedIndex,
-  onSelect,
-  onHover,
-  position,
-}: CommandSuggestionProps) {
-  const { t } = useTranslation('chat');
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (containerRef.current) {
-      const selectedEl = containerRef.current.children[selectedIndex] as HTMLElement;
-      if (selectedEl) {
-        selectedEl.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [selectedIndex]);
-
-  if (commands.length === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className="fixed z-50 bg-background-surface border border-border rounded-lg shadow-lg max-h-60 overflow-auto"
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        minWidth: '250px',
-        maxWidth: '400px',
-      }}
-    >
-      <div className="px-3 py-2 text-xs text-text-tertiary border-b border-border">
-        {t('suggestion.commands')}
-      </div>
-      {commands.map((cmd, index) => (
-        <div
-          key={cmd.name}
-          className={`px-3 py-2 cursor-pointer flex items-center gap-2 text-sm ${
-            index === selectedIndex
-              ? 'bg-primary/20 text-text-primary'
-              : 'text-text-secondary hover:bg-background-hover'
-          }`}
-          onClick={() => onSelect(cmd)}
-          onMouseEnter={() => onHover(index)}
-        >
-          <span className="text-primary font-mono">/{cmd.name}</span>
-          <span className="flex-1 truncate text-text-tertiary">{cmd.description}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
  * 工作区建议组件 - 用于 @workspace 引用
  */
 export interface WorkspaceSuggestionProps {
@@ -198,7 +130,6 @@ export function WorkspaceSuggestion({
   onHover,
   position,
 }: WorkspaceSuggestionProps) {
-  const { t } = useTranslation('chat');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -226,7 +157,7 @@ export function WorkspaceSuggestion({
       }}
     >
       <div className="px-3 py-2 text-xs text-text-tertiary border-b border-border">
-        {t('suggestion.workspaces')}
+        工作区
       </div>
       {workspaces.map((workspace, index) => {
         const isCurrent = workspace.id === currentWorkspaceId;
@@ -259,7 +190,7 @@ export function WorkspaceSuggestion({
             {/* 当前工作区标签 */}
             {isCurrent && (
               <span className="text-xs text-text-tertiary bg-background-elevated px-1.5 py-0.5 rounded shrink-0">
-                {t('suggestion.current')}
+                当前
               </span>
             )}
           </div>

@@ -1,13 +1,11 @@
 /**
- * 聊天输入组件 - 支持附件、斜杠命令、工作区引用和 Git 上下文
+ * 聊天输入组件 - 支持附件和工作区文件引用
  *
  * 支持功能:
  * - 文本输入
  * - 文件/图片附件 (粘贴、拖放、选择)
- * - 命令触发 (/)
  * - 工作区引用 (@workspace)
  * - 文件引用 (@/path)
- * - Git 上下文 (@git)
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
@@ -15,11 +13,9 @@ import { useTranslation } from 'react-i18next'
 import { IconSend, IconStop, IconPaperclip } from '../Common/Icons'
 import { useWorkspaceStore, useChatInputStore, useEventChatStore } from '../../stores'
 import { FileSuggestion, WorkspaceSuggestion } from './FileSuggestion'
-import { GitSuggestion, getGitRootSuggestions, commitsToSuggestionItems, type GitSuggestionItem } from './GitSuggestion'
 import { AttachmentPreview } from './AttachmentPreview'
 import { AutoResizingTextarea } from './AutoResizingTextarea'
 import { useFileSearch } from '../../hooks/useFileSearch'
-import { getGitCommits } from '../../services/gitContextService'
 import type { FileMatch } from '../../services/fileSearch'
 import type { Workspace } from '../../types'
 import type { Attachment } from '../../types/attachment'
@@ -38,14 +34,14 @@ interface ChatInputProps {
   currentWorkDir?: string | null
 }
 
-type SuggestionMode = 'workspace' | 'file' | 'git' | null
+type SuggestionMode = 'workspace' | 'file' | null
 
 export function ChatInput({
   onSend,
   disabled = false,
   isStreaming = false,
   onInterrupt,
-  currentWorkDir,
+  currentWorkDir: _currentWorkDir,
 }: ChatInputProps) {
   const { t } = useTranslation('chat')
   const [value, setValue] = useState('')
@@ -67,15 +63,6 @@ export function ChatInput({
   const [selectedFileIndex, setSelectedFileIndex] = useState(0)
   const [filePosition, setFilePosition] = useState({ top: 0, left: 0 })
   const [fileWorkspace, setFileWorkspace] = useState<Workspace | null>(null)
-
-  // Git 建议状态
-  const [showGitSuggestions, setShowGitSuggestions] = useState(false)
-  const [gitMode, setGitMode] = useState<'root' | 'commit'>('root')
-  const [gitQuery, setGitQuery] = useState('')
-  const [selectedGitIndex, setSelectedGitIndex] = useState(0)
-  const [gitPosition, setGitPosition] = useState({ top: 0, left: 0 })
-  const [gitCommits, setGitCommits] = useState<Array<{ hash: string; shortHash: string; message: string; author: string; timestamp: number }>>([])
-  const [isGitLoading, setIsGitLoading] = useState(false)
 
   const { currentWorkspaceId, workspaces } = useWorkspaceStore()
   const { fileMatches, searchFiles, clearResults } = useFileSearch()
@@ -170,23 +157,12 @@ export function ChatInput({
     [workspaces, workspaceQuery]
   )
 
-  const gitSuggestions = useMemo(() => {
-    if (gitMode === 'root') {
-      return getGitRootSuggestions(t)
-    }
-    if (gitMode === 'commit' && gitQuery) {
-      return commitsToSuggestionItems(gitCommits)
-    }
-    return gitCommits.length > 0 ? commitsToSuggestionItems(gitCommits) : []
-  }, [gitMode, gitQuery, gitCommits, t])
-
   // 当前建议模式
   const suggestionMode: SuggestionMode = useMemo(() => {
     if (showWorkspaceSuggestions) return 'workspace'
     if (showFileSuggestions) return 'file'
-    if (showGitSuggestions) return 'git'
     return null
-  }, [showWorkspaceSuggestions, showFileSuggestions, showGitSuggestions])
+  }, [showWorkspaceSuggestions, showFileSuggestions])
 
   // 同步建议模式到 store
   useEffect(() => {
@@ -299,7 +275,7 @@ export function ChatInput({
   }, [])
 
   // 检测触发符
-  const handleInputChange = useCallback(async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
     setValue(newValue)
 
@@ -309,43 +285,7 @@ export function ChatInput({
     const cursorPosition = textarea.selectionStart
     const textBeforeCursor = newValue.slice(0, cursorPosition)
 
-    // 1. 检测 Git 上下文引用 (@git)
-    const gitMatch = textBeforeCursor.match(/@git(?::(\w*))?(?:\s([^\s]*))?$/)
-    if (gitMatch) {
-      const gitAction = gitMatch[1] || ''
-      const query = gitMatch[2] || ''
-
-      setShowGitSuggestions(true)
-      setShowWorkspaceSuggestions(false)
-      setShowFileSuggestions(false)
-      clearResults()
-
-      if (gitAction === 'commit' || (!gitAction && query)) {
-        setGitMode('commit')
-        setGitQuery(query)
-        setSelectedGitIndex(0)
-
-        if (currentWorkDir && gitCommits.length === 0) {
-          setIsGitLoading(true)
-          try {
-            const commits = await getGitCommits(currentWorkDir, { limit: 50 })
-            setGitCommits(commits)
-          } finally {
-            setIsGitLoading(false)
-          }
-        }
-      } else {
-        setGitMode('root')
-        setGitQuery('')
-        setSelectedGitIndex(0)
-      }
-
-      const position = calculateSuggestionPosition()
-      setGitPosition({ top: position.top, left: position.left })
-      return
-    }
-
-    // 2. 检测跨工作区引用 (@workspace:path)
+    // 1. 检测跨工作区引用 (@workspace:path)
     const workspaceMatch = textBeforeCursor.match(/@([\w\u4e00-\u9fa5-]+):([^\s]*)$/)
     if (workspaceMatch) {
       const workspaceName = workspaceMatch[1]
@@ -358,14 +298,12 @@ export function ChatInput({
       if (matchedWorkspace) {
         setShowWorkspaceSuggestions(false)
         setShowFileSuggestions(true)
-        setShowGitSuggestions(false)
         setFileWorkspace(matchedWorkspace)
         setSelectedFileIndex(0)
         searchFiles(pathPart, matchedWorkspace)
       } else {
         setShowWorkspaceSuggestions(true)
         setShowFileSuggestions(false)
-        setShowGitSuggestions(false)
         setWorkspaceQuery(workspaceName)
         setSelectedWorkspaceIndex(0)
       }
@@ -375,14 +313,13 @@ export function ChatInput({
       return
     }
 
-    // 3. 检测用户正在输入工作区名
+    // 2. 检测用户正在输入工作区名
     const partialWorkspaceMatch = textBeforeCursor.match(/@([\w\u4e00-\u9fa5-]*)$/)
     if (partialWorkspaceMatch) {
       const workspaceName = partialWorkspaceMatch[1]
-      if (workspaceName.length > 0 && workspaceName !== 'git') {
+      if (workspaceName.length > 0) {
         setShowWorkspaceSuggestions(true)
         setShowFileSuggestions(false)
-        setShowGitSuggestions(false)
         setWorkspaceQuery(workspaceName)
         setSelectedWorkspaceIndex(0)
 
@@ -392,12 +329,11 @@ export function ChatInput({
       }
     }
 
-    // 4. 检测当前工作区文件引用 (@/path)
+    // 3. 检测当前工作区文件引用 (@/path)
     const fileMatch = textBeforeCursor.match(/@\/(.*)$/)
     if (fileMatch) {
       setShowWorkspaceSuggestions(false)
       setShowFileSuggestions(true)
-      setShowGitSuggestions(false)
       setFileWorkspace(null)
       setSelectedFileIndex(0)
       searchFiles(fileMatch[1])
@@ -410,9 +346,8 @@ export function ChatInput({
     // 隐藏所有建议
     setShowWorkspaceSuggestions(false)
     setShowFileSuggestions(false)
-    setShowGitSuggestions(false)
     clearResults()
-  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition, gitCommits, currentWorkDir])
+  }, [workspaces, searchFiles, clearResults, calculateSuggestionPosition])
 
   // 选择工作区
   const selectWorkspace = useCallback((workspace: Workspace) => {
@@ -462,47 +397,22 @@ export function ChatInput({
     }, 0)
   }, [value, fileWorkspace])
 
-  // 选择 Git 建议
-  const selectGitSuggestion = useCallback((item: GitSuggestionItem) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
+  const handleSend = useCallback(() => {
+    const trimmed = value.trim()
+    if ((disabled || isStreaming) && attachments.length === 0) return
+    if (!trimmed && attachments.length === 0) return
 
-    const cursorPosition = textarea.selectionStart
-    const textBeforeCursor = value.slice(0, cursorPosition)
-    const textAfterCursor = value.slice(cursorPosition)
+    onSend(trimmed, undefined, attachments.length > 0 ? attachments : undefined)
+    resetInput()
+  }, [value, disabled, isStreaming, attachments, onSend])
 
-    let newText = ''
-    if (item.type === 'action') {
-      if (item.id === 'diff') {
-        newText = textBeforeCursor.replace(/@git(?::\w*)?\s?[^\s]*$/, '@git:diff ') + textAfterCursor
-      } else if (item.id === 'diff-staged') {
-        newText = textBeforeCursor.replace(/@git(?::\w*)?\s?[^\s]*$/, '@git:diff:staged ') + textAfterCursor
-      } else if (item.id === 'commit') {
-        newText = textBeforeCursor.replace(/@git(?::\w*)?\s?[^\s]*$/, '@git:commit ') + textAfterCursor
-        setGitMode('commit')
-        setShowGitSuggestions(true)
-        setValue(newText)
-        setTimeout(() => {
-          textarea.focus()
-          const newCursorPos = newText.length - textAfterCursor.length
-          textarea.setSelectionRange(newCursorPos, newCursorPos)
-        }, 0)
-        return
-      } else {
-        newText = textBeforeCursor.replace(/@git(?::\w*)?\s?[^\s]*$/, `@git:${item.id} `) + textAfterCursor
-      }
-    } else if (item.type === 'commit' && item.commit) {
-      newText = textBeforeCursor.replace(/@git(?::commit)?\s?[^\s]*$/, `@git:commit:${item.commit.shortHash} `) + textAfterCursor
-    }
-
-    setValue(newText)
-    setShowGitSuggestions(false)
-
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(newText.length - textAfterCursor.length, newText.length - textAfterCursor.length)
-    }, 0)
-  }, [value])
+  const resetInput = useCallback(() => {
+    setValue('')
+    setAttachments([])
+    setShowWorkspaceSuggestions(false)
+    setShowFileSuggestions(false)
+    clearResults()
+  }, [clearResults])
 
   // 键盘事件处理
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -524,14 +434,6 @@ export function ChatInput({
         return
       }
 
-      if (showGitSuggestions) {
-        e.preventDefault()
-        if (gitSuggestions.length > 0) {
-          selectGitSuggestion(gitSuggestions[selectedGitIndex])
-        }
-        return
-      }
-
       // 正常发送
       e.preventDefault()
       handleSend()
@@ -543,7 +445,7 @@ export function ChatInput({
       e.preventDefault()
 
       let items: unknown[] = []
-      let setState: (fn: (prev: number) => number) => void
+      let setState: ((fn: (prev: number) => number) => void) | undefined
 
       if (showWorkspaceSuggestions) {
         items = filteredWorkspaces
@@ -551,12 +453,9 @@ export function ChatInput({
       } else if (showFileSuggestions) {
         items = fileMatches
         setState = setSelectedFileIndex
-      } else {
-        items = gitSuggestions
-        setState = setSelectedGitIndex
       }
 
-      if (items.length === 0) return
+      if (items.length === 0 || !setState) return
 
       const maxIndex = items.length - 1
       const direction = e.key === 'ArrowUp' ? -1 : 1
@@ -574,7 +473,6 @@ export function ChatInput({
     if (e.key === 'Escape') {
       setShowWorkspaceSuggestions(false)
       setShowFileSuggestions(false)
-      setShowGitSuggestions(false)
       clearResults()
       return
     }
@@ -587,51 +485,27 @@ export function ChatInput({
         selectWorkspace(filteredWorkspaces[selectedWorkspaceIndex])
       } else if (showFileSuggestions && fileMatches.length > 0) {
         selectFile(fileMatches[selectedFileIndex])
-      } else if (showGitSuggestions && gitSuggestions.length > 0) {
-        selectGitSuggestion(gitSuggestions[selectedGitIndex])
       }
     }
   }, [
     showWorkspaceSuggestions,
     showFileSuggestions,
-    showGitSuggestions,
     suggestionMode,
     filteredWorkspaces,
     fileMatches,
-    gitSuggestions,
     selectedWorkspaceIndex,
     selectedFileIndex,
-    selectedGitIndex,
     selectWorkspace,
     selectFile,
-    selectGitSuggestion,
-    clearResults
+    clearResults,
+    handleSend,
   ])
-
-  const handleSend = useCallback(() => {
-    const trimmed = value.trim()
-    if ((disabled || isStreaming) && attachments.length === 0) return
-    if (!trimmed && attachments.length === 0) return
-
-    onSend(trimmed, undefined, attachments.length > 0 ? attachments : undefined)
-    resetInput()
-  }, [value, disabled, isStreaming, attachments, onSend])
-
-  const resetInput = useCallback(() => {
-    setValue('')
-    setAttachments([])
-    setShowWorkspaceSuggestions(false)
-    setShowFileSuggestions(false)
-    setShowGitSuggestions(false)
-    clearResults()
-  }, [clearResults])
 
   // 点击外部关闭建议
   useEffect(() => {
     const handleClickOutside = () => {
       setShowWorkspaceSuggestions(false)
       setShowFileSuggestions(false)
-      setShowGitSuggestions(false)
     }
 
     document.addEventListener('click', handleClickOutside)
@@ -734,20 +608,6 @@ export function ChatInput({
           onSelect={selectFile}
           onHover={setSelectedFileIndex}
           position={filePosition}
-        />
-      )}
-
-      {/* Git 建议 */}
-      {showGitSuggestions && (
-        <GitSuggestion
-          mode={gitMode}
-          items={gitSuggestions}
-          selectedIndex={selectedGitIndex}
-          query={gitQuery}
-          onSelect={selectGitSuggestion}
-          onHover={setSelectedGitIndex}
-          position={gitPosition}
-          isLoading={isGitLoading}
         />
       )}
     </div>

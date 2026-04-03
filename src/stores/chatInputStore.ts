@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import type { VoiceCommand } from '../types/speech';
 
-type SuggestionMode = 'workspace' | 'file' | 'git' | null;
+type SuggestionMode = 'workspace' | 'file' | null;
 
 interface ChatInputState {
   /** 当前输入字数 */
