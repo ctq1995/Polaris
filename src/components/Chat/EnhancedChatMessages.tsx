@@ -851,13 +851,20 @@ const ThinkingBlockRenderer = memo(function ThinkingBlockRenderer({
   block: ThinkingBlock;
   isStreaming?: boolean;
 }) {
-  // 始终默认折叠（流式时也不展开，避免界面跳动）
+  // 流式期间展开显示思考内容，结束后折叠
   const [isCollapsed, setIsCollapsed] = useState(() => {
     // 如果有明确的 collapsed 属性，使用它
     if (block.collapsed !== undefined) return block.collapsed;
-    // 否则：始终默认折叠
-    return true;
+    // 流式时展开，结束后折叠
+    return !isStreaming;
   });
+
+  // 流式结束时自动折叠
+  useEffect(() => {
+    if (!isStreaming) {
+      setIsCollapsed(true);
+    }
+  }, [isStreaming]);
 
   // 计算字数统计
   const charCount = block.content.length;
