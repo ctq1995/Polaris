@@ -174,11 +174,10 @@ describe('ProtocolDocumentViewer', () => {
     const supplementTab = screen.getByRole('button', { name: '用户补充' });
     fireEvent.click(supplementTab);
 
-    // 用户补充 Tab 现在是直接编辑模式，应该显示 textarea
+    // 用户补充 Tab 现在是查看模式，显示内容和编辑按钮
     await waitFor(() => {
-      const textarea = screen.getByPlaceholderText('输入用户补充内容，保存后生效...');
-      expect(textarea).toBeInTheDocument();
-      expect(textarea).toHaveValue('用户补充内容');
+      expect(screen.getByText('用户补充内容')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '编辑' })).toBeInTheDocument();
     });
   });
 
@@ -246,14 +245,21 @@ describe('ProtocolDocumentViewer', () => {
     const supplementTab = screen.getByRole('button', { name: '用户补充' });
     fireEvent.click(supplementTab);
 
-    // 应该显示直接编辑模式的保存按钮（没有编辑按钮）
+    // 用户补充 Tab 现在是查看模式，显示编辑按钮
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '编辑' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: '清空补充' })).toBeInTheDocument();
     });
 
-    // 不应该有编辑按钮
-    expect(screen.queryByRole('button', { name: '编辑' })).not.toBeInTheDocument();
+    // 点击编辑按钮进入编辑模式
+    const editButton = screen.getByRole('button', { name: '编辑' });
+    fireEvent.click(editButton);
+
+    // 编辑模式显示取消和保存按钮
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '取消' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+    });
   });
 
   it('supplement tab allows editing and saving content', async () => {
@@ -273,11 +279,20 @@ describe('ProtocolDocumentViewer', () => {
     const supplementTab = screen.getByRole('button', { name: '用户补充' });
     fireEvent.click(supplementTab);
 
-    // 等待用户补充 Tab 的直接编辑模式出现
-    const textarea = await screen.findByPlaceholderText('输入用户补充内容，保存后生效...');
+    // 等待用户补充内容显示
+    await waitFor(() => {
+      expect(screen.getByText('用户补充内容')).toBeInTheDocument();
+    });
+
+    // 点击编辑按钮进入编辑模式
+    const editButton = screen.getByRole('button', { name: '编辑' });
+    fireEvent.click(editButton);
+
+    // 等待编辑模式的 textarea 出现
+    const textarea = await screen.findByPlaceholderText('编辑文档内容...');
     expect(textarea).toHaveValue('用户补充内容');
 
-    // 修改内容 - 使用用户事件来更好地模拟用户输入
+    // 修改内容
     fireEvent.change(textarea, { target: { value: '新的用户补充内容' } });
 
     // 验证 textarea 内容已更新
