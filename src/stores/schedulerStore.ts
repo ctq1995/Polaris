@@ -21,6 +21,7 @@ import type {
 } from '../types/scheduler';
 import * as tauri from '../services/tauri';
 import { getEventRouter } from '../services/eventRouter';
+import { extractErrorMessage } from '../utils/errorMapping';
 
 /** 日志数量限制 */
 const MAX_LOG_ENTRIES = 20;
@@ -239,10 +240,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       const tasks = await tauri.schedulerGetTasks();
       set({ tasks, loading: false });
     } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : '加载任务失败',
-        loading: false,
-      });
+      const error = extractErrorMessage(e);
+      set({ error: error || 'scheduler.errors.loadTasksFailed', loading: false });
     }
   },
 
@@ -254,8 +253,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       set({ tasks, loading: false });
       return task;
     } catch (e) {
-      const error = e instanceof Error ? e.message : '创建任务失败';
-      set({ error, loading: false });
+      const error = extractErrorMessage(e);
+      set({ error: error || 'scheduler.errors.createTaskFailed', loading: false });
       throw new Error(error);
     }
   },
@@ -267,8 +266,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       const tasks = await tauri.schedulerGetTasks();
       set({ tasks, loading: false });
     } catch (e) {
-      const error = e instanceof Error ? e.message : '更新任务失败';
-      set({ error, loading: false });
+      const error = extractErrorMessage(e);
+      set({ error: error || 'scheduler.errors.updateTaskFailed', loading: false });
       throw new Error(error);
     }
   },
@@ -280,8 +279,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       const tasks = await tauri.schedulerGetTasks();
       set({ tasks, loading: false });
     } catch (e) {
-      const error = e instanceof Error ? e.message : '删除任务失败';
-      set({ error, loading: false });
+      const error = extractErrorMessage(e);
+      set({ error: error || 'scheduler.errors.deleteTaskFailed', loading: false });
       throw new Error(error);
     }
   },
@@ -295,7 +294,9 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
         ),
       }));
     } catch (e) {
-      console.error('切换任务状态失败:', e);
+      const error = extractErrorMessage(e);
+      console.error('切换任务状态失败:', error);
+      throw new Error(error);
     }
   },
 
@@ -661,35 +662,56 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       const templates = await tauri.schedulerListTemplates();
       set({ templates, templatesLoading: false });
     } catch (e) {
-      console.error('加载模板失败:', e);
+      const error = extractErrorMessage(e);
+      console.error('加载模板失败:', error);
       set({ templatesLoading: false });
     }
   },
 
   createTemplate: async (params) => {
-    const template = await tauri.schedulerCreateTemplate(params);
-    const templates = await tauri.schedulerListTemplates();
-    set({ templates });
-    return template;
+    try {
+      const template = await tauri.schedulerCreateTemplate(params);
+      const templates = await tauri.schedulerListTemplates();
+      set({ templates });
+      return template;
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error || 'scheduler.errors.createTemplateFailed');
+    }
   },
 
   updateTemplate: async (template) => {
-    const updated = await tauri.schedulerUpdateTemplate(template);
-    const templates = await tauri.schedulerListTemplates();
-    set({ templates });
-    return updated;
+    try {
+      const updated = await tauri.schedulerUpdateTemplate(template);
+      const templates = await tauri.schedulerListTemplates();
+      set({ templates });
+      return updated;
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error || 'scheduler.errors.updateTemplateFailed');
+    }
   },
 
   deleteTemplate: async (id) => {
-    await tauri.schedulerDeleteTemplate(id);
-    const templates = await tauri.schedulerListTemplates();
-    set({ templates });
+    try {
+      await tauri.schedulerDeleteTemplate(id);
+      const templates = await tauri.schedulerListTemplates();
+      set({ templates });
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error || 'scheduler.errors.deleteTemplateFailed');
+    }
   },
 
   toggleTemplate: async (id, enabled) => {
-    await tauri.schedulerToggleTemplate(id, enabled);
-    const templates = await tauri.schedulerListTemplates();
-    set({ templates });
+    try {
+      await tauri.schedulerToggleTemplate(id, enabled);
+      const templates = await tauri.schedulerListTemplates();
+      set({ templates });
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error);
+    }
   },
 
   buildPrompt: async (templateId, taskName, userPrompt) => {
@@ -704,7 +726,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       const protocolTemplates = await tauri.schedulerListProtocolTemplates();
       set({ protocolTemplates, protocolTemplatesLoading: false });
     } catch (e) {
-      console.error('加载协议模板失败:', e);
+      const error = extractErrorMessage(e);
+      console.error('加载协议模板失败:', error);
       set({ protocolTemplatesLoading: false });
     }
   },
@@ -715,42 +738,68 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       const protocolTemplates = await tauri.schedulerListProtocolTemplatesByCategory(category);
       set({ protocolTemplates, protocolTemplatesLoading: false });
     } catch (e) {
-      console.error('加载协议模板失败:', e);
+      const error = extractErrorMessage(e);
+      console.error('加载协议模板失败:', error);
       set({ protocolTemplatesLoading: false });
     }
   },
 
   getProtocolTemplate: async (id) => {
-    return await tauri.schedulerGetProtocolTemplate(id);
+    try {
+      return await tauri.schedulerGetProtocolTemplate(id);
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error);
+    }
   },
 
   createProtocolTemplate: async (params) => {
-    const template = await tauri.schedulerCreateProtocolTemplate(params);
-    const protocolTemplates = await tauri.schedulerListProtocolTemplates();
-    set({ protocolTemplates });
-    return template;
+    try {
+      const template = await tauri.schedulerCreateProtocolTemplate(params);
+      const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+      set({ protocolTemplates });
+      return template;
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error || 'scheduler.errors.createProtocolTemplateFailed');
+    }
   },
 
   updateProtocolTemplate: async (id, params) => {
-    const updated = await tauri.schedulerUpdateProtocolTemplate(id, params);
-    const protocolTemplates = await tauri.schedulerListProtocolTemplates();
-    set({ protocolTemplates });
-    return updated;
+    try {
+      const updated = await tauri.schedulerUpdateProtocolTemplate(id, params);
+      const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+      set({ protocolTemplates });
+      return updated;
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error || 'scheduler.errors.updateProtocolTemplateFailed');
+    }
   },
 
   deleteProtocolTemplate: async (id) => {
-    const result = await tauri.schedulerDeleteProtocolTemplate(id);
-    if (result) {
-      const protocolTemplates = await tauri.schedulerListProtocolTemplates();
-      set({ protocolTemplates });
+    try {
+      const result = await tauri.schedulerDeleteProtocolTemplate(id);
+      if (result) {
+        const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+        set({ protocolTemplates });
+      }
+      return result;
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error || 'scheduler.errors.deleteProtocolTemplateFailed');
     }
-    return result;
   },
 
   toggleProtocolTemplate: async (id, enabled) => {
-    await tauri.schedulerToggleProtocolTemplate(id, enabled);
-    const protocolTemplates = await tauri.schedulerListProtocolTemplates();
-    set({ protocolTemplates });
+    try {
+      await tauri.schedulerToggleProtocolTemplate(id, enabled);
+      const protocolTemplates = await tauri.schedulerListProtocolTemplates();
+      set({ protocolTemplates });
+    } catch (e) {
+      const error = extractErrorMessage(e);
+      throw new Error(error);
+    }
   },
 
   renderProtocolDocument: async (template, params) => {
