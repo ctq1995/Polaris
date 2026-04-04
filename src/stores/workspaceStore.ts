@@ -218,13 +218,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         return state.workspaces.filter(w => state.contextWorkspaceIds.includes(w.id));
       },
 
-      // 获取所有可访问的工作区（当前 + 关联）
+      // 获取所有已保存的工作区（用于文件浏览器切换）
       getAllAccessibleWorkspaces: () => {
-        const state = get();
-        const contextIds = new Set(state.contextWorkspaceIds);
-        return state.workspaces.filter(w =>
-          w.id === state.currentWorkspaceId || contextIds.has(w.id)
-        );
+        return get().workspaces;
       },
 
       // ========== FileExplorer 浏览工作区操作 ==========

@@ -165,6 +165,8 @@ export interface SessionSyncActions {
   updateSessionExternalId: (sessionId: string, externalSessionId: string) => void
   /** 获取会话的有效工作区 ID（优先级：临时 > 绑定 > 全局） */
   getSessionEffectiveWorkspace: (sessionId: string) => string | null
+  /** 获取会话的关联工作区 ID 列表 */
+  getSessionContextWorkspaceIds: (sessionId: string) => string[]
 }
 
 /**

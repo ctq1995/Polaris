@@ -235,6 +235,10 @@ function App() {
               if (!session) return null
               return getSessionEffectiveWorkspace(session, useWorkspaceStore.getState().currentWorkspaceId)
             },
+            getSessionContextWorkspaceIds: (sessionId: string) => {
+              const session = useSessionStore.getState().sessions.get(sessionId)
+              return session?.contextWorkspaceIds || []
+            },
           },
         });
 
@@ -487,7 +491,6 @@ function App() {
         onNewConversation={() => {
           // 新对话功能直接清空消息
         }}
-        onCreateWorkspace={() => setShowCreateWorkspace(true)}
         onToggleRightPanel={toggleRightPanel}
         rightPanelCollapsed={rightPanelCollapsed}
         isCompactMode={isCompact}

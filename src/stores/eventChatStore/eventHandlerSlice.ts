@@ -13,6 +13,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { EventHandlerSlice } from './types'
 import type { AISession } from '../../ai-runtime'
 import type { UserChatMessage } from '../../types/chat'
+import type { Workspace } from '../../types'
 import { handleAIEvent } from './utils'
 import { getEventBus, isAIEvent } from '../../ai-runtime'
 import { getEventRouter } from '../../services/eventRouter'
@@ -38,10 +39,10 @@ function getEffectiveWorkspace(
     getSessionEffectiveWorkspace: (sessionId: string) => string | null
   } | undefined,
   workspaceActions: {
-    getCurrentWorkspace: () => { id: string; path: string; name: string } | null
-    getWorkspaceById: (id: string) => { id: string; path: string; name: string } | null
+    getCurrentWorkspace: () => Workspace | null
+    getWorkspaceById: (id: string) => Workspace | null
   } | undefined
-): { id: string; path: string; name: string } | null {
+): Workspace | null {
   // 1. 尝试获取会话有效工作区
   const activeSessionId = sessionSyncActions?.getActiveSessionId()
   if (activeSessionId) {
@@ -61,6 +62,33 @@ function getEffectiveWorkspace(
     log.debug('使用全局工作区', { path: globalWorkspace.path })
   }
   return globalWorkspace || null
+}
+
+/**
+ * 获取会话关联工作区列表
+ */
+function getSessionContextWorkspaces(
+  sessionSyncActions: {
+    getActiveSessionId: () => string | null
+    getSessionContextWorkspaceIds: (sessionId: string) => string[]
+  } | undefined,
+  workspaceActions: {
+    getWorkspaces: () => Workspace[]
+  } | undefined
+): Workspace[] {
+  const activeSessionId = sessionSyncActions?.getActiveSessionId()
+  if (!activeSessionId) {
+    return []
+  }
+
+  const contextIds = sessionSyncActions?.getSessionContextWorkspaceIds(activeSessionId) || []
+  if (contextIds.length === 0) {
+    return []
+  }
+
+  const allWorkspaces = workspaceActions?.getWorkspaces() || []
+  const contextIdSet = new Set(contextIds)
+  return allWorkspaces.filter(w => contextIdSet.has(w.id))
 }
 
 /**
@@ -153,16 +181,19 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
 
     const actualWorkspaceDir = workspaceDir ?? currentWorkspace.path
 
+    // 获取会话关联工作区
+    const contextWorkspaces = getSessionContextWorkspaces(sessionSyncActions, workspaceActions)
+
     const { processedMessage } = parseWorkspaceReferences(
       content,
       workspaceActions?.getWorkspaces() || [],
-      workspaceActions?.getContextWorkspaces() || [],
+      contextWorkspaces,
       workspaceActions?.getCurrentWorkspaceId() || null
     )
 
     const systemPrompt = buildSystemPrompt(
       workspaceActions?.getWorkspaces() || [],
-      workspaceActions?.getContextWorkspaces() || [],
+      contextWorkspaces,
       workspaceActions?.getCurrentWorkspaceId() || null
     )
 
@@ -615,10 +646,13 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       const currentWorkspace = getEffectiveWorkspace(sessionSyncActions, workspaceActions)
       const actualWorkspaceDir = currentWorkspace?.path
 
+      // 获取会话关联工作区
+      const contextWorkspaces = getSessionContextWorkspaces(sessionSyncActions, workspaceActions)
+
       // 构建系统提示
       const systemPrompt = buildSystemPrompt(
         workspaceActions?.getWorkspaces() || [],
-        workspaceActions?.getContextWorkspaces() || [],
+        contextWorkspaces,
         workspaceActions?.getCurrentWorkspaceId() || null
       )
 
@@ -793,10 +827,13 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       const currentWorkspace = getEffectiveWorkspace(sessionSyncActions, workspaceActions)
       const actualWorkspaceDir = currentWorkspace?.path
 
+      // 获取会话关联工作区
+      const contextWorkspaces = getSessionContextWorkspaces(sessionSyncActions, workspaceActions)
+
       // 构建系统提示
       const systemPrompt = buildSystemPrompt(
         workspaceActions?.getWorkspaces() || [],
-        workspaceActions?.getContextWorkspaces() || [],
+        contextWorkspaces,
         workspaceActions?.getCurrentWorkspaceId() || null
       )
 

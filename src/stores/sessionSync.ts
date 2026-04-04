@@ -250,6 +250,10 @@ export function initializeSessionSync(): void {
         if (!session) return null
         return getSessionEffectiveWorkspace(session, useWorkspaceStore.getState().currentWorkspaceId)
       },
+      getSessionContextWorkspaceIds: (sessionId: string) => {
+        const session = useSessionStore.getState().sessions.get(sessionId)
+        return session?.contextWorkspaceIds || []
+      },
     },
   })
 
