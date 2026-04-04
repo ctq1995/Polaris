@@ -58,8 +58,10 @@ export interface UnifiedHistoryItem {
   fileSize?: number
   inputTokens?: number
   outputTokens?: number
-  /** Claude Code 项目目录名（如 D--space-app-Polaris） */
+  /** 真实工作区路径（用于前端匹配/创建工作区） */
   projectPath?: string
+  /** Claude Code 目录名（用于定位 jsonl 文件） */
+  claudeProjectName?: string
 }
 
 /**
@@ -423,7 +425,7 @@ export interface HistoryActions {
   /** 获取统一会话历史（包含 localStorage 和 IFlow） */
   getUnifiedHistory: () => Promise<UnifiedHistoryItem[]>
   /** 从历史恢复会话 */
-  restoreFromHistory: (sessionId: string, engineId?: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`, projectPath?: string) => Promise<boolean>
+  restoreFromHistory: (sessionId: string, engineId?: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`, projectPath?: string, claudeProjectName?: string) => Promise<boolean>
   /** 删除历史会话 */
   deleteHistorySession: (sessionId: string, source?: 'local' | 'iflow' | 'codex') => void
   /** 清空历史 */

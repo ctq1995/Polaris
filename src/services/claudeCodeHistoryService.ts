@@ -20,7 +20,10 @@ const log = createLogger('ClaudeCodeHistoryService')
  */
 export interface ClaudeCodeSessionMeta {
   sessionId: string
+  /** 真实工作区路径（用于前端匹配/创建工作区） */
   projectPath: string
+  /** Claude Code 目录名（用于定位 jsonl 文件） */
+  claudeProjectName: string
   firstPrompt?: string
   messageCount: number
   created?: string

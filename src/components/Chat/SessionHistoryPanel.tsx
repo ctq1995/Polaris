@@ -65,7 +65,8 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
       const success = await useEventChatStore.getState().restoreFromHistory(
         item.id,
         item.engineId,
-        item.projectPath
+        item.projectPath,
+        item.claudeProjectName
       )
       if (success) {
         console.log('[SessionHistoryPanel] 会话已恢复:', item.id)

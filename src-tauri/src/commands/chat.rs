@@ -590,7 +590,10 @@ use std::io::{BufRead, BufReader};
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeSessionMeta {
     pub session_id: String,
+    /// 真实工作区路径（用于前端匹配/创建工作区）
     pub project_path: String,
+    /// Claude Code 目录名（用于定位 jsonl 文件）
+    pub claude_project_name: String,
     pub first_prompt: Option<String>,
     pub message_count: usize,
     pub created: Option<String>,
@@ -723,12 +726,15 @@ pub async fn list_claude_code_sessions(
                             // 解析会话内容获取详细信息
                             let (first_prompt, message_count, created, real_cwd) = parse_session_metadata(&path);
 
-                            // 使用真实 cwd 路径，如果不存在则使用目录名
+                            // claude_project_name: Claude Code 目录名（用于定位 jsonl 文件）
+                            let claude_project_name = project_name.clone();
+                            // project_path: 真实工作区路径（用于前端匹配/创建工作区）
                             let project_path = real_cwd.unwrap_or_else(|| project_name.clone());
 
                             sessions.push(ClaudeSessionMeta {
                                 session_id,
                                 project_path,
+                                claude_project_name,
                                 first_prompt,
                                 message_count,
                                 created,

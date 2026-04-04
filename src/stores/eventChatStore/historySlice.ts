@@ -209,6 +209,7 @@ export const createHistorySlice: HistorySlice = (set, get) => ({
               source: 'claude-code-native',
               fileSize: session.fileSize,
               projectPath: session.projectPath,
+              claudeProjectName: session.claudeProjectName,
             })
           }
         }
@@ -268,7 +269,7 @@ export const createHistorySlice: HistorySlice = (set, get) => ({
     }
   },
 
-  restoreFromHistory: async (sessionId, engineId, projectPath) => {
+  restoreFromHistory: async (sessionId, engineId, projectPath, claudeProjectName) => {
     try {
       set({ isLoadingHistory: true })
 
@@ -325,7 +326,8 @@ export const createHistorySlice: HistorySlice = (set, get) => ({
       // 2.2 尝试从 Claude Code 原生历史恢复
       else if (!engineId || engineId === 'claude-code') {
         const claudeCodeService = getClaudeCodeHistoryService()
-        const messages = await claudeCodeService.getSessionHistory(sessionId, projectPath)
+        // 使用 claudeProjectName 定位 jsonl 文件，而非 projectPath
+        const messages = await claudeCodeService.getSessionHistory(sessionId, claudeProjectName)
 
         if (messages.length > 0) {
           chatMessages = claudeCodeService.convertToChatMessages(messages)
