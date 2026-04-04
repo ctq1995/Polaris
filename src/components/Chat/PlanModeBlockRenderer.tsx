@@ -26,7 +26,7 @@ import {
   ListChecks,
   ClipboardList,
 } from 'lucide-react';
-import { useEventChatStore } from '../../stores';
+import { useActiveSessionConversationId, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession';
 import { Button } from '../Common/Button';
 import type { PlanModeBlock, PlanStageBlock } from '../../types';
 
@@ -243,8 +243,8 @@ export const PlanModeBlockRenderer = memo(function PlanModeBlockRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   const feedbackInputRef = useRef<HTMLInputElement>(null);
 
-  const conversationId = useEventChatStore(state => state.conversationId);
-  const continueChat = useEventChatStore(state => state.continueChat);
+  const conversationId = useActiveSessionConversationId();
+  const { continueChat } = useActiveSessionActions();
 
   const statusConfig = PLAN_STATUS_CONFIG[block.status];
   const StatusIcon = statusConfig.icon;

@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 import { Check, HelpCircle, CheckCircle } from 'lucide-react';
-import { useEventChatStore } from '../../stores';
+import { useActiveSessionConversationId, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession';
 import { Button } from '../Common/Button';
 import type { QuestionBlock } from '../../types';
 
@@ -32,8 +32,8 @@ export const QuestionBlockRenderer = memo(function QuestionBlockRenderer({ block
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const conversationId = useEventChatStore(state => state.conversationId);
-  const continueChat = useEventChatStore(state => state.continueChat);
+  const conversationId = useActiveSessionConversationId();
+  const { continueChat } = useActiveSessionActions();
 
   // 是否已回答
   const isAnswered = block.status === 'answered';

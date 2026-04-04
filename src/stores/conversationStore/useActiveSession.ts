@@ -160,6 +160,11 @@ export function useActiveSessionActions() {
       if (!store) return
       return store.interrupt()
     },
+    continueChat: async (prompt?: string) => {
+      const store = getStore()
+      if (!store) return
+      return store.continueChat(prompt)
+    },
     deleteMessage: (messageId: string) => {
       const store = getStore()
       if (!store) return

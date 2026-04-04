@@ -715,6 +715,53 @@ export function createConversationStore(
         }
       },
 
+      continueChat: async (prompt = '') => {
+        const { conversationId } = get()
+        if (!conversationId) {
+          set({ error: '没有活动会话', isStreaming: false })
+          return
+        }
+
+        const router = deps.getEventRouter()
+        await router.initialize()
+
+        const actualWorkspaceDir = deps.getWorkspace()?.path
+        const config = deps.getConfig()
+        const currentEngine = config?.defaultEngine || 'claude-code'
+
+        const normalizedPrompt = prompt
+          .replace(/\r\n/g, '\\n')
+          .replace(/\r/g, '\\n')
+          .replace(/\n/g, '\\n')
+          .trim()
+
+        set({ isStreaming: true, error: null })
+
+        try {
+          await invoke('continue_chat', {
+            sessionId: conversationId,
+            message: normalizedPrompt,
+            options: {
+              workDir: actualWorkspaceDir,
+              contextId: deps.contextId,
+              engineId: currentEngine,
+            },
+          })
+        } catch (e) {
+          const appError = toAppError(e, {
+            source: ErrorSource.AI,
+            context: { conversationId, workspaceDir: actualWorkspaceDir }
+          })
+
+          set({
+            error: appError.getUserMessage(),
+            isStreaming: false,
+            currentMessage: null,
+            progressMessage: null,
+          })
+        }
+      },
+
       regenerateResponse: async (_assistantMessageId) => {
         // TODO: 实现重新生成
         console.log('[ConversationStore] regenerateResponse not implemented yet')

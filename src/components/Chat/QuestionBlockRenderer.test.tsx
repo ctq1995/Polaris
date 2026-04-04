@@ -19,16 +19,11 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => mockInvoke(...args),
 }));
 
-// Mock zustand store
+// Mock zustand store and hooks
 const mockContinueChat = vi.fn();
-vi.mock('../../stores', () => ({
-  useEventChatStore: vi.fn((selector) => {
-    const state = {
-      conversationId: 'test-conversation-id',
-      continueChat: mockContinueChat,
-    };
-    return selector(state);
-  }),
+vi.mock('../../stores/conversationStore/useActiveSession', () => ({
+  useActiveSessionConversationId: () => 'test-conversation-id',
+  useActiveSessionActions: () => ({ continueChat: mockContinueChat }),
 }));
 
 // Mock react-i18next

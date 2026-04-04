@@ -11,7 +11,7 @@ import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import { Shield, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
-import { useEventChatStore } from '../../stores';
+import { useActiveSessionConversationId, useActiveSessionActions } from '../../stores/conversationStore/useActiveSession';
 import { Button } from '../Common/Button';
 import type { PermissionRequestBlock } from '../../types';
 
@@ -25,8 +25,8 @@ export const PermissionRequestRenderer = memo(function PermissionRequestRenderer
   const [expandedDenial, setExpandedDenial] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const conversationId = useEventChatStore(state => state.conversationId);
-  const continueChat = useEventChatStore(state => state.continueChat);
+  const conversationId = useActiveSessionConversationId();
+  const { continueChat } = useActiveSessionActions();
 
   // 是否已处理
   const isHandled = block.status !== 'pending';
