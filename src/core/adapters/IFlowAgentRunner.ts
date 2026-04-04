@@ -99,8 +99,9 @@ export class IFlowAgentRunner implements AgentRunner {
     } catch (error) {
       yield {
         type: 'error',
+        sessionId: this.id,
         error: error instanceof Error ? error.message : 'Unknown error',
-      }
+      } as const
     } finally {
       this.abortController = null
     }

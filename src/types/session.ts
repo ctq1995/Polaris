@@ -6,7 +6,7 @@
 export type SessionType = 'project' | 'free'
 
 /** 会话状态 */
-export type SessionStatus = 'idle' | 'running' | 'waiting' | 'error'
+export type SessionStatus = 'idle' | 'running' | 'waiting' | 'error' | 'background-running'
 
 /** AI 引擎 ID */
 export type EngineId = 'claude-code' | 'iflow' | 'codex' | `provider-${string}`

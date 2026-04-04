@@ -149,6 +149,7 @@ export abstract class BaseSession implements AISession {
       if (task.input.prompt) {
         yield {
           type: 'user_message',
+          sessionId: this.id,
           content: task.input.prompt,
           files: task.input.files,
         }
@@ -169,6 +170,7 @@ export abstract class BaseSession implements AISession {
     } catch (error) {
       yield {
         type: 'error',
+        sessionId: this.id,
         error: error instanceof Error ? error.message : String(error),
       }
     } finally {

@@ -6,6 +6,7 @@
  */
 
 import type { AIEngine, EngineDescriptor, EngineCapabilities } from './engine'
+import type { AIEvent } from './event'
 import { getEventBus } from './event-bus'
 import { createLogger } from '../utils/logger'
 
@@ -443,8 +444,9 @@ export class AIEngineRegistry {
     const eventBus = getEventBus()
     eventBus.emit({
       type: 'progress',
+      sessionId: 'engine-registry',
       message: `EngineRegistry: ${event.type}`,
-    })
+    } as AIEvent)
   }
 }
 

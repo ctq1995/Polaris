@@ -371,12 +371,14 @@ export class OpenAIProviderSession extends BaseSession {
     if (isTextDeltaPayload(payload)) {
       this.emit({
         type: 'assistant_message',
+        sessionId: this.id,
         content: payload.text,
         isDelta: true,
       })
     } else if (isToolStartPayload(payload)) {
       this.emit({
         type: 'tool_call_start',
+        sessionId: this.id,
         callId: payload.tool_use_id,
         tool: payload.tool_name,
         args: payload.input,
@@ -384,6 +386,7 @@ export class OpenAIProviderSession extends BaseSession {
     } else if (isToolEndPayload(payload)) {
       this.emit({
         type: 'tool_call_end',
+        sessionId: this.id,
         callId: payload.tool_use_id,
         tool: payload.tool_name,
         result: payload.output,
@@ -397,6 +400,7 @@ export class OpenAIProviderSession extends BaseSession {
     } else if (isErrorPayload(payload)) {
       this.emit({
         type: 'error',
+        sessionId: this.id,
         error: payload.message,
       })
     }
@@ -439,6 +443,7 @@ export class OpenAIProviderSession extends BaseSession {
       console.error('[OpenAIProviderSession] Failed to start backend chat:', error)
       this.emit({
         type: 'error',
+        sessionId: this.id,
         error: error instanceof Error ? error.message : String(error),
       })
     }

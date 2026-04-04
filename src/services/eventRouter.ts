@@ -1,12 +1,14 @@
 /**
  * 事件路由器
  *
- * 根据 contextId 将 chat-event 路由到正确的处理器
- * 解决多个监听者同时监听 chat-event 导致的会话混乱问题
+ * 根据 sessionId 将 chat-event 路由到正确的 ConversationStore
+ * 支持多会话并行运行，每个会话独立接收事件
  */
 
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { createLogger } from '../utils/logger'
+import { sessionStoreManager } from '../stores/conversationStore'
+import type { AIEvent } from '../ai-runtime'
 
 const log = createLogger('EventRouter')
 
@@ -19,12 +21,27 @@ export interface RoutedEvent {
 
 export type EventHandler = (payload: unknown) => void
 
+/**
+ * 从 AIEvent 中提取 sessionId
+ */
+function extractSessionId(payload: unknown): string | null {
+  if (payload && typeof payload === 'object' && 'sessionId' in payload) {
+    const sessionId = (payload as { sessionId: unknown }).sessionId
+    if (typeof sessionId === 'string') {
+      return sessionId
+    }
+  }
+  return null
+}
+
 export class EventRouter {
   private handlers: Map<ContextId, Set<EventHandler>> = new Map()
   private unlisten: UnlistenFn | null = null
   private initialized = false
   private initPromise: Promise<void> | null = null
   private destroyed = false
+  /** 是否启用 sessionId 路由（新架构） */
+  private useSessionIdRouting = true
 
   async initialize(): Promise<void> {
     if (this.initialized) return
@@ -68,6 +85,17 @@ export class EventRouter {
           }
         }
 
+        // 尝试使用 sessionId 路由（新架构）
+        if (this.useSessionIdRouting) {
+          const sessionId = extractSessionId(routedEvent.payload)
+          if (sessionId) {
+            log.debug('使用 sessionId 路由', { sessionId })
+            this.dispatchToSession(sessionId, routedEvent.payload as AIEvent)
+            return
+          }
+        }
+
+        // 回退到 contextId 路由（旧架构兼容）
         console.log('[EventRouter] 路由事件到:', routedEvent.contextId, 'payload类型:', typeof routedEvent.payload)
         this.dispatch(routedEvent)
       } catch (e) {
@@ -76,6 +104,22 @@ export class EventRouter {
     })
 
     this.initialized = true
+  }
+
+  /**
+   * 将事件分发到指定的会话 Store
+   */
+  private dispatchToSession(sessionId: string, event: AIEvent): void {
+    try {
+      // 事件可能已经有 sessionId，确保传递正确的值
+      const eventWithSessionId = {
+        ...event,
+        sessionId,
+      } as AIEvent & { sessionId: string }
+      sessionStoreManager.getState().dispatchEvent(eventWithSessionId)
+    } catch (e) {
+      log.error('分发事件到会话失败', e as Error, { sessionId })
+    }
   }
 
   register(contextId: ContextId, handler: EventHandler): () => void {
@@ -90,7 +134,7 @@ export class EventRouter {
     } else {
       this.handlers.set(contextId, new Set())
     }
-    
+
     this.handlers.get(contextId)!.add(handler)
     console.log('[EventRouter] 注册 handler for', contextId)
 
@@ -124,6 +168,14 @@ export class EventRouter {
         }
       })
     }
+  }
+
+  /**
+   * 启用或禁用 sessionId 路由
+   */
+  setSessionIdRouting(enabled: boolean): void {
+    this.useSessionIdRouting = enabled
+    log.info(`sessionId 路由已${enabled ? '启用' : '禁用'}`)
   }
 
   destroy(): void {

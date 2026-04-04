@@ -58,9 +58,10 @@ export function saveCurrentMessagesToSession(sessionId: string): void {
  * 加载目标会话的消息状态到 EventChatStore
  *
  * @param sessionId 要加载的会话 ID
+ * @param skipStreamingCheck 是否跳过流式传输检查（后台切换时使用）
  * @returns 是否成功加载
  */
-export async function loadSessionMessagesToEventChat(sessionId: string): Promise<boolean> {
+export async function loadSessionMessagesToEventChat(sessionId: string, skipStreamingCheck = false): Promise<boolean> {
   const eventChatState = useEventChatStore.getState()
   const sessionSyncActions = eventChatState.getSessionSyncActions()
 
@@ -69,8 +70,8 @@ export async function loadSessionMessagesToEventChat(sessionId: string): Promise
     return false
   }
 
-  // 检查是否正在流式传输
-  if (eventChatState.isStreaming) {
+  // 检查是否正在流式传输（除非显式跳过）
+  if (!skipStreamingCheck && eventChatState.isStreaming) {
     log.warn('当前正在流式传输，无法切换会话')
     return false
   }
@@ -122,9 +123,10 @@ export async function loadSessionMessagesToEventChat(sessionId: string): Promise
  * 切换会话（带消息同步）
  *
  * 流程：
- * 1. 保存当前会话消息
- * 2. 切换 SessionStore 的 activeSessionId
- * 3. 加载目标会话消息
+ * 1. 如果当前正在流式传输，将当前会话转为后台运行
+ * 2. 保存当前会话消息
+ * 3. 切换 SessionStore 的 activeSessionId
+ * 4. 加载目标会话消息
  *
  * @param targetSessionId 目标会话 ID
  * @returns 是否成功切换
@@ -146,27 +148,36 @@ export async function switchSessionWithSync(targetSessionId: string): Promise<bo
 
   // 检查是否正在流式传输
   const eventChatState = useEventChatStore.getState()
-  if (eventChatState.isStreaming) {
-    log.warn('当前正在流式传输，无法切换会话')
-    // 可以考虑中断流式传输后切换，但这需要用户确认
-    return false
+  if (eventChatState.isStreaming && activeSessionId) {
+    // 将当前会话转为后台运行，不中断流式传输
+    log.info('当前会话转为后台运行', { sessionId: activeSessionId })
+
+    // 将当前会话加入后台运行列表
+    useSessionStore.getState().addToBackground(activeSessionId)
+
+    // 更新会话状态为 background-running
+    useSessionStore.getState().updateSessionStatus(activeSessionId, 'background-running')
+
+    // 保存当前消息状态（流式传输会继续写入）
+    saveCurrentMessagesToSession(activeSessionId)
   }
 
-  // 1. 保存当前会话消息（如果有活跃会话）
-  if (activeSessionId) {
+  // 1. 保存当前会话消息（如果有活跃会话且不在流式传输中）
+  if (activeSessionId && !eventChatState.isStreaming) {
     saveCurrentMessagesToSession(activeSessionId)
   }
 
   // 2. 切换 SessionStore 的 activeSessionId
   useSessionStore.getState().switchSession(targetSessionId)
 
-  // 3. 加载目标会话消息
-  const success = await loadSessionMessagesToEventChat(targetSessionId)
+  // 3. 加载目标会话消息（跳过流式检查，因为已处理）
+  const success = await loadSessionMessagesToEventChat(targetSessionId, true)
 
   if (success) {
     log.info('会话切换成功', {
       from: activeSessionId,
       to: targetSessionId,
+      isBackground: eventChatState.isStreaming
     })
   }
 
@@ -369,4 +380,56 @@ export async function createSessionFromHistory(options: {
   })
 
   return newSessionId
+}
+
+/**
+ * 后台会话完成处理
+ *
+ * 当后台运行的会话完成 AI 响应时调用，更新状态并发送通知
+ *
+ * @param sessionId 完成的会话 ID
+ */
+export function onBackgroundSessionComplete(sessionId: string): void {
+  const sessionStore = useSessionStore.getState()
+  const session = sessionStore.sessions.get(sessionId)
+
+  // 检查是否在后台运行列表中
+  if (sessionStore.backgroundSessionIds.includes(sessionId)) {
+    // 从后台列表移除
+    sessionStore.removeFromBackground(sessionId)
+
+    // 加入完成通知列表
+    sessionStore.addToNotifications(sessionId)
+
+    // 更新状态为 idle
+    sessionStore.updateSessionStatus(sessionId, 'idle')
+
+    log.info('后台会话完成', {
+      sessionId,
+      title: session?.title,
+      remainingBackground: sessionStore.backgroundSessionIds.length
+    })
+
+    // 可选：发送系统通知
+    // if (session && 'Notification' in window && Notification.permission === 'granted') {
+    //   new Notification('会话完成', { body: `会话 "${session.title}" 已完成` })
+    // }
+  }
+}
+
+/**
+ * 用户查看后台完成的会话
+ *
+ * 当用户切换到已完成但未查看的会话时，清除通知状态
+ *
+ * @param sessionId 会话 ID
+ */
+export function acknowledgeCompletedSession(sessionId: string): void {
+  const sessionStore = useSessionStore.getState()
+
+  // 从完成通知列表移除
+  if (sessionStore.completedNotifications.includes(sessionId)) {
+    sessionStore.removeFromNotifications(sessionId)
+    log.debug('用户查看了完成的会话', { sessionId })
+  }
 }

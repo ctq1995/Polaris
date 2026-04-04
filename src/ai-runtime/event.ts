@@ -3,6 +3,8 @@
  *
  * 定义了 AI Engine 向 UI 层传递所有事件的标准格式。
  * UI / 日志 / Tool 面板只能消费 AIEvent，禁止直接消费 CLI 原始输出。
+ *
+ * 所有事件都必须包含 sessionId 字段，用于多会话事件路由。
  */
 
 /**
@@ -10,6 +12,8 @@
  */
 export interface TokenEvent {
   type: 'token'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 文本内容 */
   value: string
 }
@@ -19,6 +23,8 @@ export interface TokenEvent {
  */
 export interface ThinkingEvent {
   type: 'thinking'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 思考内容 */
   content: string
 }
@@ -28,6 +34,8 @@ export interface ThinkingEvent {
  */
 export interface ToolCallStartEvent {
   type: 'tool_call_start'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 工具调用 ID */
   callId?: string
   /** 工具名称 */
@@ -41,6 +49,8 @@ export interface ToolCallStartEvent {
  */
 export interface ToolCallEndEvent {
   type: 'tool_call_end'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 工具调用 ID */
   callId?: string
   /** 工具名称 */
@@ -56,6 +66,8 @@ export interface ToolCallEndEvent {
  */
 export interface ProgressEvent {
   type: 'progress'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 进度消息 */
   message?: string
   /** 进度百分比 0-100 */
@@ -67,6 +79,8 @@ export interface ProgressEvent {
  */
 export interface ResultEvent {
   type: 'result'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 任务输出结果 */
   output: unknown
 }
@@ -76,6 +90,8 @@ export interface ResultEvent {
  */
 export interface ErrorEvent {
   type: 'error'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 错误信息 */
   error: string
   /** 错误码（可选） */
@@ -107,6 +123,8 @@ export interface SessionEndEvent {
  */
 export interface UserMessageEvent {
   type: 'user_message'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 用户消息内容 */
   content: string
   /** 关联的文件 */
@@ -118,6 +136,8 @@ export interface UserMessageEvent {
  */
 export interface AssistantMessageEvent {
   type: 'assistant_message'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 消息内容（可能是部分内容） */
   content: string
   /** 是否为增量更新 */
@@ -152,6 +172,8 @@ export type TaskStatus = 'pending' | 'running' | 'success' | 'error' | 'canceled
  */
 export interface TaskMetadataEvent {
   type: 'task_metadata'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 任务 ID */
   taskId: string
   /** 任务状态 */
@@ -171,6 +193,8 @@ export interface TaskMetadataEvent {
  */
 export interface TaskProgressEvent {
   type: 'task_progress'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 任务 ID */
   taskId: string
   /** 进度消息 */
@@ -184,6 +208,8 @@ export interface TaskProgressEvent {
  */
 export interface TaskCompletedEvent {
   type: 'task_completed'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 任务 ID */
   taskId: string
   /** 最终状态 */
@@ -199,10 +225,100 @@ export interface TaskCompletedEvent {
  */
 export interface TaskCanceledEvent {
   type: 'task_canceled'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
   /** 任务 ID */
   taskId: string
   /** 取消原因 */
   reason?: string
+}
+
+// ========================================
+// AgentRun 相关事件
+// ========================================
+
+/**
+ * AgentRun 开始事件
+ */
+export interface AgentRunStartEvent {
+  type: 'agent_run_start'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
+  /** 任务 ID */
+  taskId: string
+  /** Agent 类型 */
+  agentType: string
+  /** Agent 能力列表 */
+  capabilities?: string[]
+}
+
+/**
+ * AgentRun 结束事件
+ */
+export interface AgentRunEndEvent {
+  type: 'agent_run_end'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
+  /** 任务 ID */
+  taskId: string
+  /** 是否成功 */
+  success: boolean
+  /** 结果摘要 */
+  result?: string
+}
+
+// ========================================
+// Question 相关事件
+// ========================================
+
+/**
+ * Question 选项
+ */
+export interface QuestionOption {
+  /** 选项值 */
+  value: string
+  /** 选项标签 */
+  label?: string
+  /** 选项描述 */
+  description?: string
+  /** 选项预览 */
+  preview?: string
+}
+
+/**
+ * Question 事件 - AI 询问用户问题
+ */
+export interface QuestionEvent {
+  type: 'question'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
+  /** 问题 ID */
+  questionId: string
+  /** 问题标题 */
+  header: string
+  /** 选项列表 */
+  options: QuestionOption[]
+  /** 是否多选 */
+  multiSelect?: boolean
+  /** 是否允许自定义输入 */
+  allowCustomInput?: boolean
+  /** 分类标签 */
+  categoryLabel?: string
+}
+
+/**
+ * QuestionAnswered 事件 - 用户回答问题
+ */
+export interface QuestionAnsweredEvent {
+  type: 'question_answered'
+  /** 会话 ID - 用于事件路由 */
+  sessionId: string
+  /** 问题 ID */
+  questionId: string
+  /** 用户选择的选项 */
+  selected: string[]
+  /** 用户自定义输入 */
+  customInput?: string
 }
 
 // ========================================
@@ -455,19 +571,6 @@ export interface PermissionRequestEvent {
 }
 
 /**
- * 问题已回答事件
- */
-export interface QuestionAnsweredEvent {
-  type: 'question_answered'
-  /** 会话 ID */
-  sessionId: string
-  /** 问题 ID（tool_call 的 callId） */
-  callId: string
-  /** 用户答案 */
-  answer: QuestionAnswerData
-}
-
-/**
  * AI Event - 所有事件的联合类型
  *
  * UI 层只能消费此类型的事件，禁止直接解析 CLI 输出。
@@ -489,13 +592,16 @@ export type AIEvent =
   | TaskProgressEvent
   | TaskCompletedEvent
   | TaskCanceledEvent
+  | AgentRunStartEvent
+  | AgentRunEndEvent
+  | QuestionEvent
+  | QuestionAnsweredEvent
   | TodoCreatedEvent
   | TodoUpdatedEvent
   | TodoDeletedEvent
   | TodoExecutionStartedEvent
   | TodoExecutionProgressEvent
   | TodoExecutionCompletedEvent
-  | QuestionAnsweredEvent
   | PlanStartEvent
   | PlanContentEvent
   | PlanStageUpdateEvent
@@ -517,56 +623,60 @@ export type AIEventFilter = (event: AIEvent) => boolean
 /**
  * 创建 Token 事件
  */
-export function createTokenEvent(value: string): TokenEvent {
-  return { type: 'token', value }
+export function createTokenEvent(sessionId: string, value: string): TokenEvent {
+  return { type: 'token', sessionId, value }
 }
 
 /**
  * 创建思考过程事件
  */
-export function createThinkingEvent(content: string): ThinkingEvent {
-  return { type: 'thinking', content }
+export function createThinkingEvent(sessionId: string, content: string): ThinkingEvent {
+  return { type: 'thinking', sessionId, content }
 }
 
 /**
  * 创建工具调用开始事件
  */
 export function createToolCallStartEvent(
+  sessionId: string,
   tool: string,
   args: Record<string, unknown>
 ): ToolCallStartEvent {
-  return { type: 'tool_call_start', tool, args }
+  return { type: 'tool_call_start', sessionId, tool, args }
 }
 
 /**
  * 创建工具调用结束事件
  */
 export function createToolCallEndEvent(
+  sessionId: string,
   tool: string,
   result?: unknown,
   success = true
 ): ToolCallEndEvent {
-  return { type: 'tool_call_end', tool, result, success }
+  return { type: 'tool_call_end', sessionId, tool, result, success }
 }
 
 /**
  * 创建进度事件
  */
 export function createProgressEvent(
+  sessionId: string,
   message?: string,
   percent?: number
 ): ProgressEvent {
-  return { type: 'progress', message, percent }
+  return { type: 'progress', sessionId, message, percent }
 }
 
 /**
  * 创建错误事件
  */
 export function createErrorEvent(
+  sessionId: string,
   error: string,
   code?: string
 ): ErrorEvent {
-  return { type: 'error', error, code }
+  return { type: 'error', sessionId, error, code }
 }
 
 /**
@@ -595,21 +705,23 @@ export type SessionEndReason = 'completed' | 'aborted' | 'error'
  * 创建用户消息事件
  */
 export function createUserMessageEvent(
+  sessionId: string,
   content: string,
   files?: string[]
 ): UserMessageEvent {
-  return { type: 'user_message', content, files }
+  return { type: 'user_message', sessionId, content, files }
 }
 
 /**
  * 创建 AI 消息事件
  */
 export function createAssistantMessageEvent(
+  sessionId: string,
   content: string,
   isDelta = false,
   toolCalls?: ToolCallInfo[]
 ): AssistantMessageEvent {
-  return { type: 'assistant_message', content, isDelta, toolCalls }
+  return { type: 'assistant_message', sessionId, content, isDelta, toolCalls }
 }
 
 /**
@@ -663,44 +775,48 @@ export function isAssistantMessageEvent(event: AIEvent): event is AssistantMessa
  * 创建 Task 元数据事件
  */
 export function createTaskMetadataEvent(
+  sessionId: string,
   taskId: string,
   status: TaskStatus,
-  metadata?: Partial<Omit<TaskMetadataEvent, 'type' | 'taskId' | 'status'>>
+  metadata?: Partial<Omit<TaskMetadataEvent, 'type' | 'sessionId' | 'taskId' | 'status'>>
 ): TaskMetadataEvent {
-  return { type: 'task_metadata', taskId, status, ...metadata }
+  return { type: 'task_metadata', sessionId, taskId, status, ...metadata }
 }
 
 /**
  * 创建 Task 进度事件
  */
 export function createTaskProgressEvent(
+  sessionId: string,
   taskId: string,
   message?: string,
   percent?: number
 ): TaskProgressEvent {
-  return { type: 'task_progress', taskId, message, percent }
+  return { type: 'task_progress', sessionId, taskId, message, percent }
 }
 
 /**
  * 创建 Task 完成事件
  */
 export function createTaskCompletedEvent(
+  sessionId: string,
   taskId: string,
   status: Exclude<TaskStatus, 'pending' | 'running'>,
   duration?: number,
   error?: string
 ): TaskCompletedEvent {
-  return { type: 'task_completed', taskId, status, duration, error }
+  return { type: 'task_completed', sessionId, taskId, status, duration, error }
 }
 
 /**
  * 创建 Task 取消事件
  */
 export function createTaskCanceledEvent(
+  sessionId: string,
   taskId: string,
   reason?: string
 ): TaskCanceledEvent {
-  return { type: 'task_canceled', taskId, reason }
+  return { type: 'task_canceled', sessionId, taskId, reason }
 }
 
 /**
@@ -840,13 +956,16 @@ const AI_EVENT_TYPES = new Set([
   'task_progress',
   'task_completed',
   'task_canceled',
+  'agent_run_start',
+  'agent_run_end',
+  'question',
+  'question_answered',
   'todo_created',
   'todo_updated',
   'todo_deleted',
   'todo_execution_started',
   'todo_execution_progress',
   'todo_execution_completed',
-  'question_answered',
   'plan_start',
   'plan_content',
   'plan_stage_update',
@@ -915,4 +1034,52 @@ export function isPlanEvent(event: AIEvent): event is PlanStartEvent | PlanConte
 
 export function isPermissionRequestEvent(event: AIEvent): event is PermissionRequestEvent {
   return event.type === 'permission_request'
+}
+
+// ========================================
+// AgentRun 事件类型守卫
+// ========================================
+
+export function isAgentRunStartEvent(event: AIEvent): event is AgentRunStartEvent {
+  return event.type === 'agent_run_start'
+}
+
+export function isAgentRunEndEvent(event: AIEvent): event is AgentRunEndEvent {
+  return event.type === 'agent_run_end'
+}
+
+/** 判断是否为任意 AgentRun 事件 */
+export function isAgentRunEvent(event: AIEvent): event is AgentRunStartEvent | AgentRunEndEvent {
+  return event.type.startsWith('agent_run_')
+}
+
+// ========================================
+// Question 事件类型守卫
+// ========================================
+
+export function isQuestionEvent(event: AIEvent): event is QuestionEvent {
+  return event.type === 'question'
+}
+
+// ========================================
+// SessionId 提取
+// ========================================
+
+/**
+ * 从事件中提取 sessionId
+ * 返回 null 如果事件没有 sessionId 字段
+ */
+export function getEventSessionId(event: AIEvent): string | null {
+  if ('sessionId' in event && typeof (event as any).sessionId === 'string') {
+    return (event as any).sessionId
+  }
+  return null
+}
+
+/**
+ * 检查事件是否有 sessionId 字段
+ * 用于兼容旧代码的运行时检查
+ */
+export function hasSessionId(event: AIEvent): event is AIEvent & { sessionId: string } {
+  return 'sessionId' in event && typeof (event as any).sessionId === 'string'
 }

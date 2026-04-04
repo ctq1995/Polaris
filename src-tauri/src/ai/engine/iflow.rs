@@ -466,7 +466,7 @@ impl IFlowEngine {
                     "[IFlowEngine] 文件未创建: {:?}, 等待了 {} 次检查 ({}ms)",
                     path, wait_count, wait_count * 100
                 );
-                event_callback(AIEvent::error("会话文件未创建"));
+                event_callback(AIEvent::error(&session_id, "会话文件未创建"));
                 return;
             }
 
@@ -938,7 +938,7 @@ impl AIEngine for IFlowEngine {
                             tracing::error!(
                                 "[IFlowEngine] 进程运行但长时间未创建会话文件，可能是异常"
                             );
-                            event_callback(AIEvent::error("IFlow 长时间未响应，请检查网络连接"));
+                            event_callback(AIEvent::error(&temp_id_for_monitor, "IFlow 长时间未响应，请检查网络连接"));
                             return;
                         }
                         // 继续循环等待
@@ -947,7 +947,7 @@ impl AIEngine for IFlowEngine {
                         tracing::error!(
                             "[IFlowEngine] IFlow 进程已退出但未创建会话文件，可能是启动失败"
                         );
-                        event_callback(AIEvent::error("IFlow 启动失败，请检查配置"));
+                        event_callback(AIEvent::error(&temp_id_for_monitor, "IFlow 启动失败，请检查配置"));
                         return;
                     }
                 }

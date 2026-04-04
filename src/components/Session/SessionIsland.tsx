@@ -28,6 +28,8 @@ export function SessionIsland({ onCreateSession }: SessionIslandProps) {
   const isIslandExpanded = useSessionStore((state) => state.isIslandExpanded)
   const toggleIsland = useSessionStore((state) => state.toggleIsland)
   const collapseIsland = useSessionStore((state) => state.collapseIsland)
+  const backgroundSessionIds = useSessionStore((state) => state.backgroundSessionIds)
+  const completedNotifications = useSessionStore((state) => state.completedNotifications)
 
   const workspaces = useWorkspaceStore((state) => state.workspaces)
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId)
@@ -169,6 +171,42 @@ export function SessionIsland({ onCreateSession }: SessionIslandProps) {
               {effectiveWorkspace.name}
             </span>
           </button>
+        )}
+
+        {/* 后台运行指示器 */}
+        {backgroundSessionIds.length > 0 && (
+          <span
+            className={cn(
+              'flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs',
+              'bg-gray-500/20 text-gray-400',
+              'shrink-0'
+            )}
+            title={`${backgroundSessionIds.length} 个会话在后台运行`}
+          >
+            <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse-slow" />
+            {backgroundSessionIds.length}
+          </span>
+        )}
+
+        {/* 完成通知气泡 */}
+        {completedNotifications.length > 0 && (
+          <span
+            className={cn(
+              'px-1.5 py-0.5 rounded-full text-xs',
+              'bg-green-500/20 text-green-400 font-medium',
+              'shrink-0 cursor-pointer'
+            )}
+            title={`${completedNotifications.length} 个会话已完成`}
+            onClick={(e) => {
+              e.stopPropagation()
+              // 点击展开会话列表
+              if (!isIslandExpanded) {
+                toggleIsland()
+              }
+            }}
+          >
+            ✓ {completedNotifications.length}
+          </span>
         )}
 
         {/* 其他会话数量 */}

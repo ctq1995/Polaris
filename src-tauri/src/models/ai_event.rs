@@ -63,14 +63,17 @@ pub enum TaskStatus {
 pub struct TokenEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 文本内容
     pub value: String,
 }
 
 impl TokenEvent {
-    pub fn new(value: String) -> Self {
+    pub fn new(session_id: impl Into<String>, value: String) -> Self {
         Self {
             event_type: "token".to_string(),
+            session_id: session_id.into(),
             value,
         }
     }
@@ -82,14 +85,17 @@ impl TokenEvent {
 pub struct ThinkingEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 思考内容
     pub content: String,
 }
 
 impl ThinkingEvent {
-    pub fn new(content: impl Into<String>) -> Self {
+    pub fn new(session_id: impl Into<String>, content: impl Into<String>) -> Self {
         Self {
             event_type: "thinking".to_string(),
+            session_id: session_id.into(),
             content: content.into(),
         }
     }
@@ -101,6 +107,8 @@ impl ThinkingEvent {
 pub struct ToolCallStartEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 工具调用 ID
     #[serde(skip_serializing_if = "Option::is_none")]
     pub call_id: Option<String>,
@@ -111,9 +119,10 @@ pub struct ToolCallStartEvent {
 }
 
 impl ToolCallStartEvent {
-    pub fn new(tool: String, args: HashMap<String, serde_json::Value>) -> Self {
+    pub fn new(session_id: impl Into<String>, tool: String, args: HashMap<String, serde_json::Value>) -> Self {
         Self {
             event_type: "tool_call_start".to_string(),
+            session_id: session_id.into(),
             call_id: None,
             tool,
             args,
@@ -132,6 +141,8 @@ impl ToolCallStartEvent {
 pub struct ToolCallEndEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 工具调用 ID
     #[serde(skip_serializing_if = "Option::is_none")]
     pub call_id: Option<String>,
@@ -145,9 +156,10 @@ pub struct ToolCallEndEvent {
 }
 
 impl ToolCallEndEvent {
-    pub fn new(tool: String, success: bool) -> Self {
+    pub fn new(session_id: impl Into<String>, tool: String, success: bool) -> Self {
         Self {
             event_type: "tool_call_end".to_string(),
+            session_id: session_id.into(),
             call_id: None,
             tool,
             result: None,
@@ -172,6 +184,8 @@ impl ToolCallEndEvent {
 pub struct ProgressEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 进度消息
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
@@ -181,9 +195,10 @@ pub struct ProgressEvent {
 }
 
 impl ProgressEvent {
-    pub fn new(message: impl Into<String>) -> Self {
+    pub fn new(session_id: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             event_type: "progress".to_string(),
+            session_id: session_id.into(),
             message: Some(message.into()),
             percent: None,
         }
@@ -201,14 +216,17 @@ impl ProgressEvent {
 pub struct ResultEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 任务输出结果
     pub output: serde_json::Value,
 }
 
 impl ResultEvent {
-    pub fn new(output: serde_json::Value) -> Self {
+    pub fn new(session_id: impl Into<String>, output: serde_json::Value) -> Self {
         Self {
             event_type: "result".to_string(),
+            session_id: session_id.into(),
             output,
         }
     }
@@ -220,6 +238,8 @@ impl ResultEvent {
 pub struct ErrorEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 错误信息
     pub error: String,
     /// 错误码（可选）
@@ -228,9 +248,10 @@ pub struct ErrorEvent {
 }
 
 impl ErrorEvent {
-    pub fn new(error: impl Into<String>) -> Self {
+    pub fn new(session_id: impl Into<String>, error: impl Into<String>) -> Self {
         Self {
             event_type: "error".to_string(),
+            session_id: session_id.into(),
             error: error.into(),
             code: None,
         }
@@ -304,6 +325,8 @@ impl SessionEndEvent {
 pub struct UserMessageEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 用户消息内容
     pub content: String,
     /// 关联的文件
@@ -312,9 +335,10 @@ pub struct UserMessageEvent {
 }
 
 impl UserMessageEvent {
-    pub fn new(content: impl Into<String>) -> Self {
+    pub fn new(session_id: impl Into<String>, content: impl Into<String>) -> Self {
         Self {
             event_type: "user_message".to_string(),
+            session_id: session_id.into(),
             content: content.into(),
             files: None,
         }
@@ -332,6 +356,8 @@ impl UserMessageEvent {
 pub struct AssistantMessageEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 消息内容（可能是部分内容）
     pub content: String,
     /// 是否为增量更新
@@ -342,9 +368,10 @@ pub struct AssistantMessageEvent {
 }
 
 impl AssistantMessageEvent {
-    pub fn new(content: impl Into<String>, is_delta: bool) -> Self {
+    pub fn new(session_id: impl Into<String>, content: impl Into<String>, is_delta: bool) -> Self {
         Self {
             event_type: "assistant_message".to_string(),
+            session_id: session_id.into(),
             content: content.into(),
             is_delta,
             tool_calls: None,
@@ -363,6 +390,8 @@ impl AssistantMessageEvent {
 pub struct TaskMetadataEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 任务 ID
     pub task_id: String,
     /// 任务状态
@@ -382,9 +411,10 @@ pub struct TaskMetadataEvent {
 }
 
 impl TaskMetadataEvent {
-    pub fn new(task_id: impl Into<String>, status: TaskStatus) -> Self {
+    pub fn new(session_id: impl Into<String>, task_id: impl Into<String>, status: TaskStatus) -> Self {
         Self {
             event_type: "task_metadata".to_string(),
+            session_id: session_id.into(),
             task_id: task_id.into(),
             status,
             start_time: None,
@@ -401,6 +431,8 @@ impl TaskMetadataEvent {
 pub struct TaskProgressEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 任务 ID
     pub task_id: String,
     /// 进度消息
@@ -412,9 +444,10 @@ pub struct TaskProgressEvent {
 }
 
 impl TaskProgressEvent {
-    pub fn new(task_id: impl Into<String>) -> Self {
+    pub fn new(session_id: impl Into<String>, task_id: impl Into<String>) -> Self {
         Self {
             event_type: "task_progress".to_string(),
+            session_id: session_id.into(),
             task_id: task_id.into(),
             message: None,
             percent: None,
@@ -438,6 +471,8 @@ impl TaskProgressEvent {
 pub struct TaskCompletedEvent {
     #[serde(rename = "type")]
     pub event_type: String,
+    /// 会话 ID - 用于事件路由
+    pub session_id: String,
     /// 任务 ID
     pub task_id: String,
     /// 最终状态
@@ -451,9 +486,10 @@ pub struct TaskCompletedEvent {
 }
 
 impl TaskCompletedEvent {
-    pub fn new(task_id: impl Into<String>, status: TaskStatus) -> Self {
+    pub fn new(session_id: impl Into<String>, task_id: impl Into<String>, status: TaskStatus) -> Self {
         Self {
             event_type: "task_completed".to_string(),
+            session_id: session_id.into(),
             task_id: task_id.into(),
             status,
             duration: None,
@@ -813,6 +849,214 @@ impl PermissionRequestEvent {
 }
 
 // ============================================================================
+// AgentRun 相关类型和事件
+// ============================================================================
+
+/// AgentRun 开始事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRunStartEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 任务 ID
+    pub task_id: String,
+    /// Agent 类型
+    pub agent_type: String,
+    /// Agent 能力列表
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capabilities: Option<Vec<String>>,
+}
+
+impl AgentRunStartEvent {
+    pub fn new(session_id: impl Into<String>, task_id: impl Into<String>, agent_type: impl Into<String>) -> Self {
+        Self {
+            event_type: "agent_run_start".to_string(),
+            session_id: session_id.into(),
+            task_id: task_id.into(),
+            agent_type: agent_type.into(),
+            capabilities: None,
+        }
+    }
+
+    pub fn with_capabilities(mut self, capabilities: Vec<String>) -> Self {
+        self.capabilities = Some(capabilities);
+        self
+    }
+}
+
+/// AgentRun 结束事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRunEndEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 任务 ID
+    pub task_id: String,
+    /// 是否成功
+    pub success: bool,
+    /// 结果摘要
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
+}
+
+impl AgentRunEndEvent {
+    pub fn new(session_id: impl Into<String>, task_id: impl Into<String>, success: bool) -> Self {
+        Self {
+            event_type: "agent_run_end".to_string(),
+            session_id: session_id.into(),
+            task_id: task_id.into(),
+            success,
+            result: None,
+        }
+    }
+
+    pub fn with_result(mut self, result: impl Into<String>) -> Self {
+        self.result = Some(result.into());
+        self
+    }
+}
+
+// ============================================================================
+// Question 相关类型和事件
+// ============================================================================
+
+/// Question 选项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionOptionData {
+    /// 选项值
+    pub value: String,
+    /// 选项标签
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// 选项描述
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// 选项预览
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
+}
+
+impl QuestionOptionData {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            label: None,
+            description: None,
+            preview: None,
+        }
+    }
+
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    pub fn with_preview(mut self, preview: impl Into<String>) -> Self {
+        self.preview = Some(preview.into());
+        self
+    }
+}
+
+/// Question 事件 - AI 询问用户问题
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 问题 ID
+    pub question_id: String,
+    /// 问题标题
+    pub header: String,
+    /// 选项列表
+    pub options: Vec<QuestionOptionData>,
+    /// 是否多选
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub multi_select: Option<bool>,
+    /// 是否允许自定义输入
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_custom_input: Option<bool>,
+    /// 分类标签
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category_label: Option<String>,
+}
+
+impl QuestionEvent {
+    pub fn new(session_id: impl Into<String>, question_id: impl Into<String>, header: impl Into<String>, options: Vec<QuestionOptionData>) -> Self {
+        Self {
+            event_type: "question".to_string(),
+            session_id: session_id.into(),
+            question_id: question_id.into(),
+            header: header.into(),
+            options,
+            multi_select: None,
+            allow_custom_input: None,
+            category_label: None,
+        }
+    }
+
+    pub fn with_multi_select(mut self, multi_select: bool) -> Self {
+        self.multi_select = Some(multi_select);
+        self
+    }
+
+    pub fn with_allow_custom_input(mut self, allow_custom_input: bool) -> Self {
+        self.allow_custom_input = Some(allow_custom_input);
+        self
+    }
+
+    pub fn with_category_label(mut self, category_label: impl Into<String>) -> Self {
+        self.category_label = Some(category_label.into());
+        self
+    }
+}
+
+/// QuestionAnswered 事件 - 用户回答问题
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionAnsweredEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// 会话 ID
+    pub session_id: String,
+    /// 问题 ID
+    pub question_id: String,
+    /// 用户选择的选项
+    pub selected: Vec<String>,
+    /// 用户自定义输入
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_input: Option<String>,
+}
+
+impl QuestionAnsweredEvent {
+    pub fn new(session_id: impl Into<String>, question_id: impl Into<String>, selected: Vec<String>) -> Self {
+        Self {
+            event_type: "question_answered".to_string(),
+            session_id: session_id.into(),
+            question_id: question_id.into(),
+            selected,
+            custom_input: None,
+        }
+    }
+
+    pub fn with_custom_input(mut self, custom_input: impl Into<String>) -> Self {
+        self.custom_input = Some(custom_input.into());
+        self
+    }
+}
+
+// ============================================================================
 // 统一 AIEvent 枚举
 // ============================================================================
 
@@ -845,6 +1089,12 @@ pub enum AIEvent {
     PlanEnd(PlanEndEvent),
     // PermissionRequest 事件
     PermissionRequest(PermissionRequestEvent),
+    // AgentRun 事件
+    AgentRunStart(AgentRunStartEvent),
+    AgentRunEnd(AgentRunEndEvent),
+    // Question 事件
+    Question(QuestionEvent),
+    QuestionAnswered(QuestionAnsweredEvent),
 }
 
 impl AIEvent {
@@ -872,41 +1122,45 @@ impl AIEvent {
             AIEvent::PlanApprovalResult(e) => &e.event_type,
             AIEvent::PlanEnd(e) => &e.event_type,
             AIEvent::PermissionRequest(e) => &e.event_type,
+            AIEvent::AgentRunStart(e) => &e.event_type,
+            AIEvent::AgentRunEnd(e) => &e.event_type,
+            AIEvent::Question(e) => &e.event_type,
+            AIEvent::QuestionAnswered(e) => &e.event_type,
         }
     }
 
     // ========================================================================
-    // 便捷构造方法
+    // 便捷构造方法（所有方法都需要 session_id 参数）
     // ========================================================================
 
     /// 创建 Token 事件
-    pub fn token(value: impl Into<String>) -> Self {
-        AIEvent::Token(TokenEvent::new(value.into()))
+    pub fn token(session_id: impl Into<String>, value: impl Into<String>) -> Self {
+        AIEvent::Token(TokenEvent::new(session_id, value.into()))
     }
 
     /// 创建思考事件
-    pub fn thinking(content: impl Into<String>) -> Self {
-        AIEvent::Thinking(ThinkingEvent::new(content))
+    pub fn thinking(session_id: impl Into<String>, content: impl Into<String>) -> Self {
+        AIEvent::Thinking(ThinkingEvent::new(session_id, content))
     }
 
     /// 创建工具调用开始事件
-    pub fn tool_call_start(tool: impl Into<String>, args: HashMap<String, serde_json::Value>) -> Self {
-        AIEvent::ToolCallStart(ToolCallStartEvent::new(tool.into(), args))
+    pub fn tool_call_start(session_id: impl Into<String>, tool: impl Into<String>, args: HashMap<String, serde_json::Value>) -> Self {
+        AIEvent::ToolCallStart(ToolCallStartEvent::new(session_id, tool.into(), args))
     }
 
     /// 创建工具调用结束事件
-    pub fn tool_call_end(tool: impl Into<String>, success: bool) -> Self {
-        AIEvent::ToolCallEnd(ToolCallEndEvent::new(tool.into(), success))
+    pub fn tool_call_end(session_id: impl Into<String>, tool: impl Into<String>, success: bool) -> Self {
+        AIEvent::ToolCallEnd(ToolCallEndEvent::new(session_id, tool.into(), success))
     }
 
     /// 创建进度事件
-    pub fn progress(message: impl Into<String>) -> Self {
-        AIEvent::Progress(ProgressEvent::new(message))
+    pub fn progress(session_id: impl Into<String>, message: impl Into<String>) -> Self {
+        AIEvent::Progress(ProgressEvent::new(session_id, message))
     }
 
     /// 创建错误事件
-    pub fn error(error: impl Into<String>) -> Self {
-        AIEvent::Error(ErrorEvent::new(error))
+    pub fn error(session_id: impl Into<String>, error: impl Into<String>) -> Self {
+        AIEvent::Error(ErrorEvent::new(session_id, error))
     }
 
     /// 创建会话开始事件
@@ -920,13 +1174,44 @@ impl AIEvent {
     }
 
     /// 创建用户消息事件
-    pub fn user_message(content: impl Into<String>) -> Self {
-        AIEvent::UserMessage(UserMessageEvent::new(content))
+    pub fn user_message(session_id: impl Into<String>, content: impl Into<String>) -> Self {
+        AIEvent::UserMessage(UserMessageEvent::new(session_id, content))
     }
 
     /// 创建 AI 消息事件
-    pub fn assistant_message(content: impl Into<String>, is_delta: bool) -> Self {
-        AIEvent::AssistantMessage(AssistantMessageEvent::new(content, is_delta))
+    pub fn assistant_message(session_id: impl Into<String>, content: impl Into<String>, is_delta: bool) -> Self {
+        AIEvent::AssistantMessage(AssistantMessageEvent::new(session_id, content, is_delta))
+    }
+
+    /// 获取事件的 session_id
+    pub fn session_id(&self) -> &str {
+        match self {
+            AIEvent::Token(e) => &e.session_id,
+            AIEvent::Thinking(e) => &e.session_id,
+            AIEvent::ToolCallStart(e) => &e.session_id,
+            AIEvent::ToolCallEnd(e) => &e.session_id,
+            AIEvent::Progress(e) => &e.session_id,
+            AIEvent::Result(e) => &e.session_id,
+            AIEvent::Error(e) => &e.session_id,
+            AIEvent::SessionStart(e) => &e.session_id,
+            AIEvent::SessionEnd(e) => &e.session_id,
+            AIEvent::UserMessage(e) => &e.session_id,
+            AIEvent::AssistantMessage(e) => &e.session_id,
+            AIEvent::TaskMetadata(e) => &e.session_id,
+            AIEvent::TaskProgress(e) => &e.session_id,
+            AIEvent::TaskCompleted(e) => &e.session_id,
+            AIEvent::PlanStart(e) => &e.session_id,
+            AIEvent::PlanContent(e) => &e.session_id,
+            AIEvent::PlanStageUpdate(e) => &e.session_id,
+            AIEvent::PlanApprovalRequest(e) => &e.session_id,
+            AIEvent::PlanApprovalResult(e) => &e.session_id,
+            AIEvent::PlanEnd(e) => &e.session_id,
+            AIEvent::PermissionRequest(e) => &e.session_id,
+            AIEvent::AgentRunStart(e) => &e.session_id,
+            AIEvent::AgentRunEnd(e) => &e.session_id,
+            AIEvent::Question(e) => &e.session_id,
+            AIEvent::QuestionAnswered(e) => &e.session_id,
+        }
     }
 
     /// 从事件中提取文本内容

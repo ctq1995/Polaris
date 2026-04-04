@@ -105,7 +105,6 @@ use commands::diagnostics::get_todo_mcp_diagnostics;
 
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
-use tauri::Manager;
 use ai::EngineRegistry;
 use integrations::IntegrationManager;
 

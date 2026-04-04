@@ -361,13 +361,13 @@ impl OpenAIEngine {
         match result {
             Ok(response) => {
                 // 发送完整响应
-                event_callback(AIEvent::assistant_message(&response, false));
+                event_callback(AIEvent::assistant_message(&sid, &response, false));
                 event_callback(AIEvent::session_end(&sid));
                 Ok(())
             }
             Err(e) => {
                 tracing::error!("[OpenAIEngine] 执行失败: {}", e);
-                event_callback(AIEvent::Error(crate::models::ErrorEvent::new(e.to_string())));
+                event_callback(AIEvent::Error(crate::models::ErrorEvent::new(&sid, e.to_string())));
                 Err(e)
             }
         }

@@ -6,7 +6,7 @@ import { cn } from '@/utils/cn'
 import { Plus } from 'lucide-react'
 import { useSessionStore, getSessionEffectiveWorkspace } from '@/stores/sessionStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
-import { switchSessionWithSync } from '@/stores/sessionSync'
+import { switchSessionWithSync, acknowledgeCompletedSession } from '@/stores/sessionSync'
 import { SessionListItem } from './SessionListItem'
 
 interface SessionListProps {
@@ -18,6 +18,8 @@ export function SessionList({ onClose, onCreateSession }: SessionListProps) {
   const sessions = useSessionStore((state) => state.sessions)
   const recentSessionIds = useSessionStore((state) => state.recentSessionIds)
   const activeSessionId = useSessionStore((state) => state.activeSessionId)
+  const backgroundSessionIds = useSessionStore((state) => state.backgroundSessionIds)
+  const completedNotifications = useSessionStore((state) => state.completedNotifications)
 
   const workspaces = useWorkspaceStore((state) => state.workspaces)
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId)
@@ -42,6 +44,9 @@ export function SessionList({ onClose, onCreateSession }: SessionListProps) {
 
   // 切换会话（带消息同步）
   const handleSwitchSession = async (sessionId: string) => {
+    // 清除完成通知状态
+    acknowledgeCompletedSession(sessionId)
+
     const success = await switchSessionWithSync(sessionId)
     if (success) {
       onClose()
@@ -68,6 +73,8 @@ export function SessionList({ onClose, onCreateSession }: SessionListProps) {
                 session={session}
                 workspaceName={getWorkspaceName(session.id)}
                 isActive={session.id === activeSessionId}
+                isBackground={backgroundSessionIds.includes(session.id)}
+                isCompleted={completedNotifications.includes(session.id)}
                 onClick={() => handleSwitchSession(session.id)}
               />
             ))}

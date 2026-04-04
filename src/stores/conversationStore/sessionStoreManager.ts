@@ -1,0 +1,430 @@
+/**
+ * SessionStoreManager 实现
+ *
+ * 管理多个会话 Store 实例，支持：
+ * - 会话创建、删除、切换
+ * - 事件路由（按 sessionId）
+ * - 后台运行管理
+ */
+
+import { createStore, useStore } from 'zustand'
+import type { AIEvent } from '../../ai-runtime'
+import type {
+  ConversationStore,
+  ConversationStoreInstance,
+  SessionManagerState,
+  SessionManagerActions,
+  SessionMetadata,
+  CreateSessionOptions,
+} from './types'
+import { createConversationStore } from './createConversationStore'
+import { useEventChatStore } from '../eventChatStore'
+import { handleAIEvent as oldHandleAIEvent } from '../eventChatStore/utils'
+import { useMemo } from 'react'
+
+// ============================================================================
+// Manager Store Type
+// ============================================================================
+
+type SessionManagerStore = SessionManagerState & SessionManagerActions
+
+// ============================================================================
+// Manager Store 创建
+// ============================================================================
+
+/**
+ * 创建 SessionStoreManager store
+ */
+function createSessionManagerStore() {
+  return createStore<SessionManagerStore>((set, get) => ({
+    // ===== 状态 =====
+    stores: new Map<string, ConversationStoreInstance>(),
+    activeSessionId: null,
+    sessionMetadata: new Map<string, SessionMetadata>(),
+    backgroundSessionIds: [],
+    completedNotifications: [],
+    isInitialized: false,
+
+    // ===== 会话生命周期 =====
+
+    createSession: (options: CreateSessionOptions) => {
+      // 使用指定的 ID 或生成新的 UUID
+      const sessionId = options.id || crypto.randomUUID()
+      const timestamp = new Date().toISOString()
+
+      // 检查会话是否已存在
+      if (get().stores.has(sessionId)) {
+        console.log('[SessionStoreManager] 会话已存在:', sessionId)
+        return sessionId
+      }
+
+      // 创建元数据
+      const metadata: SessionMetadata = {
+        id: sessionId,
+        title: options.title || `新对话 ${get().stores.size + 1}`,
+        type: options.type,
+        workspaceId: options.workspaceId || null,
+        status: 'idle',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }
+
+      // 创建独立的 ConversationStore
+      const conversationStore = createConversationStore(sessionId)
+
+      set((state) => {
+        const newStores = new Map(state.stores)
+        newStores.set(sessionId, conversationStore)
+
+        const newMetadata = new Map(state.sessionMetadata)
+        newMetadata.set(sessionId, metadata)
+
+        return {
+          stores: newStores,
+          sessionMetadata: newMetadata,
+          activeSessionId: sessionId, // 新创建的会话自动激活
+        }
+      })
+
+      console.log('[SessionStoreManager] 创建会话:', sessionId)
+      return sessionId
+    },
+
+    deleteSession: (sessionId: string) => {
+      const state = get()
+      const store = state.stores.get(sessionId)
+
+      if (!store) {
+        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        return
+      }
+
+      // 清理资源
+      store.getState().dispose()
+
+      set((state) => {
+        const newStores = new Map(state.stores)
+        newStores.delete(sessionId)
+
+        const newMetadata = new Map(state.sessionMetadata)
+        newMetadata.delete(sessionId)
+
+        const newBackgroundSessionIds = state.backgroundSessionIds.filter(
+          (id) => id !== sessionId
+        )
+        const newCompletedNotifications = state.completedNotifications.filter(
+          (id) => id !== sessionId
+        )
+
+        // 如果删除的是当前活跃会话，需要切换
+        let newActiveSessionId = state.activeSessionId
+        if (state.activeSessionId === sessionId) {
+          // 尝试切换到最近一个会话
+          const remainingIds = Array.from(newStores.keys())
+          newActiveSessionId = remainingIds.length > 0 ? remainingIds[remainingIds.length - 1] : null
+        }
+
+        return {
+          stores: newStores,
+          sessionMetadata: newMetadata,
+          backgroundSessionIds: newBackgroundSessionIds,
+          completedNotifications: newCompletedNotifications,
+          activeSessionId: newActiveSessionId,
+        }
+      })
+
+      console.log('[SessionStoreManager] 删除会话:', sessionId)
+    },
+
+    switchSession: (sessionId: string) => {
+      const state = get()
+      const store = state.stores.get(sessionId)
+
+      if (!store) {
+        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        return
+      }
+
+      // 当前活跃会话如果正在 streaming，移入后台
+      const currentStore = state.activeSessionId
+        ? state.stores.get(state.activeSessionId)
+        : null
+
+      if (currentStore && currentStore.getState().isStreaming) {
+        get().addToBackground(state.activeSessionId!)
+      }
+
+      // 切换到新会话
+      set({ activeSessionId: sessionId })
+
+      // 如果新会话在后台运行列表中，移出（用户主动切换回来了）
+      get().removeFromBackground(sessionId)
+
+      console.log('[SessionStoreManager] 切换会话:', sessionId)
+    },
+
+    // ===== Store 访问 =====
+
+    getStore: (sessionId: string) => {
+      return get().stores.get(sessionId)?.getState()
+    },
+
+    getActiveStore: () => {
+      const sessionId = get().activeSessionId
+      if (!sessionId) return undefined
+      return get().stores.get(sessionId)?.getState()
+    },
+
+    getActiveSessionId: () => {
+      return get().activeSessionId
+    },
+
+    // ===== 事件分发 =====
+
+    dispatchEvent: (event: AIEvent & { sessionId: string }) => {
+      const { sessionId } = event
+      let store = get().stores.get(sessionId)
+
+      // 如果会话不存在，自动创建（兼容旧架构）
+      if (!store) {
+        console.log('[SessionStoreManager] 事件路由时自动创建会话:', sessionId)
+        get().createSession({
+          id: sessionId,
+          type: 'free',
+          title: '新对话',
+        })
+        store = get().stores.get(sessionId)
+
+        if (!store) {
+          console.error('[SessionStoreManager] 自动创建会话失败:', sessionId)
+          return
+        }
+      }
+
+      // 调用该会话的事件处理器
+      store.getState().handleAIEvent(event)
+
+      // 同时触发旧架构的事件处理（兼容过渡期）
+      // 这确保 UI 在新架构完全迁移前仍然可以正常更新
+      try {
+        const oldStore = useEventChatStore
+        const oldState = oldStore.getState()
+        const workspacePath = oldState.getWorkspaceActions?.()?.getCurrentWorkspace()?.path
+        oldHandleAIEvent(event, oldStore.setState, oldStore.getState, workspacePath)
+      } catch (e) {
+        console.warn('[SessionStoreManager] 旧架构事件处理失败:', e)
+      }
+
+      // 更新元数据状态
+      const metadata = get().sessionMetadata.get(sessionId)
+      if (metadata) {
+        let newStatus: SessionMetadata['status'] = 'idle'
+
+        if (event.type === 'session_start') {
+          newStatus = 'running'
+        } else if (event.type === 'session_end') {
+          newStatus = 'idle'
+
+          // 如果是后台运行的会话，添加通知
+          if (get().backgroundSessionIds.includes(sessionId)) {
+            get().addToNotifications(sessionId)
+            get().removeFromBackground(sessionId)
+          }
+        } else if (event.type === 'error') {
+          newStatus = 'error'
+        }
+
+        set((state) => {
+          const newMetadata = new Map(state.sessionMetadata)
+          newMetadata.set(sessionId, { ...metadata, status: newStatus, updatedAt: new Date().toISOString() })
+          return { sessionMetadata: newMetadata }
+        })
+      }
+    },
+
+    // ===== 后台运行管理 =====
+
+    addToBackground: (sessionId: string) => {
+      set((state) => {
+        if (state.backgroundSessionIds.includes(sessionId)) {
+          return state
+        }
+        return {
+          backgroundSessionIds: [...state.backgroundSessionIds, sessionId],
+        }
+      })
+
+      // 更新元数据状态
+      const metadata = get().sessionMetadata.get(sessionId)
+      if (metadata) {
+        set((state) => {
+          const newMetadata = new Map(state.sessionMetadata)
+          newMetadata.set(sessionId, { ...metadata, status: 'background-running' })
+          return { sessionMetadata: newMetadata }
+        })
+      }
+
+      console.log('[SessionStoreManager] 会话进入后台:', sessionId)
+    },
+
+    removeFromBackground: (sessionId: string) => {
+      set((state) => ({
+        backgroundSessionIds: state.backgroundSessionIds.filter((id) => id !== sessionId),
+      }))
+    },
+
+    addToNotifications: (sessionId: string) => {
+      set((state) => {
+        if (state.completedNotifications.includes(sessionId)) {
+          return state
+        }
+        return {
+          completedNotifications: [...state.completedNotifications, sessionId],
+        }
+      })
+    },
+
+    removeFromNotifications: (sessionId: string) => {
+      set((state) => ({
+        completedNotifications: state.completedNotifications.filter((id) => id !== sessionId),
+      }))
+    },
+
+    // ===== 批量操作 =====
+
+    getStreamingSessions: () => {
+      const stores = get().stores
+      const streamingIds: string[] = []
+
+      stores.forEach((store, sessionId) => {
+        if (store.getState().isStreaming) {
+          streamingIds.push(sessionId)
+        }
+      })
+
+      return streamingIds
+    },
+
+    interruptSession: async (sessionId: string) => {
+      const store = get().stores.get(sessionId)
+      if (!store) return
+
+      try {
+        await store.getState().interrupt()
+      } catch (e) {
+        console.error('[SessionStoreManager] 打断会话失败:', sessionId, e)
+      }
+    },
+
+    interruptAllBackground: async () => {
+      const backgroundIds = get().backgroundSessionIds
+      for (const sessionId of backgroundIds) {
+        await get().interruptSession(sessionId)
+      }
+    },
+
+    // ===== 初始化 =====
+
+    initialize: async () => {
+      // 预留：从持久化存储恢复会话
+      // TODO: 实现会话持久化和恢复
+      set({ isInitialized: true })
+      console.log('[SessionStoreManager] 初始化完成')
+    },
+  }))
+}
+
+// ============================================================================
+// 全局单例
+// ============================================================================
+
+/**
+ * 全局 SessionStoreManager store 实例
+ */
+export const sessionStoreManager = createSessionManagerStore()
+
+// ============================================================================
+// React Hooks
+// ============================================================================
+
+/**
+ * 获取当前活跃会话的 Store
+ */
+export function useActiveConversationStore(): ConversationStore | undefined {
+  const sessionId = useStore(sessionStoreManager, (state) => state.activeSessionId)
+  const stores = useStore(sessionStoreManager, (state) => state.stores)
+
+  if (!sessionId) return undefined
+  return stores.get(sessionId)?.getState()
+}
+
+/**
+ * 获取指定会话的 Store
+ */
+export function useConversationStore(sessionId: string | null): ConversationStore | undefined {
+  const stores = useStore(sessionStoreManager, (state) => state.stores)
+
+  if (!sessionId) return undefined
+  return stores.get(sessionId)?.getState()
+}
+
+/**
+ * 获取所有会话元数据列表
+ */
+export function useSessionMetadataList(): SessionMetadata[] {
+  return useStore(sessionStoreManager, (state) => {
+    return Array.from(state.sessionMetadata.values())
+  })
+}
+
+/**
+ * 获取当前活跃会话 ID
+ */
+export function useActiveSessionId(): string | null {
+  return useStore(sessionStoreManager, (state) => state.activeSessionId)
+}
+
+/**
+ * 获取后台运行会话列表
+ */
+export function useBackgroundSessions(): SessionMetadata[] {
+  return useStore(sessionStoreManager, (state) => {
+    return state.backgroundSessionIds
+      .map((id) => state.sessionMetadata.get(id))
+      .filter((m): m is SessionMetadata => m !== undefined)
+  })
+}
+
+/**
+ * 获取已完成通知列表
+ */
+export function useCompletedNotifications(): SessionMetadata[] {
+  return useStore(sessionStoreManager, (state) => {
+    return state.completedNotifications
+      .map((id) => state.sessionMetadata.get(id))
+      .filter((m): m is SessionMetadata => m !== undefined)
+  })
+}
+
+/**
+ * 获取 Manager 操作方法
+ */
+export function useSessionManagerActions() {
+  return useMemo(
+    () => ({
+      createSession: sessionStoreManager.getState().createSession,
+      deleteSession: sessionStoreManager.getState().deleteSession,
+      switchSession: sessionStoreManager.getState().switchSession,
+      addToBackground: sessionStoreManager.getState().addToBackground,
+      removeFromBackground: sessionStoreManager.getState().removeFromBackground,
+      addToNotifications: sessionStoreManager.getState().addToNotifications,
+      removeFromNotifications: sessionStoreManager.getState().removeFromNotifications,
+      interruptSession: sessionStoreManager.getState().interruptSession,
+      interruptAllBackground: sessionStoreManager.getState().interruptAllBackground,
+    }),
+    []
+  )
+}
+
+// 导出创建函数（用于测试）
+export { createSessionManagerStore }

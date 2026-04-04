@@ -1163,7 +1163,7 @@ pub fn clear_answered_questions(
 // ============================================================================
 
 use crate::state::{PendingPlan, PlanApprovalStatus};
-use crate::models::{PlanApprovalResultEvent, PlanStatus};
+use crate::models::PlanApprovalResultEvent;
 
 /// 注册待审批计划
 ///

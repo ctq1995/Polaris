@@ -22,9 +22,18 @@ const statusClasses: Record<SessionStatus, string> = {
   running: 'bg-green-500 animate-pulse',
   waiting: 'bg-sky-500',
   error: 'bg-red-500',
+  'background-running': 'bg-gray-400 animate-pulse-slow',
 }
 
 export function StatusDot({ status, size = 'md', className }: StatusDotProps) {
+  const statusLabels: Record<SessionStatus, string> = {
+    idle: '空闲',
+    running: '运行中',
+    waiting: '等待输入',
+    error: '错误',
+    'background-running': '后台运行',
+  }
+
   return (
     <span
       className={cn(
@@ -33,7 +42,7 @@ export function StatusDot({ status, size = 'md', className }: StatusDotProps) {
         statusClasses[status],
         className
       )}
-      title={status === 'idle' ? '空闲' : status === 'running' ? '运行中' : status === 'waiting' ? '等待输入' : '错误'}
+      title={statusLabels[status]}
     />
   )
 }

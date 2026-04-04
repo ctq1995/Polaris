@@ -10,6 +10,8 @@ interface SessionListItemProps {
   session: ChatSession
   workspaceName?: string
   isActive?: boolean
+  isBackground?: boolean
+  isCompleted?: boolean
   onClick: () => void
 }
 
@@ -38,6 +40,8 @@ export function SessionListItem({
   session,
   workspaceName,
   isActive = false,
+  isBackground = false,
+  isCompleted = false,
   onClick,
 }: SessionListItemProps) {
   const timeAgo = formatTimeAgo(session.lastMessageAt || session.updatedAt)
@@ -58,12 +62,28 @@ export function SessionListItem({
 
       {/* 会话信息 */}
       <div className="flex-1 min-w-0">
-        {/* 标题 */}
-        <div className={cn(
-          'text-sm font-medium truncate',
-          isActive ? 'text-primary' : 'text-text-primary'
-        )}>
-          {session.title}
+        {/* 标题行：标题 + 状态标签 */}
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            'text-sm font-medium truncate',
+            isActive ? 'text-primary' : 'text-text-primary'
+          )}>
+            {session.title}
+          </span>
+
+          {/* 后台运行标签 */}
+          {isBackground && (
+            <span className="text-xs text-gray-400 shrink-0">
+              (后台运行)
+            </span>
+          )}
+
+          {/* 已完成标签 */}
+          {isCompleted && (
+            <span className="text-xs text-green-400 shrink-0">
+              (已完成)
+            </span>
+          )}
         </div>
 
         {/* 元信息：工作区 + 时间 */}

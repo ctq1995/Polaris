@@ -118,14 +118,14 @@ impl EventParser {
                 self.parse_user_event(message)
             }
             StreamEvent::TextDelta { text } => {
-                vec![AIEvent::AssistantMessage(AssistantMessageEvent::new(text, true))]
+                vec![AIEvent::AssistantMessage(AssistantMessageEvent::new(&self.session_id, text, true))]
             }
             StreamEvent::ToolStart { tool_use_id, tool_name, input } => {
                 self.parse_tool_start(tool_use_id, tool_name, input)
             }
             StreamEvent::Thinking { thinking, .. } => {
                 // 思考过程发送独立的 Thinking 事件
-                vec![AIEvent::Thinking(ThinkingEvent::new(thinking))]
+                vec![AIEvent::Thinking(ThinkingEvent::new(&self.session_id, thinking))]
             }
             StreamEvent::ToolEnd { tool_use_id, tool_name, output } => {
                 self.parse_tool_end(tool_use_id, tool_name, output)
@@ -148,7 +148,7 @@ impl EventParser {
                 self.parse_result_event(subtype, extra)
             }
             StreamEvent::Error { error } => {
-                vec![AIEvent::Error(ErrorEvent::new(error))]
+                vec![AIEvent::Error(ErrorEvent::new(&self.session_id, error))]
             }
             StreamEvent::SessionEnd => {
                 vec![AIEvent::SessionEnd(
@@ -186,7 +186,7 @@ impl EventParser {
             return vec![];
         };
 
-        vec![AIEvent::Progress(ProgressEvent::new(message))]
+        vec![AIEvent::Progress(ProgressEvent::new(&self.session_id, message))]
     }
 
     /// 解析助手消息事件
@@ -204,13 +204,13 @@ impl EventParser {
 
         // 先发送思考事件（如果有）
         for thinking in &thinking_blocks {
-            results.push(AIEvent::Thinking(ThinkingEvent::new(thinking.clone())));
+            results.push(AIEvent::Thinking(ThinkingEvent::new(&self.session_id, thinking.clone())));
         }
 
         // 发出 AI 消息事件
         if !text.is_empty() || !tool_calls.is_empty() {
             results.push(AIEvent::AssistantMessage(
-                AssistantMessageEvent::new(text, false)
+                AssistantMessageEvent::new(&self.session_id, text, false)
                     .with_tool_calls(tool_calls.clone())
             ));
         }
@@ -218,7 +218,7 @@ impl EventParser {
         // 发出工具调用开始事件
         for tc in &tool_calls {
             results.push(AIEvent::ToolCallStart(
-                ToolCallStartEvent::new(tc.name.clone(), tc.args.clone())
+                ToolCallStartEvent::new(&self.session_id, tc.name.clone(), tc.args.clone())
                     .with_call_id(tc.id.clone())
             ));
         }
@@ -278,10 +278,10 @@ impl EventParser {
                             // 找到了对应的工具调用
                             let status_emoji = if success { "✅" } else { "❌" };
                             results.push(AIEvent::Progress(ProgressEvent::new(
-                                format!("{} {}", status_emoji, tc.name)
+                                &self.session_id, format!("{} {}", status_emoji, tc.name)
                             )));
                             results.push(AIEvent::ToolCallEnd(
-                                ToolCallEndEvent::new(tc.name, success)
+                                ToolCallEndEvent::new(&self.session_id, tc.name, success)
                                     .with_call_id(tool_use_id)
                                     .with_result(serde_json::Value::String(output))
                             ));
@@ -294,7 +294,7 @@ impl EventParser {
                             );
                             let _status_emoji = if success { "✅" } else { "❌" };
                             results.push(AIEvent::ToolCallEnd(
-                                ToolCallEndEvent::new("unknown".to_string(), success)
+                                ToolCallEndEvent::new(&self.session_id, "unknown".to_string(), success)
                                     .with_call_id(tool_use_id)
                                     .with_result(serde_json::Value::String(output))
                             ));
@@ -307,7 +307,7 @@ impl EventParser {
         // 2. 提取文本内容
         let text = self.extract_text_content(&message);
         if !text.is_empty() {
-            results.push(AIEvent::UserMessage(UserMessageEvent::new(text)));
+            results.push(AIEvent::UserMessage(UserMessageEvent::new(&self.session_id, text)));
         }
 
         results
@@ -367,9 +367,9 @@ impl EventParser {
         );
 
         vec![
-            AIEvent::Progress(ProgressEvent::new(format!("🔧 {}", tool_name))),
+            AIEvent::Progress(ProgressEvent::new(&self.session_id, format!("🔧 {}", tool_name))),
             AIEvent::ToolCallStart(
-                ToolCallStartEvent::new(tool_name, args)
+                ToolCallStartEvent::new(&self.session_id, tool_name, args)
                     .with_call_id(tool_use_id)
             ),
         ]
@@ -389,9 +389,9 @@ impl EventParser {
         if let Some(tc) = self.tool_call_manager.end_tool_call(&tool_use_id, result.clone(), success) {
             let status_emoji = if success { "✅" } else { "❌" };
             return vec![
-                AIEvent::Progress(ProgressEvent::new(format!("{} {}", status_emoji, tc.name))),
+                AIEvent::Progress(ProgressEvent::new(&self.session_id, format!("{} {}", status_emoji, tc.name))),
                 AIEvent::ToolCallEnd(
-                    ToolCallEndEvent::new(tc.name, success)
+                    ToolCallEndEvent::new(&self.session_id, tc.name, success)
                         .with_call_id(tool_use_id)
                         .with_result(result.unwrap_or(serde_json::Value::Null))
                 ),
@@ -405,9 +405,9 @@ impl EventParser {
                 self.tool_call_manager.end_tool_call(&tc_id, result.clone(), success);
                 let status_emoji = if success { "✅" } else { "❌" };
                 return vec![
-                    AIEvent::Progress(ProgressEvent::new(format!("{} {}", status_emoji, name))),
+                    AIEvent::Progress(ProgressEvent::new(&self.session_id, format!("{} {}", status_emoji, name))),
                     AIEvent::ToolCallEnd(
-                        ToolCallEndEvent::new(name.clone(), success)
+                        ToolCallEndEvent::new(&self.session_id, name.clone(), success)
                             .with_call_id(tc_id)
                             .with_result(result.unwrap_or(serde_json::Value::Null))
                     ),
@@ -419,8 +419,8 @@ impl EventParser {
         if let Some(name) = tool_name {
             let status_emoji = if success { "✅" } else { "❌" };
             vec![
-                AIEvent::Progress(ProgressEvent::new(format!("{} {}", status_emoji, name))),
-                AIEvent::ToolCallEnd(ToolCallEndEvent::new(name, success)),
+                AIEvent::Progress(ProgressEvent::new(&self.session_id, format!("{} {}", status_emoji, name))),
+                AIEvent::ToolCallEnd(ToolCallEndEvent::new(&self.session_id, name, success)),
             ]
         } else {
             vec![]
@@ -438,24 +438,24 @@ impl EventParser {
             "success" => {
                 // 任务成功完成，只发送 Result 事件（如果有输出）
                 if let Some(output) = extra.get("output") {
-                    vec![AIEvent::Result(crate::models::ResultEvent::new(output.clone()))]
+                    vec![AIEvent::Result(crate::models::ResultEvent::new(&self.session_id, output.clone()))]
                 } else {
                     vec![]
                 }
             }
             "canceled" => {
                 // 任务取消，发送提示
-                vec![AIEvent::Progress(ProgressEvent::new("⚠️ 任务已取消"))]
+                vec![AIEvent::Progress(ProgressEvent::new(&self.session_id, "⚠️ 任务已取消"))]
             }
             _ => {
                 // 其他类型
                 if let Some(output) = extra.get("output") {
                     vec![
-                        AIEvent::Progress(ProgressEvent::new(&subtype)),
-                        AIEvent::Result(crate::models::ResultEvent::new(output.clone())),
+                        AIEvent::Progress(ProgressEvent::new(&self.session_id, &subtype)),
+                        AIEvent::Result(crate::models::ResultEvent::new(&self.session_id, output.clone())),
                     ]
                 } else {
-                    vec![AIEvent::Progress(ProgressEvent::new(&subtype))]
+                    vec![AIEvent::Progress(ProgressEvent::new(&self.session_id, &subtype))]
                 }
             }
         }

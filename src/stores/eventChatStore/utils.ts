@@ -111,6 +111,38 @@ export function handleAIEvent(
       storeSet({ isStreaming: false, progressMessage: null })
       console.log('[EventChatStore] Session ended:', event.reason)
 
+      // 处理后台会话完成
+      // 需要通过 externalSessionId 找到对应的会话
+      const endSessionSyncActions = state.getSessionSyncActions()
+      if (endSessionSyncActions) {
+        const currentConversationId = state.conversationId
+        if (currentConversationId) {
+          // 在 SessionStore 中查找匹配的会话
+          // 通过 import 动态加载避免循环依赖
+          import('../../stores/sessionStore').then(({ useSessionStore }) => {
+            const sessionStore = useSessionStore.getState()
+            // 遍历所有会话找到匹配的
+            for (const [sessionId, session] of sessionStore.sessions) {
+              if (session.externalSessionId === currentConversationId) {
+                // 检查是否在后台运行列表中
+                if (sessionStore.backgroundSessionIds.includes(sessionId)) {
+                  // 从后台列表移除
+                  sessionStore.removeFromBackground(sessionId)
+                  // 加入完成通知列表
+                  sessionStore.addToNotifications(sessionId)
+                  // 更新状态为 idle
+                  sessionStore.updateSessionStatus(sessionId, 'idle')
+                  console.log('[EventChatStore] 后台会话完成:', { sessionId, title: session.title })
+                }
+                break
+              }
+            }
+          }).catch(err => {
+            console.warn('[EventChatStore] 处理后台会话完成失败:', err)
+          })
+        }
+      }
+
       // 会话结束时刷新 Git 状态（防抖）
       if (workspacePath && gitActions) {
         gitActions.refreshStatusDebounced(workspacePath).catch(err => {
@@ -355,9 +387,13 @@ export function handleAIEvent(
 
     case 'question_answered': {
       // 处理问题已回答事件（来自后端）
-      const questionEvent = event as { callId: string; answer: { selected: string[]; customInput?: string } }
-      state.updateQuestionBlock(questionEvent.callId, questionEvent.answer)
-      console.log('[EventChatStore] Question answered:', questionEvent.callId)
+      // QuestionAnsweredEvent has selected and customInput directly
+      const qaEvent = event as { questionId: string; selected: string[]; customInput?: string }
+      state.updateQuestionBlock(qaEvent.questionId, {
+        selected: qaEvent.selected,
+        customInput: qaEvent.customInput,
+      })
+      console.log('[EventChatStore] Question answered:', qaEvent.questionId)
       break
     }
 
