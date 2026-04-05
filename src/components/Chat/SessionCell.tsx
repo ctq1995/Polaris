@@ -13,7 +13,6 @@ import { clsx } from 'clsx';
 import { Loader2, XCircle, X, Circle, Maximize2, Minimize2 } from 'lucide-react';
 import { SessionMessagesView } from './SessionMessagesView';
 import { useSessionMetadataList, useSessionManagerActions } from '../../stores/conversationStore/sessionStoreManager';
-import { useViewStore } from '../../stores';
 import { useSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 
 /** 状态图标映射 */
@@ -44,8 +43,7 @@ export const SessionCell = memo(function SessionCell({
   isExpanded = false,
   onToggleExpand,
 }: SessionCellProps) {
-  const { switchSession } = useSessionManagerActions();
-  const removeFromMultiView = useViewStore(state => state.removeFromMultiView);
+  const { switchSession, deleteSession } = useSessionManagerActions();
 
   // 获取会话元数据
   const sessionMetadata = useSessionMetadataList().find(m => m.id === sessionId);
@@ -65,11 +63,11 @@ export const SessionCell = memo(function SessionCell({
     }
   }, [isActive, sessionId, switchSession]);
 
-  // 关闭格子
+  // 关闭格子：删除会话（会自动从多窗口移除）
   const handleClose = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    removeFromMultiView(sessionId);
-  }, [sessionId, removeFromMultiView]);
+    deleteSession(sessionId);
+  }, [sessionId, deleteSession]);
 
   // 展开/收起
   const handleExpand = useCallback((e: React.MouseEvent) => {

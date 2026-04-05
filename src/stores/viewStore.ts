@@ -37,7 +37,9 @@ interface ViewState {
   schedulerLogDrawerHeight: number; // 日志抽屉高度
   // 多会话窗口模式
   multiSessionMode: boolean;     // 是否开启多会话窗口模式
-  multiSessionIds: string[];     // 多会话窗口中显示的会话 ID 列表
+  multiSessionIds: string[];     // 多会话窗口中显示的会话 ID 列表（最多 16 个）
+  multiSessionRows: 1 | 2;       // 行数配置：1 行或 2 行
+  multiSessionCellWidth: number; // 每个格子的统一宽度（像素）
   expandSessionId: string | null; // 展开的会话 ID（全屏显示）
 }
 
@@ -73,6 +75,8 @@ interface ViewActions {
   setMultiSessionIds: (ids: string[]) => void;
   addToMultiView: (sessionId: string) => void;
   removeFromMultiView: (sessionId: string) => void;
+  setMultiSessionRows: (rows: 1 | 2) => void;
+  setMultiSessionCellWidth: (width: number) => void;
   // 展开操作
   setExpandSessionId: (sessionId: string | null) => void;
   toggleExpandSession: (sessionId: string) => void;
@@ -110,6 +114,8 @@ export const useViewStore = create<ViewStore>()(
       // 多会话窗口初始状态
       multiSessionMode: false,      // 默认单会话模式
       multiSessionIds: [],          // 默认空列表
+      multiSessionRows: 1,          // 默认 1 行
+      multiSessionCellWidth: 350,   // 默认格子宽度 350px
       expandSessionId: null,        // 默认无展开会话
 
       // 切换侧边栏
@@ -218,12 +224,12 @@ export const useViewStore = create<ViewStore>()(
       // 设置多会话窗口中的会话列表
       setMultiSessionIds: (ids: string[]) => set({ multiSessionIds: ids }),
 
-      // 添加会话到多窗口视图（最多 4 个，超出时移除最早的）
+      // 添加会话到多窗口视图（最多 16 个，超出时移除最早的）
       addToMultiView: (sessionId: string) => set((state) => {
         if (state.multiSessionIds.includes(sessionId)) return state;
         let newIds = [...state.multiSessionIds, sessionId];
-        if (newIds.length > 4) {
-          newIds = newIds.slice(-4); // 保留最新的 4 个
+        if (newIds.length > 16) {
+          newIds = newIds.slice(-16); // 保留最新的 16 个
         }
         return { multiSessionIds: newIds };
       }),
@@ -234,6 +240,12 @@ export const useViewStore = create<ViewStore>()(
         // 如果移除的是展开的会话，清除展开状态
         expandSessionId: state.expandSessionId === sessionId ? null : state.expandSessionId
       })),
+
+      // 设置行数配置
+      setMultiSessionRows: (rows: 1 | 2) => set({ multiSessionRows: rows }),
+
+      // 设置格子宽度
+      setMultiSessionCellWidth: (width: number) => set({ multiSessionCellWidth: width }),
 
       // 设置展开的会话
       setExpandSessionId: (sessionId: string | null) => set({ expandSessionId: sessionId }),

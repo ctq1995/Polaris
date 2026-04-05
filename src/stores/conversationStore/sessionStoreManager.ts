@@ -195,6 +195,9 @@ function createSessionManagerStore() {
         }
       })
 
+      // 同步从多窗口视图移除
+      useViewStore.getState().removeFromMultiView(sessionId)
+
       console.log('[SessionStoreManager] 删除会话:', sessionId)
     },
 
