@@ -19,10 +19,13 @@ import {
   AlertCircle,
   RefreshCw,
   Sparkles,
+  FolderOpen,
+  Globe,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useWorkspaceStore, useConfigStore } from '@/stores'
 import { useRequirementStore } from '@/stores/requirementStore'
+import type { QueryScopeType } from '@/services/requirementService'
 import { useSchedulerStore } from '@/stores/schedulerStore'
 import { useToastStore } from '@/stores/toastStore'
 import { ConfirmDialog } from '@/components/Common/ConfirmDialog'
@@ -67,9 +70,11 @@ export function RequirementPanel() {
     error,
     stats,
     filter,
+    scope,
     init,
     reload,
     setFilter,
+    setScope,
     deleteRequirement,
     approveRequirements,
     rejectRequirements,
@@ -376,24 +381,45 @@ export function RequirementPanel() {
             })}
           </div>
 
-          {/* 排序 */}
-          <div className="flex items-center justify-end gap-1">
-            <ArrowUpDown size={14} className="text-text-tertiary flex-shrink-0" />
-            <select
-              value={`${sortBy}-${sortOrder}`}
-              onChange={e => {
-                const [field, order] = e.target.value.split('-') as [SortField, SortOrder]
-                setSortBy(field)
-                setSortOrder(order)
-              }}
-              aria-label={t('sort.label')}
-              className="px-2 py-1 text-xs bg-background-surface border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-text-secondary cursor-pointer max-w-[200px]"
-            >
-              <option value="createdAt-desc">{t('sort.createdAtDesc')}</option>
-              <option value="createdAt-asc">{t('sort.createdAtAsc')}</option>
-              <option value="priority-desc">{t('sort.priorityDesc')}</option>
-              <option value="priority-asc">{t('sort.priorityAsc')}</option>
-            </select>
+          {/* 排序 + 范围筛选 */}
+          <div className="flex items-center justify-between gap-1">
+            {/* 范围筛选 */}
+            <div className="flex items-center gap-1">
+              {scope === 'all' ? (
+                <Globe size={14} className="text-text-tertiary" />
+              ) : (
+                <FolderOpen size={14} className="text-text-tertiary" />
+              )}
+              <select
+                value={scope}
+                onChange={e => setScope(e.target.value as QueryScopeType)}
+                aria-label={t('filter.scopeLabel')}
+                className="px-2 py-1 text-xs bg-background-surface border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-text-secondary cursor-pointer"
+              >
+                <option value="all">{t('filter.scopeAll')}</option>
+                <option value="workspace">{t('filter.scopeWorkspace')}</option>
+              </select>
+            </div>
+
+            {/* 排序 */}
+            <div className="flex items-center gap-1">
+              <ArrowUpDown size={14} className="text-text-tertiary flex-shrink-0" />
+              <select
+                value={`${sortBy}-${sortOrder}`}
+                onChange={e => {
+                  const [field, order] = e.target.value.split('-') as [SortField, SortOrder]
+                  setSortBy(field)
+                  setSortOrder(order)
+                }}
+                aria-label={t('sort.label')}
+                className="px-2 py-1 text-xs bg-background-surface border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-text-secondary cursor-pointer max-w-[200px]"
+              >
+                <option value="createdAt-desc">{t('sort.createdAtDesc')}</option>
+                <option value="createdAt-asc">{t('sort.createdAtAsc')}</option>
+                <option value="priority-desc">{t('sort.priorityDesc')}</option>
+                <option value="priority-asc">{t('sort.priorityAsc')}</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -410,6 +436,7 @@ export function RequirementPanel() {
           <RequirementCard
             key={req.id}
             requirement={req}
+            showWorkspace={scope === 'all'}
             disabled={processingIds.has(req.id)}
             onApproveClick={handleApprove}
             onRejectClick={req => setSelectedId(req.id)}

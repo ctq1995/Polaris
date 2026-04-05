@@ -29,7 +29,10 @@
     "allStatus": "All Status",
     "allPriority": "All Priority",
     "allSource": "All Source",
-    "clearFilter": "Clear Filter"
+    "clearFilter": "Clear Filter",
+    "scopeLabel": "Query Scope",
+    "scopeAll": "All Workspaces",
+    "scopeWorkspace": "Current Workspace"
   },
 
   "sort": {

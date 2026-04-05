@@ -29,7 +29,10 @@
     "allStatus": "全部状态",
     "allPriority": "全部优先级",
     "allSource": "全部来源",
-    "clearFilter": "清除筛选"
+    "clearFilter": "清除筛选",
+    "scopeLabel": "查询范围",
+    "scopeAll": "所有工作区",
+    "scopeWorkspace": "当前工作区"
   },
 
   "sort": {

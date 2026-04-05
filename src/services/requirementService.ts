@@ -17,12 +17,18 @@ import { createLogger } from '../utils/logger'
 
 const log = createLogger('RequirementService')
 
+/** 查询范围类型 */
+export type QueryScopeType = 'workspace' | 'all'
+
+/** 默认查询范围：显示所有需求 */
+const DEFAULT_SCOPE: QueryScopeType = 'all'
+
 /**
  * 需求队列服务
  */
 export class RequirementService {
   private workspacePath: string | null = null
-  private scope: 'workspace' | 'all' = 'workspace'
+  private scope: QueryScopeType = DEFAULT_SCOPE
   private requirements: Requirement[] = []
   private listeners: Set<() => void> = new Set()
 
@@ -35,6 +41,7 @@ export class RequirementService {
     }
 
     this.workspacePath = workspacePath
+    // 不重置 scope，保持用户选择的范围
     await this.loadRequirements()
     return this.requirements.length
   }

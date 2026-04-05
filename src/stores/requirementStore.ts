@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand'
-import { requirementService } from '@/services/requirementService'
+import { requirementService, type QueryScopeType } from '@/services/requirementService'
 import type {
   Requirement,
   RequirementFilter,
@@ -33,6 +33,8 @@ interface RequirementState {
   selectedId: string | null
   /** 统计信息 */
   stats: RequirementStats | null
+  /** 查询范围：all = 显示所有需求，workspace = 仅当前工作区 */
+  scope: QueryScopeType
 
   // --- Actions ---
 
@@ -46,6 +48,8 @@ interface RequirementState {
   resetFilter: () => void
   /** 选中需求 */
   selectRequirement: (id: string | null) => void
+  /** 设置查询范围 */
+  setScope: (scope: QueryScopeType) => void
   /** 创建需求 */
   createRequirement: (params: RequirementCreateParams) => Promise<Requirement>
   /** 更新需求 */
@@ -73,6 +77,9 @@ const DEFAULT_FILTER: RequirementFilter = {
   search: '',
 }
 
+/** 默认查询范围：显示所有需求 */
+const DEFAULT_SCOPE: QueryScopeType = 'all'
+
 /** 服务订阅取消句柄，防止重复订阅 */
 let unsubscribeService: (() => void) | null = null
 
@@ -84,10 +91,14 @@ export const useRequirementStore = create<RequirementState>((set, get) => ({
   filter: { ...DEFAULT_FILTER },
   selectedId: null,
   stats: null,
+  scope: DEFAULT_SCOPE,
 
   init: async (workspacePath: string) => {
     set({ loading: true, error: null })
     try {
+      // 先设置 scope，再设置 workspace（避免被覆盖）
+      const currentScope = get().scope
+      requirementService.setScope(currentScope)
       await requirementService.setWorkspace(workspacePath, true)
       const requirements = requirementService.getAllRequirements()
       const stats = requirementService.getStats()
@@ -145,6 +156,15 @@ export const useRequirementStore = create<RequirementState>((set, get) => ({
 
   selectRequirement: (id: string | null) => {
     set({ selectedId: id })
+  },
+
+  setScope: (scope: QueryScopeType) => {
+    set({ scope })
+    requirementService.setScope(scope)
+    // scope 变化后重新加载
+    const requirements = requirementService.getAllRequirements()
+    const stats = requirementService.getStats()
+    set({ requirements, stats })
   },
 
   createRequirement: async (params: RequirementCreateParams) => {

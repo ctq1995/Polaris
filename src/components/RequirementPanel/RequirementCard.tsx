@@ -13,6 +13,7 @@ import {
   User,
   Eye,
   Play,
+  FolderOpen,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Requirement } from '@/types/requirement'
@@ -20,6 +21,8 @@ import { STATUS_STYLES, PRIORITY_TEXT, PRIORITY_BG, formatTime } from './constan
 
 interface RequirementCardProps {
   requirement: Requirement
+  /** 是否显示工作区名称（当 scope=all 时） */
+  showWorkspace?: boolean
   disabled?: boolean
   onEditClick?: (requirement: Requirement) => void
   onApproveClick?: (requirement: Requirement) => void
@@ -31,6 +34,7 @@ interface RequirementCardProps {
 
 export function RequirementCard({
   requirement,
+  showWorkspace = false,
   disabled,
   onEditClick,
   onApproveClick,
@@ -117,6 +121,14 @@ export function RequirementCard({
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs text-cyan-500 bg-cyan-500/10 rounded">
                 <Eye size={10} />
                 {t('card.prototype')}
+              </span>
+            )}
+
+            {/* 工作区标识（仅在显示所有工作区时） */}
+            {showWorkspace && requirement.workspaceName && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs text-amber-600 bg-amber-500/10 rounded">
+                <FolderOpen size={10} />
+                {requirement.workspaceName}
               </span>
             )}
           </div>
