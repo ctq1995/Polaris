@@ -228,7 +228,7 @@ export interface CreateSessionOptions {
 export interface CreateSessionFromHistoryOptions {
   title: string
   workspaceId?: string
-  engineId?: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`
+  engineId?: 'claude-code' | `provider-${string}`
   externalSessionId?: string
   messages: ChatMessage[]
   conversationId?: string | null

@@ -1,7 +1,7 @@
 /**
  * 会话历史面板
  *
- * 显示所有历史会话（localStorage + IFlow + Claude Code 原生），支持恢复和删除
+ * 显示所有历史会话（localStorage + Claude Code 原生），支持恢复和删除
  * 支持滚动加载更多（每次显示20条）
  */
 
@@ -9,7 +9,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEventChatStore, UnifiedHistoryItem } from '../../stores/eventChatStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Zap, Loader2, X, Terminal, ChevronDown } from 'lucide-react'
+import { Clock, MessageSquare, Trash2, RotateCcw, HardDrive, Loader2, X, ChevronDown } from 'lucide-react'
 
 const PAGE_SIZE = 20
 
@@ -29,7 +29,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE)
   const [loading, setLoading] = useState(true)
   const [restoring, setRestoring] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'claude-code' | 'iflow' | 'codex' | 'provider'>('all')
+  const [filter, setFilter] = useState<'all' | 'claude-code' | 'provider'>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -82,7 +82,7 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   }
 
   // 删除会话
-  const handleDelete = (sessionId: string, source: 'local' | 'iflow' | 'claude-code-native' | 'codex') => {
+  const handleDelete = (sessionId: string, source: 'local' | 'claude-code-native') => {
     useEventChatStore.getState().deleteHistorySession(sessionId, source === 'local' ? 'local' : undefined)
     setAllHistory(prev => prev.filter(h => h.id !== sessionId))
   }
@@ -125,29 +125,13 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
   }
 
   // 获取引擎信息
-  const getEngineInfo = (engineId: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`, source: string) => {
+  const getEngineInfo = (engineId: 'claude-code' | `provider-${string}`, source: string) => {
     if (source === 'claude-code-native') {
       return {
         name: 'Claude Code',
         color: 'text-blue-500',
         bgColor: 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300',
         icon: HardDrive,
-      }
-    }
-    if (engineId === 'iflow') {
-      return {
-        name: 'IFlow',
-        color: 'text-purple-500',
-        bgColor: 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300',
-        icon: Zap,
-      }
-    }
-    if (engineId === 'codex') {
-      return {
-        name: 'Codex',
-        color: 'text-green-500',
-        bgColor: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300',
-        icon: Terminal,
       }
     }
     if (engineId.startsWith('provider-')) {
@@ -264,26 +248,6 @@ export function SessionHistoryPanel({ onClose }: SessionHistoryPanelProps) {
           }`}
         >
           Claude Code
-        </button>
-        <button
-          onClick={() => { setFilter('iflow'); setDisplayCount(PAGE_SIZE); }}
-          className={`px-2 py-1 rounded-md text-xs transition-colors ${
-            filter === 'iflow'
-              ? 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300'
-              : 'text-text-secondary hover:bg-background-hover'
-          }`}
-        >
-          IFlow
-        </button>
-        <button
-          onClick={() => { setFilter('codex'); setDisplayCount(PAGE_SIZE); }}
-          className={`px-2 py-1 rounded-md text-xs transition-colors ${
-            filter === 'codex'
-              ? 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300'
-              : 'text-text-secondary hover:bg-background-hover'
-          }`}
-        >
-          Codex
         </button>
         <button
           onClick={() => { setFilter('provider'); setDisplayCount(PAGE_SIZE); }}

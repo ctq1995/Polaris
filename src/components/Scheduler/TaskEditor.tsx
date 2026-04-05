@@ -424,8 +424,6 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
                 className="w-full px-3 py-2 bg-background-surface border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="claude-code">Claude Code</option>
-                <option value="iflow">IFlow</option>
-                <option value="codex">Codex</option>
                 <option value="openai" disabled={openaiProviders.filter((p) => p.enabled).length === 0}>
                   OpenAI Provider {openaiProviders.filter((p) => p.enabled).length === 0 ? `(${t('editor.noProvider')})` : ''}
                 </option>

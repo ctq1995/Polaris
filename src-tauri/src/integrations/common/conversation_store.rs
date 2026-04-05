@@ -166,9 +166,9 @@ mod tests {
         assert_eq!(state.engine_id, "claude");
 
         // 设置引擎
-        store.set_engine("conv1", EngineId::IFlow);
+        store.set_engine("conv1", EngineId::OpenAI { provider_id: Some("test-provider".to_string()) });
         let state = store.get("conv1").unwrap();
-        assert_eq!(state.engine_id, "iflow");
+        assert_eq!(state.engine_id, "provider-test-provider");
 
         // 设置工作目录
         store.set_work_dir("conv1", "/home/user".to_string());

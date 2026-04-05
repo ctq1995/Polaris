@@ -56,55 +56,6 @@ export async function validateClaudePath(path: string): Promise<PathValidationRe
   return invoke<PathValidationResult>('validate_claude_path', { path });
 }
 
-/** 查找所有可用的 IFlow CLI 路径 */
-export async function findIFlowPaths(): Promise<string[]> {
-  return invoke<string[]>('find_iflow_paths');
-}
-
-/** 验证 IFlow CLI 路径 */
-export async function validateIFlowPath(path: string): Promise<PathValidationResult> {
-  return invoke<PathValidationResult>('validate_iflow_path', { path });
-}
-
-/** 查找所有可用的 Codex CLI 路径 */
-export async function findCodexPaths(): Promise<string[]> {
-  return invoke<string[]>('find_codex_paths');
-}
-
-/** 验证 Codex CLI 路径 */
-export async function validateCodexPath(path: string): Promise<PathValidationResult> {
-  return invoke<PathValidationResult>('validate_codex_path', { path });
-}
-
-/** Codex 会话元数据 */
-export interface CodexSessionMeta {
-  sessionId: string;
-  title: string;
-  messageCount: number;
-  fileSize: number;
-  createdAt: string;
-  updatedAt: string;
-  filePath: string;
-}
-
-/** Codex 历史消息 */
-export interface CodexHistoryMessage {
-  id: string;
-  timestamp: string;
-  type: string;
-  content: string;
-}
-
-/** 列出 Codex 会话 */
-export async function listCodexSessions(workDir?: string): Promise<CodexSessionMeta[]> {
-  return invoke<CodexSessionMeta[]>('list_codex_sessions', { workDir });
-}
-
-/** 获取 Codex 会话历史 */
-export async function getCodexSessionHistory(filePath: string): Promise<CodexHistoryMessage[]> {
-  return invoke<CodexHistoryMessage[]>('get_codex_session_history', { filePath });
-}
-
 // ============================================================================
 // 健康检查命令
 // ============================================================================

@@ -7,16 +7,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { create } from 'zustand'
 
-// Mock iflowHistoryService
-vi.mock('../../services/iflowHistoryService', () => ({
-  getIFlowHistoryService: () => ({
-    listSessions: vi.fn(() => Promise.resolve([])),
-    getSessionHistory: vi.fn(() => Promise.resolve([])),
-    convertMessagesToFormat: vi.fn(() => []),
-    extractToolCalls: vi.fn(() => []),
-  }),
-}))
-
 // Mock claudeCodeHistoryService
 vi.mock('../../services/claudeCodeHistoryService', () => ({
   getClaudeCodeHistoryService: () => ({
@@ -25,12 +15,6 @@ vi.mock('../../services/claudeCodeHistoryService', () => ({
     convertToChatMessages: vi.fn(() => []),
     extractToolCalls: vi.fn(() => []),
   }),
-}))
-
-// Mock tauri services
-vi.mock('../../services/tauri', () => ({
-  listCodexSessions: vi.fn(() => Promise.resolve([])),
-  getCodexSessionHistory: vi.fn(() => Promise.resolve(null)),
 }))
 
 // Mock workspaceStore
@@ -508,7 +492,7 @@ describe('historySlice', () => {
       // 模拟已有历史
       localStorageMock['event_chat_session_history'] = JSON.stringify([
         { id: 'conv-123', title: 'Old Title', timestamp: '', messageCount: 1, engineId: 'claude-code', data: { messages: [], archivedMessages: [] } },
-        { id: 'conv-456', title: 'Other', timestamp: '', messageCount: 1, engineId: 'iflow', data: { messages: [], archivedMessages: [] } },
+        { id: 'conv-456', title: 'Other', timestamp: '', messageCount: 1, engineId: 'claude-code', data: { messages: [], archivedMessages: [] } },
       ])
 
       store.setState({
@@ -568,7 +552,7 @@ describe('historySlice', () => {
 
       localStorageMock['event_chat_session_history'] = JSON.stringify([
         { id: 'conv-1', title: 'Session 1', timestamp: '', messageCount: 1, engineId: 'claude-code', data: { messages: [], archivedMessages: [] } },
-        { id: 'conv-2', title: 'Session 2', timestamp: '', messageCount: 1, engineId: 'iflow', data: { messages: [], archivedMessages: [] } },
+        { id: 'conv-2', title: 'Session 2', timestamp: '', messageCount: 1, engineId: 'claude-code', data: { messages: [], archivedMessages: [] } },
       ])
 
       store.getState().deleteHistorySession('conv-1')
@@ -576,33 +560,6 @@ describe('historySlice', () => {
       const history = JSON.parse(localStorageMock['event_chat_session_history'])
       expect(history.length).toBe(1)
       expect(history[0].id).toBe('conv-2')
-    })
-
-    it('IFlow 会话应仅打印日志不删除', () => {
-      const store = createTestStore()
-
-      localStorageMock['event_chat_session_history'] = JSON.stringify([
-        { id: 'session-iflow-1', title: 'IFlow Session', timestamp: '', messageCount: 1, engineId: 'iflow', data: { messages: [], archivedMessages: [] } },
-      ])
-
-      store.getState().deleteHistorySession('session-iflow-1', 'iflow')
-
-      // 历史应该保持不变
-      const history = JSON.parse(localStorageMock['event_chat_session_history'])
-      expect(history.length).toBe(1)
-    })
-
-    it('Codex 会话应仅打印日志不删除', () => {
-      const store = createTestStore()
-
-      localStorageMock['event_chat_session_history'] = JSON.stringify([
-        { id: 'codex-1', title: 'Codex Session', timestamp: '', messageCount: 1, engineId: 'codex', data: { messages: [], archivedMessages: [] } },
-      ])
-
-      store.getState().deleteHistorySession('codex-1', 'codex')
-
-      const history = JSON.parse(localStorageMock['event_chat_session_history'])
-      expect(history.length).toBe(1)
     })
   })
 

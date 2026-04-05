@@ -11,14 +11,12 @@
  * - Edit 工具优化显示
  */
 
-import { useMemo, memo, useState, useCallback, useRef, useDeferredValue, useEffect } from 'react';
+import { useMemo, memo, useState, useRef, useDeferredValue, useEffect } from 'react';
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { clsx } from 'clsx';
-import { invoke } from '@tauri-apps/api/core';
 import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from '../../types';
-import { useEventChatStore, useGitStore, useWorkspaceStore, useTabStore, useToastStore } from '../../stores';
+import { useEventChatStore } from '../../stores';
 import { useActiveSessionMessages, useActiveSessionStreaming } from '../../stores/conversationStore/useActiveSession';
 import { getToolConfig, extractToolKeyInfo, getToolShortName } from '../../utils/toolConfig';
 import { markdownCache } from '../../utils/cache';
@@ -33,7 +31,7 @@ import {
   type GrepMatch,
   type GrepOutputData
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, ChevronUp, Circle, FileSearch, FolderOpen, Code, FileDiff, RotateCcw, Copy, GitPullRequest, Brain, ListOrdered, Trash2, Pencil, X } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, Copy, Brain, ListOrdered } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { useMessageSearch, MessageSearchPanel } from './MessageSearchPanel';
 import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
@@ -46,9 +44,7 @@ import { splitMarkdownWithMermaid } from '../../utils/markdown';
 import { MermaidDiagram } from './MermaidDiagram';
 import { DiffViewer } from '../Diff/DiffViewer';
 import { isEditTool } from '../../utils/diffExtractor';
-import { Button } from '../Common/Button';
 import { calculateRenderMode, type MessageRenderMode, DEFAULT_LAYER_CONFIG } from '../../utils/messageLayer';
-import { ContextMenu, type ContextMenuItem } from '../FileExplorer/ContextMenu';
 
 /** Markdown 渲染器（使用缓存优化） */
 function formatContent(content: string): string {
@@ -1657,189 +1653,55 @@ const AssistantBubble = memo(function AssistantBubble({
   message: AssistantChatMessage;
   renderMode?: MessageRenderMode;
 }) {
-  const { t } = useTranslation('chat');
-  const toast = useToastStore();
-  const deleteMessage = useEventChatStore((state) => state.deleteMessage);
-  const regenerateResponse = useEventChatStore((state) => state.regenerateResponse);
-  const isStreaming = useEventChatStore((state) => state.isStreaming);
-  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
   const hasBlocks = message.blocks && message.blocks.length > 0;
-  const messageIsStreaming = message.isStreaming;
-
-  // 提取助手消息的纯文本内容
-  const getTextContent = useCallback((): string => {
-    if (message.content) {
-      return message.content;
-    }
-    if (message.blocks) {
-      return message.blocks
-        .filter((block): block is TextBlock => block.type === 'text')
-        .map(block => block.content)
-        .join('\n\n');
-    }
-    return '';
-  }, [message]);
-
-  // 处理右键菜单（流式响应时禁用）
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    if (messageIsStreaming || isStreaming) return;
-    e.preventDefault();
-    setContextMenu({ visible: true, x: e.clientX, y: e.clientY });
-  }, [messageIsStreaming, isStreaming]);
-
-  // 关闭菜单
-  const closeContextMenu = useCallback(() => {
-    setContextMenu({ ...contextMenu, visible: false });
-  }, [contextMenu]);
-
-  // 复制消息内容
-  const handleCopy = useCallback(async () => {
-    const text = getTextContent();
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success(t('message.copied'));
-    } catch (error) {
-      console.error('[AssistantBubble] 复制失败:', error);
-      toast.error(t('error.sendFailed'));
-    }
-  }, [getTextContent, toast, t]);
-
-  // 删除消息
-  const handleDelete = useCallback(() => {
-    closeContextMenu();
-    setShowDeleteConfirm(true);
-  }, [closeContextMenu]);
-
-  // 确认删除
-  const confirmDelete = useCallback(() => {
-    deleteMessage(message.id);
-    setShowDeleteConfirm(false);
-    toast.success(t('message.deleted') || '消息已删除');
-  }, [deleteMessage, message.id, toast, t]);
-
-  // 取消删除
-  const cancelDelete = useCallback(() => {
-    setShowDeleteConfirm(false);
-  }, []);
-
-  // 重新生成回复
-  const handleRegenerate = useCallback(async () => {
-    closeContextMenu();
-    try {
-      await regenerateResponse(message.id);
-    } catch (error) {
-      console.error('[AssistantBubble] 重新生成失败:', error);
-      toast.error(t('error.regenerateFailed') || '重新生成失败');
-    }
-  }, [closeContextMenu, regenerateResponse, message.id, toast, t]);
-
-  // 菜单项
-  const contextMenuItems: ContextMenuItem[] = [
-    {
-      id: 'copy',
-      label: t('message.copy'),
-      icon: <Copy className="w-4 h-4" />,
-      action: handleCopy,
-    },
-    {
-      id: 'regenerate',
-      label: t('message.regenerate') || '重新生成',
-      icon: <RotateCcw className="w-4 h-4" />,
-      action: handleRegenerate,
-    },
-    {
-      id: 'delete',
-      label: t('message.delete'),
-      icon: <Trash2 className="w-4 h-4" />,
-      action: handleDelete,
-    },
-  ];
 
   return (
-    <>
-      <div
-        className="flex gap-3 my-2"
-        onContextMenu={handleContextMenu}
-      >
-        {/* Avatar */}
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-600
-                        flex items-center justify-center shadow-glow shrink-0">
-          <span className="text-sm font-bold text-white">P</span>
-        </div>
-
-        {/* 内容 */}
-        <div className="flex-1 space-y-1 min-w-0">
-          {/* 头部信息 */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-text-primary">Claude</span>
-            <span className="text-xs text-text-tertiary">
-              {new Date(message.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-
-          {/* 渲染内容块（支持工具聚合） */}
-          {hasBlocks ? (
-            <div className="space-y-1">
-              {renderBlocksWithGrouping(message.blocks, message.isStreaming, renderMode)}
-            </div>
-          ) : message.content ? (
-            // 兼容旧格式（content 字符串）
-            <div
-              className="prose prose-invert prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
-            />
-          ) : null}
-
-          {/* 流式光标 */}
-          {message.isStreaming && (
-            <span className="inline-flex ml-1">
-              <span className="flex gap-0.5 items-end h-4">
-                <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </span>
-            </span>
-          )}
-        </div>
+    <div className="flex gap-3 my-2">
+      {/* Avatar */}
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-600
+                      flex items-center justify-center shadow-glow shrink-0">
+        <span className="text-sm font-bold text-white">P</span>
       </div>
-      {!messageIsStreaming && !isStreaming && (
-        <ContextMenu
-          visible={contextMenu.visible}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          items={contextMenuItems}
-          onClose={closeContextMenu}
-        />
-      )}
-      {/* 删除确认对话框 */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={cancelDelete}>
-          <div
-            className="bg-background-surface border border-border rounded-lg shadow-lg p-4 max-w-sm mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <Trash2 className="w-5 h-5 text-error" />
-              <span className="text-text-primary font-medium">{t('message.deleteConfirmTitle') || '删除消息'}</span>
-            </div>
-            <p className="text-text-secondary text-sm mb-4">
-              {t('message.deleteConfirmText') || '确定要删除这条消息吗？删除后无法恢复。'}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={cancelDelete}>
-                {t('message.cancel') || '取消'}
-              </Button>
-              <Button variant="danger" size="sm" onClick={confirmDelete}>
-                {t('message.delete') || '删除'}
-              </Button>
-            </div>
-          </div>
+
+      {/* 内容 */}
+      <div className="flex-1 space-y-1 min-w-0">
+        {/* 头部信息 */}
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-medium text-text-primary">Claude</span>
+          <span className="text-xs text-text-tertiary">
+            {new Date(message.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
-      )}
-    </>
+
+        {/* 渲染内容块 */}
+        {hasBlocks ? (
+          <div className="space-y-1">
+            {message.blocks.map((block, index) => (
+              <div key={`block-${index}`}>
+                {renderContentBlock(block, message.isStreaming, renderMode)}
+              </div>
+            ))}
+          </div>
+        ) : message.content ? (
+          // 兼容旧格式（content 字符串）
+          <div
+            className="prose prose-invert prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
+          />
+        ) : null}
+
+        {/* 流式光标 */}
+        {message.isStreaming && (
+          <span className="inline-flex ml-1">
+            <span className="flex gap-0.5 items-end h-4">
+              <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1 h-1 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
+          </span>
+        )}
+      </div>
+    </div>
   );
 }, (prevProps, nextProps) => {
   // 优化重渲染：使用浅比较代替深度序列化
@@ -1886,225 +1748,6 @@ const AssistantBubble = memo(function AssistantBubble({
 // ========================================
 // 工具调用分组识别
 // ========================================
-
-/**
- * 判断文本块是否为空白内容（不打断工具分组）
- * 空白内容：空字符串、只有空白字符、只有 "..." 或 ".."
- */
-function isEmptyTextBlock(block: ContentBlock): boolean {
-  if (block.type !== 'text') return false;
-  const content = (block as TextBlock).content?.trim();
-  // 空内容、只有点号（如 "..."）、只有空白
-  if (!content) return true;
-  if (/^\.+$/.test(content)) return true;
-  return false;
-}
-
-/**
- * 识别连续的工具调用分组
- * 空文本块（空内容或只有"..."）不打断分组
- * 记录完整的块索引范围（包括中间的空白块）
- */
-function identifyToolCallGroups(blocks: ContentBlock[]): ToolCallGroup[] {
-  const groups: ToolCallGroup[] = [];
-  let currentGroup: ToolCallBlock[] = [];
-  let groupStartIndex = -1;
-  let groupEndIndex = -1;
-
-  blocks.forEach((block, index) => {
-    if (block.type === 'tool_call') {
-      // 收集工具调用
-      if (currentGroup.length === 0) {
-        groupStartIndex = index;
-      }
-      currentGroup.push(block as ToolCallBlock);
-      groupEndIndex = index;
-    } else if (!isEmptyTextBlock(block)) {
-      // 非空白块，保存之前的组（空白块不打断分组）
-      if (currentGroup.length > 0) {
-        groups.push({
-          startIndex: groupStartIndex,
-          endIndex: groupEndIndex,
-          tools: currentGroup,
-        });
-        currentGroup = [];
-        groupStartIndex = -1;
-        groupEndIndex = -1;
-      }
-    }
-    // 空白块：不做任何处理，不打断当前组，但需要更新 endIndex
-    // 以便正确标记整个组的范围
-  });
-
-  // 处理末尾的工具组
-  if (currentGroup.length > 0) {
-    groups.push({
-      startIndex: groupStartIndex,
-      endIndex: groupEndIndex,
-      tools: currentGroup,
-    });
-  }
-
-  return groups;
-}
-
-// ========================================
-// 工具折叠组组件
-// ========================================
-
-/** 工具折叠组组件 - 超过阈值时折叠显示 */
-const ToolCollapseGroup = memo(function ToolCollapseGroup({
-  tools,
-  maxVisible,
-  isStreaming,
-  renderMode,
-}: {
-  tools: ToolCallBlock[];
-  maxVisible: number;
-  isStreaming?: boolean;
-  renderMode: MessageRenderMode;
-}) {
-  const { t } = useTranslation('chat');
-  // 流式期间始终展开，结束后才启用折叠
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  // 流式结束时自动折叠（如果有隐藏的工具）
-  const hiddenCount = tools.length - maxVisible;
-  useEffect(() => {
-    if (!isStreaming && hiddenCount > 0) {
-      setIsExpanded(false);
-    }
-  }, [isStreaming, hiddenCount]);
-
-  const visibleTools = isExpanded ? tools : tools.slice(0, maxVisible);
-
-  return (
-    <div className="tool-collapse-group">
-      {/* 渲染可见的工具 */}
-      {visibleTools.map((tool, index) => (
-        <div key={`tool-${index}`}>
-          {renderContentBlock(tool, isStreaming, renderMode)}
-        </div>
-      ))}
-
-      {/* 折叠/展开指示器 - 仅在非流式时显示 */}
-      {hiddenCount > 0 && !isStreaming && (
-        <div
-          className={clsx(
-            'flex items-center gap-1.5 px-3 py-2 my-1',
-            'bg-background-surface border border-dashed border-border rounded-md',
-            'cursor-pointer text-xs text-text-secondary',
-            'hover:bg-background-hover hover:border-primary hover:text-primary',
-            'transition-all duration-150',
-            'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-base'
-          )}
-          onClick={() => setIsExpanded(!isExpanded)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setIsExpanded(!isExpanded);
-            }
-          }}
-          aria-expanded={isExpanded}
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="w-3.5 h-3.5" />
-              <span>{t('tool.collapse')}</span>
-            </>
-          ) : (
-            <>
-              <ChevronRight className="w-3.5 h-3.5" />
-              <span>{t('tool.moreTools', { count: hiddenCount })}</span>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-});
-
-/**
- * 渲染内容块数组（支持工具折叠聚合）
- */
-function renderBlocksWithGrouping(
-  blocks: ContentBlock[],
-  isStreaming: boolean | undefined,
-  renderMode: MessageRenderMode
-): React.ReactNode[] {
-  // 识别工具分组
-  const toolGroups = identifyToolCallGroups(blocks);
-
-  // 如果没有工具分组，直接渲染
-  if (toolGroups.length === 0) {
-    return blocks.map((block, index) => (
-      <div key={`block-${index}`}>
-        {renderContentBlock(block, isStreaming, renderMode)}
-      </div>
-    ));
-  }
-
-  // 构建分组映射：使用 startIndex 作为组的标识
-  // 同时记录每个组的完整索引范围 [startIndex, endIndex]
-  const groupStartMap = new Map<number, ToolCallGroup>();
-  toolGroups.forEach(group => {
-    groupStartMap.set(group.startIndex, group);
-  });
-
-  const result: React.ReactNode[] = [];
-  const processedIndices = new Set<number>();
-
-  blocks.forEach((block, index) => {
-    if (processedIndices.has(index)) return;
-
-    // 检查当前索引是否是某个组的起始位置
-    const group = groupStartMap.get(index);
-
-    if (group && group.tools.length > TOOL_COLLAPSE_CONFIG.collapseThreshold) {
-      // 需要折叠的组：渲染折叠组件
-      result.push(
-        <ToolCollapseGroup
-          key={`tool-group-${group.startIndex}`}
-          tools={group.tools}
-          maxVisible={TOOL_COLLAPSE_CONFIG.maxVisibleTools}
-          isStreaming={isStreaming}
-          renderMode={renderMode}
-        />
-      );
-      // 标记组内整个范围的所有块都已处理（包括中间的空白块）
-      for (let i = group.startIndex; i <= group.endIndex; i++) {
-        processedIndices.add(i);
-      }
-    } else if (group) {
-      // 不需要折叠的组：逐个渲染工具
-      group.tools.forEach((tool, i) => {
-        result.push(
-          <div key={`block-${group.startIndex}-tool-${i}`}>
-            {renderContentBlock(tool, isStreaming, renderMode)}
-          </div>
-        );
-      });
-      // 标记组内整个范围的所有块都已处理（包括中间的空白块）
-      for (let i = group.startIndex; i <= group.endIndex; i++) {
-        processedIndices.add(i);
-      }
-    } else {
-      // 非工具块：检查是否是空白块，空白块不需要渲染
-      if (!isEmptyTextBlock(block)) {
-        result.push(
-          <div key={`block-${index}`}>
-            {renderContentBlock(block, isStreaming, renderMode)}
-          </div>
-        );
-      }
-      processedIndices.add(index);
-    }
-  });
-
-  return result;
-}
 
 /** 系统消息组件 */
 const SystemBubble = memo(function SystemBubble({ content }: { content: string }) {

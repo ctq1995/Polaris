@@ -48,7 +48,6 @@ vi.mock('@tauri-apps/api/core', () => ({
  * 用于测试 Tauri 事件监听和发送场景。
  * listen() 返回的 unlisten 函数可用于清理监听器。
  *
- * 注意：eventRouter.test.ts 需要自定义 mock 来测试事件分发逻辑，
  * 该文件通过 vi.unmock + vi.mock 覆盖此全局 mock。
  */
 vi.mock('@tauri-apps/api/event', () => ({

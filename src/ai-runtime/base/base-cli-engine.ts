@@ -6,20 +6,13 @@
  * - 可用性检查
  * - 生命周期管理
  *
- * 各 CLI 引擎（IFlow、Codex 等）只需继承此类并实现差异化部分。
+ * CLI 引擎继承此类并实现差异化部分。
  *
  * ## Engine 架构设计
  *
- * 本项目支持三种不同架构的 Engine 类型，它们各有独立的通信模式和生命周期管理：
+ * 本项目支持不同架构的 Engine 类型，它们各有独立的通信模式和生命周期管理：
  *
- * ### 1. CLI 进程型 Engine (继承 BaseCLIEngine)
- * - **代表**: IFlowEngine, CodexEngine
- * - **通信方式**: 启动 CLI 子进程，解析 stdout/stderr
- * - **Session 管理**: 不在 Engine 层管理 sessions，由子类实现 createCLISession
- * - **事件机制**: 进程输出解析 → AIEvent
- * - **适用场景**: 命令行工具包装（如 claude-cli、codex-cli）
- *
- * ### 2. Tauri 命令型 Engine (独立实现)
+ * ### 1. Tauri 命令型 Engine (独立实现)
  * - **代表**: ClaudeCodeEngine
  * - **通信方式**: 直接调用 Tauri invoke 命令（start_chat, continue_chat, interrupt_chat）
  * - **Session 管理**: Engine 层管理 sessions Map
@@ -94,7 +87,7 @@ export interface CLIProcess {
  * 子类需提供这些差异化信息
  */
 export interface CLIEngineDescriptor {
-  /** Engine 唯一标识（如 'iflow', 'codex'） */
+  /** Engine 唯一标识（如 'claude-code'） */
   id: string
   /** Engine 显示名称 */
   name: string

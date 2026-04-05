@@ -1,7 +1,7 @@
 /**
  * CLI 路径选择器组件
  * 支持自动检测和手动输入两种模式
- * 支持 Claude Code 和 IFlow 两种引擎
+ * 支持 Claude Code 引擎
  */
 
 import { useState, useEffect } from 'react';
@@ -12,7 +12,7 @@ import { createLogger } from '../../utils/logger';
 
 const log = createLogger('ClaudePathSelector');
 
-type EngineType = 'claude-code' | 'iflow' | 'codex';
+type EngineType = 'claude-code';
 
 interface ClaudePathSelectorProps {
   /** 当前路径值 */
@@ -62,14 +62,7 @@ export function ClaudePathSelector({
   const detectPaths = async () => {
     setDetecting(true);
     try {
-      let paths: string[] = [];
-      if (engineType === 'claude-code') {
-        paths = await tauri.findClaudePaths();
-      } else if (engineType === 'iflow') {
-        paths = await tauri.findIFlowPaths();
-      } else if (engineType === 'codex') {
-        paths = await tauri.findCodexPaths();
-      }
+      const paths = await tauri.findClaudePaths();
       setDetectedPaths(paths);
 
       if (paths.length > 0 && !value) {
@@ -92,16 +85,7 @@ export function ClaudePathSelector({
 
     setValidating(true);
     try {
-      let result: { valid: boolean; error?: string };
-      if (engineType === 'claude-code') {
-        result = await tauri.validateClaudePath(path);
-      } else if (engineType === 'iflow') {
-        result = await tauri.validateIFlowPath(path);
-      } else if (engineType === 'codex') {
-        result = await tauri.validateCodexPath(path);
-      } else {
-        result = { valid: true };
-      }
+      const result = await tauri.validateClaudePath(path);
       setIsValid(result.valid);
       setValidationError(mapErrorMessage(result.error));
     } catch (e) {
@@ -118,7 +102,7 @@ export function ClaudePathSelector({
     }
   }, [mode, engineType]);
 
-  // claude-code, iflow, codex 使用 CLI 路径选择
+  // Claude Code 使用 CLI 路径选择
 
   return (
     <div className="space-y-3">

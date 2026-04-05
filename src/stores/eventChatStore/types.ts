@@ -38,7 +38,7 @@ export interface HistoryEntry {
   title: string
   timestamp: string
   messageCount: number
-  engineId: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`
+  engineId: 'claude-code' | `provider-${string}`
   data: {
     messages: ChatMessage[]
     archivedMessages: ChatMessage[]
@@ -46,15 +46,15 @@ export interface HistoryEntry {
 }
 
 /**
- * 统一的历史条目（包含 localStorage、IFlow 和 Claude Code 原生的会话）
+ * 统一的历史条目（包含 localStorage 和 Claude Code 原生的会话）
  */
 export interface UnifiedHistoryItem {
   id: string
   title: string
   timestamp: string
   messageCount: number
-  engineId: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`
-  source: 'local' | 'iflow' | 'claude-code-native' | 'codex'
+  engineId: 'claude-code' | `provider-${string}`
+  source: 'local' | 'claude-code-native'
   fileSize?: number
   inputTokens?: number
   outputTokens?: number
@@ -428,12 +428,12 @@ export interface HistoryActions {
 
   /** 保存会话到历史 */
   saveToHistory: (title?: string) => void
-  /** 获取统一会话历史（包含 localStorage 和 IFlow） */
+  /** 获取统一会话历史（包含 localStorage 和 Claude Code 原生） */
   getUnifiedHistory: () => Promise<UnifiedHistoryItem[]>
   /** 从历史恢复会话 */
-  restoreFromHistory: (sessionId: string, engineId?: 'claude-code' | 'iflow' | 'codex' | `provider-${string}`, projectPath?: string, claudeProjectName?: string) => Promise<boolean>
+  restoreFromHistory: (sessionId: string, engineId?: 'claude-code' | `provider-${string}`, projectPath?: string, claudeProjectName?: string) => Promise<boolean>
   /** 删除历史会话 */
-  deleteHistorySession: (sessionId: string, source?: 'local' | 'iflow' | 'codex') => void
+  deleteHistorySession: (sessionId: string, source?: 'local' | 'claude-code-native') => void
   /** 清空历史 */
   clearHistory: () => void
 }
