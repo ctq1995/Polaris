@@ -4,30 +4,13 @@
  * 直接使用 zustand store 订阅特定 session 的状态，避免复杂的 hook 链
  */
 
-import { memo, useMemo, useRef, useCallback, useEffect } from 'react';
-import { useStore } from 'zustand';
+import { memo, useMemo, useRef, useCallback, useEffect, useSyncExternalStore } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { sessionStoreManager } from '../../stores/conversationStore/sessionStoreManager';
 import { renderChatMessage } from './EnhancedChatMessages';
+import { calculateRenderMode, DEFAULT_LAYER_CONFIG } from '../../utils/messageLayer';
 import type { ChatMessage, AssistantChatMessage } from '../../types/chat';
-
-/** 默认渲染配置 */
-const DEFAULT_LAYER_CONFIG = {
-  background: { start: 0, count: 5, blur: 0, opacity: 0.3 },
-  midground: { start: 5, count: 10, blur: 0, opacity: 0.6 },
-  foreground: { start: 15, count: Infinity, blur: 0, opacity: 1 },
-};
-
-/** 计算渲染模式 */
-function calculateRenderMode(index: number, total: number, config: typeof DEFAULT_LAYER_CONFIG) {
-  if (index < config.background.start + config.background.count) {
-    return { layer: 'background' as const, ...config.background };
-  }
-  if (index < config.midground.start + config.midground.count) {
-    return { layer: 'midground' as const, ...config.midground };
-  }
-  return { layer: 'foreground' as const, ...config.foreground };
-}
+import type { ConversationStoreInstance, ConversationState } from '../../stores/conversationStore/types';
 
 /** 空状态组件 */
 const EmptyState = memo(function EmptyState() {
@@ -44,34 +27,88 @@ interface SessionMessagesViewProps {
   sessionId: string;
 }
 
+/**
+ * 直接订阅 session store 的 hook
+ * 关键：当 store 存在时，订阅 store 本身而不是 sessionStoreManager
+ */
+function useSessionStoreSubscription<T>(
+  sessionId: string,
+  selector: (state: ConversationState) => T,
+  defaultValue: T
+): T {
+  // 缓存 store 实例，避免频繁查找
+  const storeRef = useRef<ConversationStoreInstance | null>(null);
+  const cacheRef = useRef<T>(defaultValue);
+
+  // 获取 store 实例
+  const getStore = useCallback(() => {
+    return sessionStoreManager.getState().stores.get(sessionId);
+  }, [sessionId]);
+
+  // 初始化/更新 store ref
+  useEffect(() => {
+    const store = getStore();
+    if (store && storeRef.current !== store) {
+      storeRef.current = store;
+      cacheRef.current = defaultValue; // store 变化时重置缓存
+    }
+  }, [getStore, defaultValue]);
+
+  // subscribe 函数：订阅正确的 store
+  const subscribe = useCallback((onChange: () => void) => {
+    const store = getStore();
+    if (store) {
+      // 直接订阅 session store
+      return store.subscribe(onChange);
+    } else {
+      // store 不存在时，订阅 sessionStoreManager 等待 store 创建
+      return sessionStoreManager.subscribe(onChange);
+    }
+  }, [getStore]);
+
+  // getSnapshot：获取当前值
+  const getSnapshot = useCallback(() => {
+    const store = storeRef.current || getStore();
+    if (!store) return defaultValue;
+
+    const newValue = selector(store.getState());
+
+    // 引用稳定性检查
+    if (cacheRef.current === newValue) {
+      return cacheRef.current;
+    }
+
+    cacheRef.current = newValue;
+    return newValue;
+  }, [getStore, selector, defaultValue]);
+
+  const getServerSnapshot = useCallback(() => defaultValue, [defaultValue]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
 export const SessionMessagesView = memo(function SessionMessagesView({ sessionId }: SessionMessagesViewProps) {
   const virtuosoRef = useRef<any>(null);
   const autoScrollRef = useRef(true);
 
-  // 直接订阅特定 session 的状态
-  const messages = useStore(sessionStoreManager, useCallback(
-    (state) => {
-      const store = state.stores.get(sessionId);
-      return store ? store.getState().messages : [];
-    },
-    [sessionId]
-  ));
+  // 直接订阅特定 session store 的状态
+  const messages = useSessionStoreSubscription(
+    sessionId,
+    useCallback((state) => state.messages, []),
+    []
+  );
 
-  const currentMessage = useStore(sessionStoreManager, useCallback(
-    (state) => {
-      const store = state.stores.get(sessionId);
-      return store ? store.getState().currentMessage : null;
-    },
-    [sessionId]
-  ));
+  const currentMessage = useSessionStoreSubscription(
+    sessionId,
+    useCallback((state) => state.currentMessage, []),
+    null
+  );
 
-  const isStreaming = useStore(sessionStoreManager, useCallback(
-    (state) => {
-      const store = state.stores.get(sessionId);
-      return store ? store.getState().isStreaming : false;
-    },
-    [sessionId]
-  ));
+  const isStreaming = useSessionStoreSubscription(
+    sessionId,
+    useCallback((state) => state.isStreaming, []),
+    false
+  );
 
   // 合并流式消息到消息列表
   const displayMessages = useMemo(() => {
@@ -80,7 +117,7 @@ export const SessionMessagesView = memo(function SessionMessagesView({ sessionId
     }
 
     // 检查 currentMessage 是否已在 messages 中
-    const existingIndex = messages.findIndex(m => m.id === currentMessage.id);
+    const existingIndex = messages.findIndex((m: ChatMessage) => m.id === currentMessage.id);
 
     if (existingIndex >= 0) {
       // 更新已存在的消息

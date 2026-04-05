@@ -17,7 +17,7 @@ import {
   useActiveSessionId,
 } from './sessionStoreManager'
 import { useWorkspaceStore } from '../workspaceStore'
-import type { ConversationStore, ConversationState } from './types'
+import type { ConversationStore, ConversationState, ConversationStoreInstance } from './types'
 
 /**
  * 订阅活跃会话的特定状态
@@ -93,7 +93,7 @@ function useSessionSelector<T>(
 
   // 使用 ref 缓存 store 实例，避免 stores Map 变化导致的重新订阅
   // 只有当 sessionId 变化或 store 真正不存在时才更新
-  const cachedStoreRef = useRef<ConversationStore | null>(null)
+  const cachedStoreRef = useRef<ConversationStoreInstance | null>(null)
   const cachedSessionIdRef = useRef<string | null>(null)
 
   const store = useMemo(() => {
