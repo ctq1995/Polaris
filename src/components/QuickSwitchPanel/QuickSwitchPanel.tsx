@@ -80,11 +80,20 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
 
   // 隐藏面板（带延迟）
   const scheduleHide = useCallback(() => {
+    log.info('scheduleHide 调用', {
+      dropdownRefCurrent: workspaceDropdownOpenRef.current,
+      isHoveringTrigger: isHoveringTriggerRef.current,
+      isHoveringPanel: isHoveringPanelRef.current
+    })
     clearTimers()
     hideTimerRef.current = setTimeout(() => {
       // 下拉打开时不关闭面板（使用 ref，同步更新）
-      if (workspaceDropdownOpenRef.current) return
+      if (workspaceDropdownOpenRef.current) {
+        log.info('下拉打开中，跳过关闭面板')
+        return
+      }
       if (!isHoveringTriggerRef.current && !isHoveringPanelRef.current) {
+        log.info('关闭面板')
         setIsPanelVisible(false)
       }
     }, HIDE_DELAY)
@@ -108,11 +117,13 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
 
   // 面板悬停处理
   const handlePanelMouseEnter = useCallback(() => {
+    log.info('handlePanelMouseEnter')
     isHoveringPanelRef.current = true
     clearTimers()
   }, [clearTimers])
 
   const handlePanelMouseLeave = useCallback(() => {
+    log.info('handlePanelMouseLeave')
     isHoveringPanelRef.current = false
     scheduleHide()
   }, [scheduleHide])

@@ -10,7 +10,10 @@ import { cn } from '@/utils/cn'
 import { Plus, Loader2, X, FolderOpen, ChevronDown, Lock, Check, Download, Clock, FolderPlus } from 'lucide-react'
 import { StatusSymbol } from './StatusSymbol'
 import { CreateWorkspaceModal } from '@/components/Workspace/CreateWorkspaceModal'
+import { createLogger } from '@/utils/logger'
 import type { QuickSessionInfo, QuickWorkspaceInfo } from './types'
+
+const log = createLogger('QuickSwitchContent')
 
 interface QuickSwitchContentProps {
   /** 会话列表 */
@@ -85,6 +88,7 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
 
   // 打开/关闭下拉时同步更新 ref
   const handleToggleDropdown = (open: boolean) => {
+    log.info('handleToggleDropdown', { open, currentRef: workspaceDropdownOpenRef?.current })
     if (workspaceDropdownOpenRef) {
       workspaceDropdownOpenRef.current = open
     }
@@ -95,13 +99,19 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
   useEffect(() => {
     if (!isWorkspaceDropdownOpen) return
 
+    log.info('注册点击外部监听')
+
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Element
+      const clickedButton = workspaceButtonRef.current?.contains(target)
+      const clickedDropdown = !!target.closest('[data-workspace-dropdown]')
+      log.info('handleClickOutside', { clickedButton, clickedDropdown, targetTag: target.tagName })
       if (
         workspaceButtonRef.current &&
-        !workspaceButtonRef.current.contains(target) &&
-        !target.closest('[data-workspace-dropdown]')
+        !clickedButton &&
+        !clickedDropdown
       ) {
+        log.info('点击外部，关闭下拉')
         handleToggleDropdown(false)
       }
     }
@@ -114,6 +124,7 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
   useEffect(() => {
     if (isWorkspaceDropdownOpen && workspaceButtonRef.current) {
       const rect = workspaceButtonRef.current.getBoundingClientRect()
+      log.info('计算下拉位置', { top: rect.bottom + 4, left: rect.left })
       setDropdownPosition({
         top: rect.bottom + 4,
         left: rect.left,
@@ -361,14 +372,8 @@ const WorkspaceDropdown = memo(function WorkspaceDropdown({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // 鼠标移开时关闭
-  const handleMouseLeave = (e: React.MouseEvent) => {
-    // 只有真正离开下拉区域时才关闭
-    const relatedTarget = e.relatedTarget as Node
-    if (!dropdownRef.current?.contains(relatedTarget)) {
-      onClose()
-    }
-  }
+  // 不使用 mouseLeave 关闭，因为 Portal 渲染的元素刚出现时会误触发 mouseLeave
+  // 改用点击外部关闭 + 用户主动操作后关闭
 
   // 切换主工作区（带验证）
   const handleSetMain = (workspaceId: string) => {
@@ -399,7 +404,6 @@ const WorkspaceDropdown = memo(function WorkspaceDropdown({
           'shadow-xl overflow-hidden',
           'animate-in fade-in-0 zoom-in-95 duration-150'
         )}
-        onMouseLeave={handleMouseLeave}
       >
         {/* 锁定提示 */}
         {isLocked && (
