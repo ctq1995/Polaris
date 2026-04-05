@@ -64,7 +64,7 @@ export const FloatingIsland = memo(function FloatingIsland() {
   return (
     <div
       ref={islandRef}
-      className="absolute top-3 left-1/2 -translate-x-1/2 z-50"
+      className="absolute top-3 left-1/2 -translate-x-1/2 z-10"
     >
       {/* 主容器 */}
       <div

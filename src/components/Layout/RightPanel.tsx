@@ -34,14 +34,14 @@ export function RightPanel({ children, fillRemaining = false }: RightPanelProps)
     setWidth(newWidth)
   }
 
-  // 填充模式：使用 flex-1 自动扩展，不显示拖拽手柄
+  {/* 填充模式：使用 flex-1 自动扩展，不显示拖拽手柄 */}
   if (fillRemaining) {
     return (
       <aside className="flex flex-col flex-1 bg-background-elevated border-l border-border min-w-[200px] relative">
         {/* 悬浮岛 */}
         <FloatingIsland />
-        {/* 内容区域 - 增加 pt-14 避免遮挡 */}
-        <div className="flex-1 flex flex-col pt-14">
+        {/* 内容区域 */}
+        <div className="flex-1 flex flex-col">
           {children}
         </div>
       </aside>
@@ -60,8 +60,8 @@ export function RightPanel({ children, fillRemaining = false }: RightPanelProps)
       >
         {/* 悬浮岛 */}
         <FloatingIsland />
-        {/* 内容区域 - 增加 pt-14 避免遮挡 */}
-        <div className="flex-1 flex flex-col pt-14">
+        {/* 内容区域 */}
+        <div className="flex-1 flex flex-col">
           {children}
         </div>
       </aside>
