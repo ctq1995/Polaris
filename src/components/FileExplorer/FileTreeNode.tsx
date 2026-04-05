@@ -12,6 +12,18 @@ import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { IconFile, IconFolder, IconEdit, IconTrash, IconExternalLink, IconOpen } from '../Common/Icons';
 import type { FileInfo } from '../../types';
 
+// 辅助函数：获取父目录路径（兼容 Windows 和 Unix 路径分隔符）
+function getParentPath(path: string): string | null {
+  const lastSepIndex = Math.max(
+    path.lastIndexOf('/'),
+    path.lastIndexOf('\\')
+  );
+  if (lastSepIndex <= 0) {
+    return null;
+  }
+  return path.substring(0, lastSepIndex);
+}
+
 function isValidFileName(name: string): boolean {
   if (!name || name.trim().length === 0) {
     return false;
@@ -237,7 +249,7 @@ export const FileTreeNode = memo<FileTreeNodeProps>(({
           await openPath(file.path);
         } else {
           // 对于文件，打开其所在目录
-          const parentPath = file.path.substring(0, file.path.lastIndexOf(/[/\\]/.test(file.path) ? (file.path.includes('\\') ? '\\' : '/') : '/'));
+          const parentPath = getParentPath(file.path);
           if (parentPath) {
             await openPath(parentPath);
           }
