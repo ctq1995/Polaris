@@ -16,8 +16,12 @@ let searchAbortController: AbortController | null = null;
 
 // 辅助函数：更新文件树中的子节点
 function updateFolderChildren(tree: FileInfo[], folderPath: string, children: FileInfo[]): FileInfo[] {
+  // 规范化路径用于比较
+  const normalizedFolderPath = normalizePath(folderPath);
+
   return tree.map(file => {
-    if (file.path === folderPath) {
+    // 规范化比较，处理 Windows 路径分隔符问题
+    if (normalizePath(file.path) === normalizedFolderPath) {
       // 保留 children 数组，即使是空数组也不要变成 undefined
       // 空数组表示文件夹确实为空，undefined 表示尚未加载
       return { ...file, children };
@@ -125,18 +129,21 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
 
   // 加载文件夹内容（懒加载）
   load_folder_content: async (folderPath: string) => {
+    // 规范化路径，确保缓存 key 格式一致
+    const normalizedPath = normalizePath(folderPath);
+
     // 使用原子操作检查并锁定，防止并发重复加载
     // Zustand 的 set 回调是同步执行的，可以保证原子性
     let shouldLoad = false;
     set((state) => {
       // 如果已在缓存或正在加载，跳过
-      if (state.folder_cache.has(folderPath) || state.loading_folders.has(folderPath)) {
+      if (state.folder_cache.has(normalizedPath) || state.loading_folders.has(normalizedPath)) {
         return state; // 不做任何修改
       }
       // 标记为需要加载，并添加到 loading_folders
       shouldLoad = true;
       return {
-        loading_folders: new Set([...state.loading_folders, folderPath])
+        loading_folders: new Set([...state.loading_folders, normalizedPath])
       };
     });
 
@@ -149,16 +156,16 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
       const children = await tauri.readDirectory(folderPath) as FileInfo[];
 
       set((state) => {
-        // 更新缓存
+        // 更新缓存（使用规范化路径作为 key）
         const newCache = new Map(state.folder_cache);
-        newCache.set(folderPath, children);
+        newCache.set(normalizedPath, children);
 
-        // 更新文件树
-        const updatedTree = updateFolderChildren(state.file_tree, folderPath, children);
+        // 更新文件树（使用规范化路径匹配）
+        const updatedTree = updateFolderChildren(state.file_tree, normalizedPath, children);
 
         // 移除加载状态
         const newLoading = new Set(state.loading_folders);
-        newLoading.delete(folderPath);
+        newLoading.delete(normalizedPath);
 
         return {
           folder_cache: newCache,
@@ -170,7 +177,7 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
       set((state) => {
         // 移除加载状态
         const newLoading = new Set(state.loading_folders);
-        newLoading.delete(folderPath);
+        newLoading.delete(normalizedPath);
 
         return {
           loading_folders: newLoading,
@@ -182,28 +189,32 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
 
   // 获取缓存的文件夹内容
   get_cached_folder_content: (folderPath: string) => {
-    return get().folder_cache.get(folderPath) || null;
+    // 规范化路径进行查找
+    return get().folder_cache.get(normalizePath(folderPath)) || null;
   },
 
   // 精确刷新指定文件夹（保留其他展开状态）
   refresh_folder: async (folderPath: string) => {
+    // 规范化路径
+    const normalizedPath = normalizePath(folderPath);
+
     try {
       // 读取文件夹最新内容
       const children = await tauri.readDirectory(folderPath) as FileInfo[];
 
       set((state) => {
-        // 更新缓存
+        // 更新缓存（使用规范化路径）
         const newCache = new Map(state.folder_cache);
-        newCache.set(folderPath, children);
+        newCache.set(normalizedPath, children);
 
         // 更新文件树中的对应节点
-        // 如果 folderPath 是根目录，直接更新 file_tree
+        // 使用规范化路径比较，处理 Windows 路径分隔符问题
         let updatedTree: FileInfo[];
-        if (folderPath === state.current_path) {
+        if (normalizedPath === normalizePath(state.current_path)) {
           // 对于根目录，需要保留已展开子文件夹的 children
           // 使用 updateFolderChildren 递归更新
           updatedTree = children.map(newFile => {
-            const existingFile = state.file_tree.find(f => f.path === newFile.path);
+            const existingFile = state.file_tree.find(f => normalizePath(f.path) === normalizePath(newFile.path));
             if (existingFile && existingFile.children) {
               // 保留已加载的 children
               return { ...newFile, children: existingFile.children };
@@ -211,7 +222,7 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
             return newFile;
           });
         } else {
-          updatedTree = updateFolderChildren(state.file_tree, folderPath, children);
+          updatedTree = updateFolderChildren(state.file_tree, normalizedPath, children);
         }
 
         return {
@@ -251,15 +262,16 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
       // 并行等待所有文件夹加载完成
       const folderResults = await Promise.all(loadPromises);
 
-      // 构建新的缓存和需要移除的路径
+      // 构建新的缓存和需要移除的路径（使用规范化路径作为 key）
       const newCache = new Map<string, FileInfo[]>();
       const removedPaths = new Set<string>();
 
       for (const result of folderResults) {
         if (result.children !== null) {
-          newCache.set(result.path, result.children);
+          // 使用规范化路径作为缓存 key
+          newCache.set(normalizePath(result.path), result.children);
         } else {
-          removedPaths.add(result.path);
+          removedPaths.add(normalizePath(result.path));
         }
       }
 
@@ -311,11 +323,23 @@ export const useFileExplorerStore = create<FileExplorerStore>((set, get) => ({
   toggle_folder: (path: string) => {
     set((state) => {
       const expanded = new Set(state.expanded_folders);
-      if (expanded.has(path)) {
-        expanded.delete(path);
-      } else {
+      // 规范化路径，处理 Windows 路径分隔符问题
+      const normalizedPath = normalizePath(path);
+
+      // 检查是否存在（需要用规范化路径比较）
+      let found = false;
+      for (const p of expanded) {
+        if (normalizePath(p) === normalizedPath) {
+          expanded.delete(p);
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
         expanded.add(path);
       }
+
       return { expanded_folders: expanded };
     });
   },
