@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom'
 import { cn } from '@/utils/cn'
 import { Plus, Loader2, X, FolderOpen, ChevronDown, Lock, Check, Download, Clock, FolderPlus } from 'lucide-react'
 import { StatusSymbol } from './StatusSymbol'
+import { CreateWorkspaceModal } from '@/components/Workspace/CreateWorkspaceModal'
 import type { QuickSessionInfo, QuickWorkspaceInfo } from './types'
 
 interface QuickSwitchContentProps {
@@ -34,10 +35,10 @@ interface QuickSwitchContentProps {
   onToggleContextWorkspace: (workspaceId: string) => void
   /** 导出聊天回调 */
   onExport?: () => void
+  /** 导出是否进行中 */
+  isExporting?: boolean
   /** 打开历史会话回调 */
   onOpenHistory?: () => void
-  /** 新增工作区回调 */
-  onCreateWorkspace?: () => void
   /** 悬停进入回调 */
   onMouseEnter: () => void
   /** 悬停离开回调 */
@@ -56,8 +57,8 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
   onSwitchWorkspace,
   onToggleContextWorkspace,
   onExport,
+  isExporting = false,
   onOpenHistory,
-  onCreateWorkspace,
   onMouseEnter,
   onMouseLeave,
 }: QuickSwitchContentProps) {
@@ -258,14 +259,20 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
           {onExport && (
             <button
               onClick={onExport}
+              disabled={isExporting}
               className={cn(
                 'flex items-center gap-1 px-2 py-1 rounded',
                 'text-[10px] text-text-tertiary',
                 'hover:bg-background-hover/50 hover:text-text-secondary',
-                'transition-colors'
+                'transition-colors',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
               )}
             >
-              <Download className="w-3 h-3" />
+              {isExporting ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Download className="w-3 h-3" />
+              )}
               <span>导出</span>
             </button>
           )}
@@ -289,6 +296,7 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
       {/* 工作区下拉菜单 - Portal */}
       {isWorkspaceDropdownOpen && createPortal(
         <WorkspaceDropdown
+          sessionId={activeSession?.id || null}
           workspaces={sortedWorkspaces}
           currentWorkspaceId={workspace?.id || null}
           contextWorkspaceIds={contextWorkspaceIds}
@@ -296,7 +304,6 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
           position={dropdownPosition}
           onSelect={onSwitchWorkspace}
           onToggleContext={onToggleContextWorkspace}
-          onCreateWorkspace={onCreateWorkspace}
           onClose={() => setIsWorkspaceDropdownOpen(false)}
         />,
         document.body
@@ -310,6 +317,7 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
 // ============================================================================
 
 interface WorkspaceDropdownProps {
+  sessionId: string | null
   workspaces: QuickWorkspaceInfo[]
   currentWorkspaceId: string | null
   contextWorkspaceIds: string[]
@@ -317,11 +325,11 @@ interface WorkspaceDropdownProps {
   position: { top: number; left: number }
   onSelect: (workspaceId: string) => void
   onToggleContext: (workspaceId: string) => void
-  onCreateWorkspace?: () => void
   onClose: () => void
 }
 
 const WorkspaceDropdown = memo(function WorkspaceDropdown({
+  sessionId,
   workspaces,
   currentWorkspaceId,
   contextWorkspaceIds,
@@ -329,12 +337,26 @@ const WorkspaceDropdown = memo(function WorkspaceDropdown({
   position,
   onSelect,
   onToggleContext,
-  onCreateWorkspace,
   onClose,
 }: WorkspaceDropdownProps) {
+  // 新建工作区弹窗状态
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
   // 鼠标移开时关闭
   const handleMouseLeave = () => {
     onClose()
+  }
+
+  // 切换主工作区（带验证）
+  const handleSetMain = (workspaceId: string) => {
+    if (isLocked || !sessionId) return
+    onSelect(workspaceId)
+  }
+
+  // 切换关联工作区（带验证）
+  const handleToggleContext = (workspaceId: string) => {
+    if (!sessionId) return
+    onToggleContext(workspaceId)
   }
 
   return (
@@ -387,9 +409,16 @@ const WorkspaceDropdown = memo(function WorkspaceDropdown({
                     <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary" />
                   )}
 
+                  {/* 锁定图标 */}
+                  {isCurrent && isLocked && (
+                    <div className="px-2">
+                      <Lock className="w-3 h-3 text-text-muted" />
+                    </div>
+                  )}
+
                   {/* 工作区信息 */}
                   <button
-                    onClick={() => !isLocked && onSelect(ws.id)}
+                    onClick={() => handleSetMain(ws.id)}
                     disabled={isLocked && isCurrent}
                     className={cn(
                       'flex-1 text-left px-2.5 py-1.5 text-xs transition-colors',
@@ -417,7 +446,7 @@ const WorkspaceDropdown = memo(function WorkspaceDropdown({
                   {/* 关联按钮（非当前主工作区时显示） */}
                   {!isCurrent && workspaces.length > 1 && (
                     <button
-                      onClick={() => onToggleContext(ws.id)}
+                      onClick={() => handleToggleContext(ws.id)}
                       className={cn(
                         'p-1 rounded transition-colors shrink-0',
                         isContext
@@ -439,18 +468,21 @@ const WorkspaceDropdown = memo(function WorkspaceDropdown({
         <div className="border-t border-border-subtle" />
 
         {/* 新增工作区 */}
-        {onCreateWorkspace && (
-          <button
-            onClick={onCreateWorkspace}
-            className={cn(
-              'w-full flex items-center gap-2 px-3 py-1.5 text-xs',
-              'text-text-secondary hover:text-text-primary hover:bg-background-hover',
-              'transition-colors'
-            )}
-          >
-            <FolderPlus className="w-3.5 h-3.5 text-text-muted" />
-            <span>新增工作区</span>
-          </button>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className={cn(
+            'w-full flex items-center gap-2 px-3 py-1.5 text-xs',
+            'text-text-secondary hover:text-text-primary hover:bg-background-hover',
+            'transition-colors'
+          )}
+        >
+          <FolderPlus className="w-3.5 h-3.5 text-text-muted" />
+          <span>新增工作区</span>
+        </button>
+
+        {/* 新建工作区弹窗 */}
+        {showCreateModal && (
+          <CreateWorkspaceModal onClose={() => setShowCreateModal(false)} />
         )}
       </div>
     </>

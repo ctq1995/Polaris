@@ -51,7 +51,6 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
   // 工作区数据
   const workspaces = useWorkspaceStore((state) => state.workspaces)
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId)
-  const createWorkspace = useWorkspaceStore((state) => state.createWorkspace)
 
   // 视图控制
   const { toggleSessionHistory } = useViewStore()
@@ -236,26 +235,6 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
     toggleSessionHistory()
   }, [toggleSessionHistory])
 
-  // 新增工作区
-  const handleCreateWorkspace = useCallback(async () => {
-    try {
-      // 使用 Tauri dialog 插件选择目录
-      const { open } = await import('@tauri-apps/plugin-dialog')
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: '选择工作区目录',
-      })
-
-      if (selected && !Array.isArray(selected)) {
-        const workspaceName = selected.split(/[/\\]/).pop() || 'Workspace'
-        await createWorkspace(workspaceName, selected, true)
-      }
-    } catch (error) {
-      log.error('创建工作区失败', error instanceof Error ? error : new Error(String(error)))
-    }
-  }, [createWorkspace])
-
   // 获取当前会话状态
   const currentStatus = useMemo<SessionStatus>(() => {
     const activeSession = sessions.find(s => s.id === activeSessionId)
@@ -293,8 +272,8 @@ export const QuickSwitchPanel = memo(function QuickSwitchPanel({
               onSwitchWorkspace={handleSwitchWorkspace}
               onToggleContextWorkspace={handleToggleContextWorkspace}
               onExport={messages.length > 0 ? handleExport : undefined}
+              isExporting={isExporting}
               onOpenHistory={handleOpenHistory}
-              onCreateWorkspace={handleCreateWorkspace}
               onMouseEnter={handlePanelMouseEnter}
               onMouseLeave={handlePanelMouseLeave}
             />
