@@ -143,42 +143,47 @@ export function ChatNavigator({
 
   return (
     <>
-      {/* 贴边半圆悬浮球 - 固定在右边缘垂直居中 */}
+      {/* 贴边玻璃风格悬浮球 - 固定在右边缘垂直居中 */}
       <div
         className={clsx(
           'fixed right-0 top-1/2 -translate-y-1/2',
-          /* 贴边半圆：右半圆在屏幕外，左半圆在屏幕内 */
-          'w-8 h-14 -mr-4',
-          'rounded-l-full',
-          'flex items-center justify-start pl-1',
-          'shadow-lg',
-          'transition-all duration-200 ease-out',
-          'cursor-pointer',
+          // 尺寸：28x48px，贴边设计
+          'w-7 h-12 -mr-3',
+          // 玻璃风格（替换原来的蓝色）
+          'rounded-l-xl',
+          'bg-background-elevated/85 backdrop-blur-xl',
+          'border border-border/50 border-r-0',
+          'shadow-lg shadow-black/5',
+          // 内容布局
+          'flex items-center justify-center',
+          // 交互
+          'cursor-pointer transition-all duration-150',
           'group',
+          // 悬停状态
           isPanelVisible
-            ? 'bg-primary-hover shadow-xl'
-            : 'bg-primary hover:bg-primary-hover hover:shadow-xl'
+            ? 'bg-background-elevated/95 shadow-xl'
+            : 'hover:bg-background-elevated/95 hover:shadow-xl'
         )}
         onMouseEnter={handleFloatingBallMouseEnter}
         onMouseLeave={handleFloatingBallMouseLeave}
         title={t('navigator.title')}
       >
-        {/* 三横线图标 */}
+        {/* 三横线图标（改为灰色） */}
         <div className={clsx(
           'w-4 h-4 flex flex-col items-center justify-center gap-0.5',
           'transition-transform duration-200',
           isPanelVisible ? 'rotate-45' : 'group-hover:scale-110'
         )}>
           <div className={clsx(
-            'w-3 h-0.5 bg-white rounded-full transition-all duration-200',
+            'w-3 h-0.5 bg-text-muted rounded-full transition-all duration-200',
             isPanelVisible ? 'rotate-90 absolute' : ''
           )} />
           <div className={clsx(
-            'w-3 h-0.5 bg-white rounded-full transition-all duration-200',
+            'w-3 h-0.5 bg-text-muted rounded-full transition-all duration-200',
             isPanelVisible ? 'opacity-0' : ''
           )} />
           <div className={clsx(
-            'w-3 h-0.5 bg-white rounded-full transition-all duration-200',
+            'w-3 h-0.5 bg-text-muted rounded-full transition-all duration-200',
             isPanelVisible ? '-rotate-90 absolute' : ''
           )} />
         </div>
