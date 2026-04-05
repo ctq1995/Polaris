@@ -31,7 +31,7 @@ export function TopMenuBar({ onNewConversation, onToggleRightPanel, rightPanelCo
   const [isExporting, setIsExporting] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
-  const { clearMessages, messages, isStreaming } = useEventChatStore();
+  const { messages, isStreaming } = useEventChatStore();
 
   useEffect(() => {
     if (!isTauriEnv) return;
@@ -98,13 +98,11 @@ export function TopMenuBar({ onNewConversation, onToggleRightPanel, rightPanelCo
     if (messages.length > 0) {
       setShowNewChatConfirm(true);
     } else {
-      clearMessages();
       onNewConversation();
     }
   };
 
   const confirmNewChat = () => {
-    clearMessages();
     onNewConversation();
     setShowNewChatConfirm(false);
   };

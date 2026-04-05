@@ -491,7 +491,12 @@ function App() {
       {/* 顶部菜单栏 - 小屏模式下简化 */}
       <TopMenuBarComponent
         onNewConversation={() => {
-          // 新对话功能直接清空消息
+          // 使用新架构创建新会话并切换
+          const manager = sessionStoreManager.getState();
+          manager.createSession({
+            type: 'free',
+            title: '新对话',
+          });
         }}
         onToggleRightPanel={toggleRightPanel}
         rightPanelCollapsed={rightPanelCollapsed}
