@@ -7,8 +7,8 @@
 import { memo, useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/utils/cn'
-import { Plus, Loader2, X, FolderOpen, ChevronDown, Lock, Check, FolderPlus } from 'lucide-react'
-import { StatusSymbol } from '@/components/QuickSwitchPanel/StatusSymbol'
+import { Plus, Loader2, X, FolderOpen, ChevronDown, Lock, Check, FolderPlus, Pin, PinOff } from 'lucide-react'
+import { StatusSymbol } from '@/components/Common/StatusSymbol'
 import { CreateSessionModal } from '@/components/Session/CreateSessionModal'
 import { CreateWorkspaceModal } from '@/components/Workspace/CreateWorkspaceModal'
 import { createLogger } from '@/utils/logger'
@@ -29,6 +29,9 @@ export const SessionNavigatorPanel = memo(function SessionNavigatorPanel({
   onToggleContextWorkspace,
   onClose,
 }: SessionNavigatorPanelProps) {
+  // 固定面板状态 - 开启时切换会话/工作区后不自动关闭
+  const [isPinned, setIsPinned] = useState(false)
+
   // 工作区下拉状态
   const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false)
   const workspaceButtonRef = useRef<HTMLButtonElement>(null)
@@ -102,6 +105,20 @@ export const SessionNavigatorPanel = memo(function SessionNavigatorPanel({
         {/* 头部：当前会话概览 */}
         <div className="px-3 py-2.5 border-b border-border-subtle/30">
           <div className="flex items-center gap-2">
+            {/* 固定按钮 */}
+            <button
+              onClick={() => setIsPinned(!isPinned)}
+              className={cn(
+                'p-1 rounded transition-colors shrink-0',
+                isPinned
+                  ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-background-hover'
+              )}
+              title={isPinned ? '取消固定 - 切换后自动关闭' : '固定面板 - 切换后保持展开'}
+            >
+              {isPinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+            </button>
+
             {activeSession && (
               <>
                 <StatusSymbol status={activeSession.status} size="sm" />
@@ -151,7 +168,7 @@ export const SessionNavigatorPanel = memo(function SessionNavigatorPanel({
                 )}
                 onClick={() => {
                   onSwitchSession(session.id)
-                  onClose()
+                  if (!isPinned) onClose()
                 }}
               >
                 {/* 活跃指示条 */}
@@ -228,6 +245,8 @@ export const SessionNavigatorPanel = memo(function SessionNavigatorPanel({
           onSelect={onSwitchWorkspace}
           onToggleContext={onToggleContextWorkspace}
           onClose={() => handleToggleDropdown(false)}
+          isPinned={isPinned}
+          onPanelClose={onClose}
         />,
         document.body
       )}
@@ -254,6 +273,10 @@ interface WorkspaceDropdownProps {
   onSelect: (workspaceId: string) => void
   onToggleContext: (workspaceId: string) => void
   onClose: () => void
+  /** 面板是否固定 */
+  isPinned: boolean
+  /** 关闭整个面板 */
+  onPanelClose: () => void
 }
 
 const WorkspaceDropdown = memo(function WorkspaceDropdown({
@@ -266,17 +289,22 @@ const WorkspaceDropdown = memo(function WorkspaceDropdown({
   onSelect,
   onToggleContext,
   onClose: _onClose,
+  isPinned,
+  onPanelClose,
 }: WorkspaceDropdownProps) {
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   const handleSetMain = (workspaceId: string) => {
     if (isLocked || !sessionId) return
     onSelect(workspaceId)
+    // 非固定模式下切换主工作区后关闭面板
+    if (!isPinned) onPanelClose()
   }
 
   const handleToggleContext = (workspaceId: string) => {
     if (!sessionId) return
     onToggleContext(workspaceId)
+    // 关联工作区切换不关闭面板（无论是固定还是非固定）
   }
 
   return (
