@@ -11,8 +11,9 @@
  * - Edit 工具优化显示
  */
 
-import { useMemo, memo, useState, useRef, useDeferredValue, useEffect } from 'react';
+import { useMemo, memo, useState, useRef, useDeferredValue, useEffect, useCallback } from 'react';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { clsx } from 'clsx';
 import type { ChatMessage, UserChatMessage, AssistantChatMessage, ContentBlock, TextBlock, ThinkingBlock, ToolCallBlock } from '../../types';
@@ -31,7 +32,7 @@ import {
   type GrepMatch,
   type GrepOutputData
 } from '../../utils/toolSummary';
-import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, Copy, Brain, ListOrdered } from 'lucide-react';
+import { Check, XCircle, Loader2, AlertTriangle, Play, ChevronDown, ChevronRight, Circle, FileSearch, FolderOpen, Code, FileDiff, Brain, ListOrdered } from 'lucide-react';
 import { ChatNavigator } from './ChatNavigator';
 import { useMessageSearch, MessageSearchPanel } from './MessageSearchPanel';
 import { QuestionBlockRenderer, SimplifiedQuestionRenderer } from './QuestionBlockRenderer';
@@ -49,28 +50,6 @@ import { calculateRenderMode, type MessageRenderMode, DEFAULT_LAYER_CONFIG } fro
 /** Markdown 渲染器（使用缓存优化） */
 function formatContent(content: string): string {
   return markdownCache.render(content);
-}
-
-// ========================================
-// 工具调用折叠配置
-// ========================================
-
-/** 工具调用折叠配置 */
-const TOOL_COLLAPSE_CONFIG = {
-  /** 折叠前最多显示的工具数 */
-  maxVisibleTools: 4,
-  /** 触发折叠的最小工具数（超过此值才折叠） */
-  collapseThreshold: 5,
-};
-
-/** 工具调用分组（包含完整的块索引范围） */
-interface ToolCallGroup {
-  /** 在 blocks 数组中的起始索引 */
-  startIndex: number;
-  /** 在 blocks 数组中的结束索引（包含，即最后一个块的索引） */
-  endIndex: number;
-  /** 连续的工具调用块 */
-  tools: ToolCallBlock[];
 }
 
 // ========================================
@@ -151,222 +130,22 @@ function extractThinkingSteps(content: string): ThinkingStep[] {
   return steps;
 }
 
-/** 用户消息组件 */
+/** 用户消息组件 - 简化版 */
 const UserBubble = memo(function UserBubble({
   message,
 }: {
   message: UserChatMessage;
 }) {
-  const { t } = useTranslation('chat');
-  const toast = useToastStore();
-  const deleteMessage = useEventChatStore((state) => state.deleteMessage);
-  const editAndResend = useEventChatStore((state) => state.editAndResend);
-  const isStreaming = useEventChatStore((state) => state.isStreaming);
-  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // 处理右键菜单
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setContextMenu({ visible: true, x: e.clientX, y: e.clientY });
-  }, []);
-
-  // 关闭菜单
-  const closeContextMenu = useCallback(() => {
-    setContextMenu({ ...contextMenu, visible: false });
-  }, [contextMenu]);
-
-  // 复制消息内容
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(message.content);
-      toast.success(t('message.copied'));
-    } catch (error) {
-      console.error('[UserBubble] 复制失败:', error);
-      toast.error(t('error.sendFailed'));
-    }
-  }, [message.content, toast, t]);
-
-  // 删除消息
-  const handleDelete = useCallback(() => {
-    closeContextMenu();
-    setShowDeleteConfirm(true);
-  }, [closeContextMenu]);
-
-  // 编辑消息
-  const handleEdit = useCallback(() => {
-    closeContextMenu();
-    setEditContent(message.content);
-    setIsEditing(true);
-  }, [closeContextMenu, message.content]);
-
-  // 取消编辑
-  const cancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setEditContent('');
-  }, []);
-
-  // 确认编辑并重新发送
-  const confirmEdit = useCallback(async () => {
-    if (!editContent.trim()) {
-      toast.error(t('message.emptyContent') || '消息内容不能为空');
-      return;
-    }
-
-    if (editContent.trim() === message.content.trim()) {
-      // 内容未变化，仅关闭编辑模式
-      setIsEditing(false);
-      setEditContent('');
-      return;
-    }
-
-    try {
-      await editAndResend(message.id, editContent.trim());
-      setIsEditing(false);
-      setEditContent('');
-      toast.success(t('message.editedAndSent') || '消息已编辑并发送');
-    } catch (error) {
-      console.error('[UserBubble] 编辑发送失败:', error);
-      toast.error(t('error.sendFailed'));
-    }
-  }, [editContent, message.id, message.content, editAndResend, toast, t]);
-
-  // 处理键盘事件
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      confirmEdit();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelEdit();
-    }
-  }, [confirmEdit, cancelEdit]);
-
-  // 自动调整文本框高度
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-    }
-  }, [isEditing, editContent]);
-
-  // 确认删除
-  const confirmDelete = useCallback(() => {
-    deleteMessage(message.id);
-    setShowDeleteConfirm(false);
-    toast.success(t('message.deleted') || '消息已删除');
-  }, [deleteMessage, message.id, toast, t]);
-
-  // 取消删除
-  const cancelDelete = useCallback(() => {
-    setShowDeleteConfirm(false);
-  }, []);
-
-  // 菜单项
-  const contextMenuItems: ContextMenuItem[] = [
-    {
-      id: 'copy',
-      label: t('message.copy'),
-      icon: <Copy className="w-4 h-4" />,
-      action: handleCopy,
-    },
-    {
-      id: 'edit',
-      label: t('message.edit'),
-      icon: <Pencil className="w-4 h-4" />,
-      action: handleEdit,
-      disabled: isStreaming,
-    },
-    {
-      id: 'delete',
-      label: t('message.delete'),
-      icon: <Trash2 className="w-4 h-4" />,
-      action: handleDelete,
-    },
-  ];
-
-  // 编辑模式
-  if (isEditing) {
-    return (
-      <div className="flex justify-end my-2">
-        <div className="max-w-[85%] w-full">
-          <div className="bg-background-surface border border-border rounded-lg p-3 shadow-lg">
-            <textarea
-              ref={textareaRef}
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full min-h-[60px] max-h-[200px] p-2 bg-background border border-border rounded-md text-text-primary text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder={t('message.editPlaceholder') || '编辑消息...'}
-              rows={3}
-            />
-            <div className="flex justify-end gap-2 mt-2">
-              <Button variant="ghost" size="sm" onClick={cancelEdit}>
-                <X className="w-4 h-4 mr-1" />
-                {t('message.cancel') || '取消'}
-              </Button>
-              <Button variant="primary" size="sm" onClick={confirmEdit} disabled={!editContent.trim() || isStreaming}>
-                <Check className="w-4 h-4 mr-1" />
-                {t('message.send') || '发送'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
-      <div
-        className="flex justify-end my-2"
-        onContextMenu={handleContextMenu}
-      >
-        <div className="max-w-[85%] px-4 py-3 rounded-2xl
-                    bg-gradient-to-br from-primary to-primary-600
-                    text-white shadow-glow cursor-default">
-          <div className="text-sm leading-relaxed whitespace-pre-wrap">
-            {message.content}
-          </div>
+    <div className="flex justify-end my-2">
+      <div className="max-w-[85%] px-4 py-3 rounded-2xl
+                  bg-gradient-to-br from-primary to-primary-600
+                  text-white shadow-glow">
+        <div className="text-sm leading-relaxed whitespace-pre-wrap">
+          {message.content}
         </div>
       </div>
-      <ContextMenu
-        visible={contextMenu.visible}
-        x={contextMenu.x}
-        y={contextMenu.y}
-        items={contextMenuItems}
-        onClose={closeContextMenu}
-      />
-      {/* 删除确认对话框 */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={cancelDelete}>
-          <div
-            className="bg-background-surface border border-border rounded-lg shadow-lg p-4 max-w-sm mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <Trash2 className="w-5 h-5 text-error" />
-              <span className="text-text-primary font-medium">{t('message.deleteConfirmTitle') || '删除消息'}</span>
-            </div>
-            <p className="text-text-secondary text-sm mb-4">
-              {t('message.deleteConfirmText') || '确定要删除这条消息吗？删除后无法恢复。'}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={cancelDelete}>
-                {t('message.cancel') || '取消'}
-              </Button>
-              <Button variant="danger" size="sm" onClick={confirmDelete}>
-                {t('message.delete') || '删除'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 });
 
@@ -987,12 +766,6 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFullOutput, setShowFullOutput] = useState(false);
   const [showToolDetails, setShowToolDetails] = useState(false);
-  const [isUndoing, setIsUndoing] = useState(false);
-
-  // 获取 Store
-  const gitStore = useGitStore();
-  const workspaceStore = useWorkspaceStore();
-  const tabStore = useTabStore();
 
   // 获取工具配置
   const toolConfig = useMemo(() => getToolConfig(block.name), [block.name]);
@@ -1093,100 +866,6 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
 
     return isEdit && isCompleted && hasDiff;
   }, [block.name, block.status, block.diffData]);
-
-  // 撤销操作处理 - 多级撤销策略
-  const handleUndo = useCallback(async () => {
-    if (!block.diffData) return;
-
-    const workspace = workspaceStore.getCurrentWorkspace();
-    if (!workspace || !workspace.path) {
-      console.error('[ToolCallBlock] 无法获取当前工作区');
-      return;
-    }
-
-    setIsUndoing(true);
-    try {
-      // Level 1: 使用 fullOldContent（精确撤销）
-      if (block.diffData.fullOldContent && block.diffData.fullOldContent.length > 0) {
-        await invoke('write_file_absolute', {
-          path: block.diffData.filePath,
-          content: block.diffData.fullOldContent
-        });
-
-        await gitStore.refreshStatus(workspace.path);
-
-        console.log('[ToolCallBlock] 撤销成功（Level 1: fullOldContent）', {
-          filePath: block.diffData.filePath,
-          contentLength: block.diffData.fullOldContent.length,
-        });
-        return;
-      }
-
-      // Level 2: 使用 Git discard（降级方案）
-      console.warn('[ToolCallBlock] 使用降级方案：Git discard');
-
-      // 将绝对路径转换为相对路径
-      let relativePath = block.diffData.filePath;
-      if (relativePath.startsWith(workspace.path)) {
-        relativePath = relativePath.substring(workspace.path.length);
-        if (relativePath.startsWith('/') || relativePath.startsWith('\\')) {
-          relativePath = relativePath.substring(1);
-        }
-        relativePath = relativePath.replace(/\\/g, '/');
-      }
-
-      await gitStore.discardChanges(workspace.path, relativePath);
-
-      console.log('[ToolCallBlock] 撤销成功（Level 2: Git discard）', {
-        filePath: block.diffData.filePath,
-        relativePath,
-      });
-    } catch (err) {
-      console.error('[ToolCallBlock] 撤销失败:', err);
-
-      // 显示用户友好的错误提示
-      if (err instanceof Error) {
-        const errorMsg = err.message || '未知错误';
-        console.error(`[ToolCallBlock] 错误详情: ${errorMsg}`);
-      }
-    } finally {
-      setIsUndoing(false);
-    }
-  }, [block.diffData, gitStore, workspaceStore]);
-
-  // 复制文件路径
-  const handleCopyPath = useCallback(() => {
-    if (!block.diffData) return;
-    navigator.clipboard.writeText(block.diffData.filePath);
-  }, [block.diffData]);
-
-  // 在 Git 面板查看
-  const handleOpenInGitPanel = useCallback(async () => {
-    if (!block.diffData) return;
-
-    const workspace = workspaceStore.getCurrentWorkspace();
-    if (!workspace || !workspace.path) return;
-
-    // 将绝对路径转换为相对路径
-    let relativePath = block.diffData.filePath;
-    if (relativePath.startsWith(workspace.path)) {
-      relativePath = relativePath.substring(workspace.path.length);
-      if (relativePath.startsWith('/') || relativePath.startsWith('\\')) {
-        relativePath = relativePath.substring(1);
-      }
-      relativePath = relativePath.replace(/\\/g, '/');
-    }
-
-    try {
-      const diff = await gitStore.getWorktreeFileDiff(
-        workspace.path,
-        relativePath
-      );
-      tabStore.openDiffTab(diff);
-    } catch (err) {
-      console.error('[ToolCallBlock] 打开 Diff 失败:', err);
-    }
-  }, [block.diffData, gitStore, workspaceStore, tabStore]);
 
   // 是否使用专用输出渲染器
   const useCustomRenderer = grepData !== null;
@@ -1339,48 +1018,6 @@ const ToolCallBlockRenderer = memo(function ToolCallBlockRenderer({ block }: { b
                 showStatusHint={false}
                 maxHeight="300px"
               />
-            </div>
-          )}
-
-          {/* Edit 工具：操作按钮组 */}
-          {showDiffButton && block.diffData && (
-            <div className="mb-3 flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={handleUndo}
-                disabled={isUndoing}
-              >
-                {isUndoing ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    {t('tool.undoing')}
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-3 h-3 mr-1" />
-                    {t('tool.undo')}
-                  </>
-                )}
-              </Button>
-
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleCopyPath}
-              >
-                <Copy className="w-3 h-3 mr-1" />
-                {t('tool.copyPath')}
-              </Button>
-
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleOpenInGitPanel}
-              >
-                <GitPullRequest className="w-3 h-3 mr-1" />
-                {t('tool.viewInGitPanel')}
-              </Button>
             </div>
           )}
 
