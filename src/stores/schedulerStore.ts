@@ -381,7 +381,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     const contextId = `scheduler-${id}`;
 
     // 注册状态监听器（只处理 session_end 和 error）
-    const unsubscribeStatus = router.register(contextId, (payload: unknown) => {
+    const unsubscribeStatus = router.register(contextId, async (payload: unknown) => {
       const event = payload as Record<string, unknown>;
 
       // 处理会话结束
@@ -404,7 +404,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
 
         // 路由到会话 Store
         const sessionId = `scheduler-${id}`;
-        const { sessionStoreManager } = require('./conversationStore/sessionStoreManager');
+        const { sessionStoreManager } = await import('./conversationStore/sessionStoreManager');
         sessionStoreManager.getState().dispatchEvent({
           ...event,
           _routeSessionId: sessionId,
@@ -614,7 +614,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     }
 
     // 注册新的处理器
-    const unsubscribe = router.register(contextId, (payload: unknown) => {
+    const unsubscribe = router.register(contextId, async (payload: unknown) => {
       const event = payload as Record<string, unknown>;
       const log = parseEventToLog(event);
 
@@ -625,7 +625,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
       // 关键修改：将事件也路由到会话 Store
       // 这确保会话标签页能正确更新状态
       const sessionId = `scheduler-${taskId}`
-      const { sessionStoreManager } = require('./conversationStore/sessionStoreManager')
+      const { sessionStoreManager } = await import('./conversationStore/sessionStoreManager')
       sessionStoreManager.getState().dispatchEvent({
         ...event,
         _routeSessionId: sessionId,
