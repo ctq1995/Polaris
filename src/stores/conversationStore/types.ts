@@ -269,6 +269,8 @@ export interface SessionManagerActions {
   createSessionFromHistory: (options: import('../../types').ChatMessage[], conversationId: string | null, metadata?: { title?: string; workspaceId?: string }) => string
   deleteSession: (sessionId: string) => void
   switchSession: (sessionId: string) => void
+  /** 更新会话标题 */
+  updateSessionTitle: (sessionId: string, title: string) => void
 
   // ===== Store 访问 =====
   getStore: (sessionId: string) => ConversationStore | undefined

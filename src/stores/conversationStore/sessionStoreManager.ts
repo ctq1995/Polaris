@@ -244,6 +244,27 @@ function createSessionManagerStore() {
       console.log('[SessionStoreManager] 切换会话:', sessionId)
     },
 
+    updateSessionTitle: (sessionId: string, title: string) => {
+      const metadata = get().sessionMetadata.get(sessionId)
+      if (!metadata) {
+        console.warn('[SessionStoreManager] 会话不存在:', sessionId)
+        return
+      }
+
+      // 更新元数据标题
+      set((state) => {
+        const newMetadata = new Map(state.sessionMetadata)
+        newMetadata.set(sessionId, {
+          ...metadata,
+          title,
+          updatedAt: new Date().toISOString(),
+        })
+        return { sessionMetadata: newMetadata }
+      })
+
+      console.log('[SessionStoreManager] 更新会话标题:', sessionId, title)
+    },
+
     makeSessionVisible: (sessionId: string) => {
       const metadata = get().sessionMetadata.get(sessionId)
       if (!metadata) {
@@ -580,6 +601,7 @@ const cachedActions = {
   get createSession() { return sessionStoreManager.getState().createSession },
   get deleteSession() { return sessionStoreManager.getState().deleteSession },
   get switchSession() { return sessionStoreManager.getState().switchSession },
+  get updateSessionTitle() { return sessionStoreManager.getState().updateSessionTitle },
   get makeSessionVisible() { return sessionStoreManager.getState().makeSessionVisible },
   get addToBackground() { return sessionStoreManager.getState().addToBackground },
   get removeFromBackground() { return sessionStoreManager.getState().removeFromBackground },

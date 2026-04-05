@@ -26,8 +26,24 @@ import {
   ErrorSource,
 } from '../../types/errors'
 import { createLogger } from '../../utils/logger'
+import { sessionStoreManager } from '../conversationStore/sessionStoreManager'
 
 const log = createLogger('EventChatStore')
+
+/**
+ * 从用户消息生成标题
+ * 取前 4 个字符作为标题，超出的部分用省略号
+ */
+function generateTitleFromMessage(content: string): string {
+  // 移除换行和多余空格
+  const cleanContent = content.replace(/\n/g, ' ').trim()
+  // 取前 4 个字符
+  const maxTitleLength = 4
+  if (cleanContent.length <= maxTitleLength) {
+    return cleanContent
+  }
+  return cleanContent.slice(0, maxTitleLength) + '...'
+}
 
 /**
  * 获取会话有效工作区
@@ -224,6 +240,16 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       })),
     }
     get().addMessage(userMessage)
+
+    // 如果是第一条消息，更新会话标题
+    const { messages } = get()
+    if (messages.length === 1) {
+      const activeSessionId = sessionStoreManager.getState().activeSessionId
+      if (activeSessionId) {
+        const title = generateTitleFromMessage(content)
+        sessionStoreManager.getState().updateSessionTitle(activeSessionId, title)
+      }
+    }
 
     set({
       isStreaming: true,

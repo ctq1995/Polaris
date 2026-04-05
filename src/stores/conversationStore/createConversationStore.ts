@@ -10,6 +10,22 @@ import { invoke } from '@tauri-apps/api/core'
 import type { ConversationStore, ConversationState, StoreDeps } from './types'
 import { handleAIEvent } from './eventHandler'
 import { toAppError, ErrorSource } from '../../types/errors'
+import { sessionStoreManager } from './sessionStoreManager'
+
+/**
+ * 从用户消息生成标题
+ * 取前 4 个字符作为标题，超出的部分用省略号
+ */
+function generateTitleFromMessage(content: string): string {
+  // 移除换行和多余空格
+  const cleanContent = content.replace(/\n/g, ' ').trim()
+  // 取前 4 个字符
+  const maxTitleLength = 4
+  if (cleanContent.length <= maxTitleLength) {
+    return cleanContent
+  }
+  return cleanContent.slice(0, maxTitleLength) + '...'
+}
 
 /**
  * ConversationStore 实例类型（包含 getState 方法）
@@ -629,7 +645,7 @@ export function createConversationStore(
       // ===== 主动操作 =====
 
       sendMessage: async (content, workspaceDir?, attachments?) => {
-        const { conversationId, sessionId } = get()
+        const { conversationId, sessionId, messages } = get()
         const config = deps.getConfig()
         const engine = config?.defaultEngine || 'claude-code'
 
@@ -651,6 +667,12 @@ export function createConversationStore(
           })),
         }
         get().addMessage(userMessage)
+
+        // 如果是第一条消息，更新会话标题
+        if (messages.length === 0) {
+          const title = generateTitleFromMessage(content)
+          sessionStoreManager.getState().updateSessionTitle(sessionId, title)
+        }
 
         // 清空输入草稿
         get().clearInputDraft()
