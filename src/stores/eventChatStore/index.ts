@@ -77,7 +77,6 @@ export type {
   UnifiedHistoryItem,
   ProviderSessionCache,
   ExternalDependencies,
-  ToolPanelActions,
   GitActions,
   ConfigActions,
   WorkspaceActions,

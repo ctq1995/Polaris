@@ -8,7 +8,6 @@ export { useConfigStore } from './configStore';
 export { useEventChatStore, type UnifiedHistoryItem } from './eventChatStore';
 
 export { useCommandStore } from './commandStore';
-export { useToolPanelStore, updateToolByName, updateToolByToolUseId } from './toolPanelStore';
 export { useWorkspaceStore } from './workspaceStore';
 export { useFileExplorerStore } from './fileExplorerStore';
 export { useFileEditorStore } from './fileEditorStore';

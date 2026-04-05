@@ -5,7 +5,7 @@
  *
  * 使用方式：
  * 1. 在应用初始化时调用 setDependencies() 注入依赖
- * 2. 在 slice 中通过 get()._dependencies 或 getToolPanelActions() 等方法访问依赖
+ * 2. 在 slice 中通过 get()._dependencies 或 getGitActions() 等方法访问依赖
  */
 
 import type { StateCreator } from 'zustand'
@@ -17,7 +17,6 @@ import type {
   DependencyState,
   DependencyActions,
   ExternalDependencies,
-  ToolPanelActions,
   GitActions,
   ConfigActions,
   WorkspaceActions,
@@ -41,10 +40,6 @@ export const createDependencySlice: StateCreator<
   setDependencies: (deps: ExternalDependencies) => {
     set({ _dependencies: deps })
     log.debug('依赖注入完成', { keys: Object.keys(deps) })
-  },
-
-  getToolPanelActions: (): ToolPanelActions | undefined => {
-    return get()._dependencies?.toolPanelActions
   },
 
   getGitActions: (): GitActions | undefined => {

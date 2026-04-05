@@ -7,11 +7,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { create } from 'zustand'
 
-// Mock 依赖注入的 actions
-const mockAddTool = vi.fn()
-const mockUpdateTool = vi.fn()
-const mockClearTools = vi.fn()
-
 // Mock utils module
 vi.mock('./utils', () => ({
   clearFileReadCache: vi.fn(),
@@ -57,11 +52,6 @@ function createTestStore() {
       saveToStorage: vi.fn(),
 
       // 依赖注入方法
-      getToolPanelActions: () => ({
-        addTool: mockAddTool,
-        updateTool: mockUpdateTool,
-        clearTools: mockClearTools,
-      }),
       getGitActions: () => null,
       getConfigActions: () => null,
       getWorkspaceActions: () => null,

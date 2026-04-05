@@ -135,12 +135,6 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
     // 清理文件读取缓存
     clearFileReadCache()
 
-    // 使用注入的依赖清理工具面板
-    const toolPanelActions = get().getToolPanelActions()
-    if (toolPanelActions) {
-      toolPanelActions.clearTools()
-    }
-
     set({
       messages: [],
       archivedMessages: [],
@@ -317,7 +311,6 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
    */
   appendToolCallBlock: (toolId, toolName, input) => {
     const { currentMessage } = get()
-    const toolPanelActions = get().getToolPanelActions()
     const now = new Date().toISOString()
 
     const toolBlock: ToolCallBlock = {
@@ -343,17 +336,6 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
         toolBlockMap: new Map([[toolId, 0]]),
       })
 
-      // 同步到工具面板
-      if (toolPanelActions) {
-        toolPanelActions.addTool({
-          id: toolId,
-          name: toolName,
-          status: 'pending',
-          input,
-          startedAt: now,
-        })
-      }
-
       // 更新进度消息
       const summary = generateToolSummary(toolName, input, 'pending')
       set({ progressMessage: summary })
@@ -378,17 +360,6 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
     // 更新消息列表中的消息
     get().updateCurrentAssistantMessage(updatedBlocks)
 
-    // 同步到工具面板
-    if (toolPanelActions) {
-      toolPanelActions.addTool({
-        id: toolId,
-        name: toolName,
-        status: 'pending',
-        input,
-        startedAt: now,
-      })
-    }
-
     // 更新进度消息
     set({ progressMessage: generateToolSummary(toolName, input, 'pending') })
   },
@@ -398,7 +369,6 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
    */
   updateToolCallBlock: (toolId, status, output, error) => {
     const { currentMessage, toolBlockMap } = get()
-    const toolPanelActions = get().getToolPanelActions()
     const blockIndex = toolBlockMap.get(toolId)
 
     if (!currentMessage || blockIndex === undefined) {
@@ -436,15 +406,6 @@ export const createMessageSlice: MessageSlice = (set, get) => ({
 
     // 更新消息列表中的消息
     get().updateCurrentAssistantMessage(updatedBlocks)
-
-    // 同步到工具面板
-    if (toolPanelActions) {
-      toolPanelActions.updateTool(toolId, {
-        status,
-        output: output ? String(output) : undefined,
-        completedAt: now,
-      })
-    }
 
     // 更新进度消息
     set({ progressMessage: generateToolSummary(block.name, block.input, status) })

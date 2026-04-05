@@ -44,11 +44,6 @@ import type { EventChatState } from './types'
 // 创建测试用的依赖
 function createMockDependencies() {
   return {
-    toolPanelActions: {
-      clearTools: vi.fn(),
-      addTool: vi.fn(),
-      updateTool: vi.fn(),
-    },
     workspaceActions: {
       getCurrentWorkspace: vi.fn(() => ({ path: '/test/workspace' })),
       getWorkspaces: vi.fn(() => []),
@@ -99,7 +94,6 @@ function createTestStore(deps = createMockDependencies()) {
 
     // 依赖注入方法
     setDependencies: vi.fn(),
-    getToolPanelActions: () => deps?.toolPanelActions,
     getGitActions: () => deps?.gitActions,
     getConfigActions: () => deps?.configActions,
     getWorkspaceActions: () => deps?.workspaceActions,

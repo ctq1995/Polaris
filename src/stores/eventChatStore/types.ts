@@ -79,28 +79,6 @@ export interface ProviderSessionCache {
 // ============================================================================
 
 /**
- * ToolPanel 操作接口
- * 用于解耦 eventChatStore 对 toolPanelStore 的直接依赖
- */
-export interface ToolPanelActions {
-  /** 清空工具列表 */
-  clearTools: () => void
-  /** 添加工具 */
-  addTool: (tool: {
-    id: string
-    name: string
-    status: ToolStatus
-    input?: Record<string, unknown>
-    startedAt: string
-  }) => void
-  /** 更新工具状态 */
-  updateTool: (
-    id: string,
-    updates: { status?: ToolStatus; output?: string; completedAt?: string }
-  ) => void
-}
-
-/**
  * Git 操作接口
  * 用于解耦 eventChatStore 对 gitStore 的直接依赖
  */
@@ -173,7 +151,6 @@ export interface SessionSyncActions {
  * 外部依赖集合
  */
 export interface ExternalDependencies {
-  toolPanelActions?: ToolPanelActions
   gitActions?: GitActions
   configActions?: ConfigActions
   workspaceActions?: WorkspaceActions
@@ -444,8 +421,6 @@ export interface HistoryActions {
 export interface DependencyActions {
   /** 设置外部依赖 */
   setDependencies: (deps: ExternalDependencies) => void
-  /** 获取工具面板操作 */
-  getToolPanelActions: () => ToolPanelActions | undefined
   /** 获取 Git 操作 */
   getGitActions: () => GitActions | undefined
   /** 获取配置操作 */

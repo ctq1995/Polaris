@@ -19,13 +19,11 @@ export interface CompactModeState {
 interface ViewState {
   showSidebar: boolean;
   showEditor: boolean;
-  showToolPanel: boolean;
   showDeveloperPanel: boolean;
   showGitPanel: boolean;      // Git 面板
   showSessionHistory: boolean; // 会话历史面板
   sidebarWidth: number;      // 侧边栏宽度（像素）
   editorWidth: number;       // 编辑器宽度百分比（0-100）
-  toolPanelWidth: number;    // 工具面板宽度（像素）
   developerPanelWidth: number; // Developer 面板宽度（像素）
   gitPanelWidth: number;     // Git 面板宽度（像素）
   // 新布局相关状态
@@ -37,13 +35,15 @@ interface ViewState {
   // 小屏模式状态
   compactMode: CompactModeState; // 小屏模式
   schedulerLogDrawerHeight: number; // 日志抽屉高度
+  // 多会话窗口模式
+  multiSessionMode: boolean;     // 是否开启多会话窗口模式
+  multiSessionIds: string[];     // 多会话窗口中显示的会话 ID 列表
 }
 
 /** 视图操作 */
 interface ViewActions {
   toggleSidebar: () => void;
   toggleEditor: () => void;
-  toggleToolPanel: () => void;
   toggleDeveloperPanel: () => void;
   toggleGitPanel: () => void;
   toggleSessionHistory: () => void;
@@ -52,7 +52,6 @@ interface ViewActions {
   resetView: () => void;
   setSidebarWidth: (width: number) => void;
   setEditorWidth: (width: number) => void;
-  setToolPanelWidth: (width: number) => void;
   setDeveloperPanelWidth: (width: number) => void;
   setGitPanelWidth: (width: number) => void;
   // 新布局相关操作
@@ -68,6 +67,11 @@ interface ViewActions {
   updateCompactMode: (state: Partial<CompactModeState>) => void;
   // 日志抽屉高度
   setSchedulerLogDrawerHeight: (height: number) => void;
+  // 多会话窗口操作
+  toggleMultiSessionMode: () => void;
+  setMultiSessionIds: (ids: string[]) => void;
+  addToMultiView: (sessionId: string) => void;
+  removeFromMultiView: (sessionId: string) => void;
 }
 
 /** 完整的 View Store 类型 */
@@ -79,13 +83,11 @@ export const useViewStore = create<ViewStore>()(
       // 初始状态
       showSidebar: true,
       showEditor: false,
-      showToolPanel: true,
       showDeveloperPanel: false,  // 默认关闭 Developer 面板
       showGitPanel: false,       // 默认关闭 Git 面板
       showSessionHistory: false,  // 默认关闭会话历史面板
       sidebarWidth: 240,
       editorWidth: 50,
-      toolPanelWidth: 320,
       developerPanelWidth: 400,
       gitPanelWidth: 320,
       // 新布局初始状态
@@ -101,6 +103,9 @@ export const useViewStore = create<ViewStore>()(
         windowHeight: 800,
       },
       schedulerLogDrawerHeight: 128, // 默认 128px
+      // 多会话窗口初始状态
+      multiSessionMode: false,      // 默认单会话模式
+      multiSessionIds: [],          // 默认空列表
 
       // 切换侧边栏
       toggleSidebar: () => set((state) => ({ showSidebar: !state.showSidebar })),
@@ -110,9 +115,6 @@ export const useViewStore = create<ViewStore>()(
 
       // 设置编辑器显示状态
       setShowEditor: (show: boolean) => set({ showEditor: show }),
-
-      // 切换工具面板
-      toggleToolPanel: () => set((state) => ({ showToolPanel: !state.showToolPanel })),
 
       // 切换 Developer 面板
       toggleDeveloperPanel: () => set((state) => ({ showDeveloperPanel: !state.showDeveloperPanel })),
@@ -127,7 +129,6 @@ export const useViewStore = create<ViewStore>()(
       setAIOnlyMode: () => set({
         showSidebar: false,
         showEditor: false,
-        showToolPanel: false,
         showDeveloperPanel: false,
       }),
 
@@ -135,7 +136,6 @@ export const useViewStore = create<ViewStore>()(
       resetView: () => set({
         showSidebar: true,
         showEditor: false,
-        showToolPanel: true,
         showDeveloperPanel: false,
       }),
 
@@ -144,9 +144,6 @@ export const useViewStore = create<ViewStore>()(
 
       // 设置编辑器宽度百分比
       setEditorWidth: (width: number) => set({ editorWidth: width }),
-
-      // 设置工具面板宽度
-      setToolPanelWidth: (width: number) => set({ toolPanelWidth: width }),
 
       // 设置 Developer 面板宽度
       setDeveloperPanelWidth: (width: number) => set({ developerPanelWidth: width }),
@@ -201,6 +198,31 @@ export const useViewStore = create<ViewStore>()(
 
       // 设置日志抽屉高度
       setSchedulerLogDrawerHeight: (height: number) => set({ schedulerLogDrawerHeight: height }),
+
+      // === 多会话窗口操作 ===
+
+      // 切换多会话窗口模式
+      toggleMultiSessionMode: () => set((state) => ({
+        multiSessionMode: !state.multiSessionMode,
+        // 开启时，如果列表为空则默认显示当前活跃会话
+        multiSessionIds: !state.multiSessionMode && state.multiSessionIds.length === 0
+          ? [] // 由外部负责填充当前活跃会话
+          : state.multiSessionIds
+      })),
+
+      // 设置多会话窗口中的会话列表
+      setMultiSessionIds: (ids: string[]) => set({ multiSessionIds: ids }),
+
+      // 添加会话到多窗口视图
+      addToMultiView: (sessionId: string) => set((state) => {
+        if (state.multiSessionIds.includes(sessionId)) return state;
+        return { multiSessionIds: [...state.multiSessionIds, sessionId] };
+      }),
+
+      // 从多窗口视图移除会话
+      removeFromMultiView: (sessionId: string) => set((state) => ({
+        multiSessionIds: state.multiSessionIds.filter(id => id !== sessionId)
+      })),
     }),
     {
       name: 'view-store',

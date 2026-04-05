@@ -83,8 +83,7 @@ export function handleAIEvent(
   })
 
   const state = storeGet()
-  const toolPanelActions = state.getToolPanelActions()
-  const gitActions = state.getGitActions()
+    const gitActions = state.getGitActions()
 
   switch (event.type) {
     case 'session_start':
@@ -101,9 +100,6 @@ export function handleAIEvent(
         }
       }
 
-      if (toolPanelActions) {
-        toolPanelActions.clearTools()
-      }
       break
 
     case 'session_end':

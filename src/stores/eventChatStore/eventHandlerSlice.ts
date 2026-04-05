@@ -4,7 +4,6 @@
  * 负责事件监听初始化、消息发送、会话控制
  *
  * 已使用依赖注入模式解耦外部 Store：
- * - toolPanelActions: clearTools, addTool, updateTool
  * - workspaceActions: getCurrentWorkspace, getWorkspaces, getContextWorkspaces
  * - configActions: getConfig
  */
@@ -258,10 +257,7 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       toolBlockMap: new Map(),
     })
 
-    // 使用依赖注入清理工具面板
-    const toolPanelActions = get().getToolPanelActions()
-    toolPanelActions?.clearTools()
-
+    
     try {
       // 使用依赖注入获取配置
       const configActions = get().getConfigActions()
@@ -658,10 +654,6 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       toolBlockMap: new Map(),
     })
 
-    // 清理工具面板
-    const toolPanelActions = get().getToolPanelActions()
-    toolPanelActions?.clearTools()
-
     try {
       const configActions = get().getConfigActions()
       const config = configActions?.getConfig()
@@ -838,10 +830,6 @@ export const createEventHandlerSlice: EventHandlerSlice = (set, get) => ({
       currentMessage: null,
       toolBlockMap: new Map(),
     })
-
-    // 清理工具面板
-    const toolPanelActions = get().getToolPanelActions()
-    toolPanelActions?.clearTools()
 
     try {
       const configActions = get().getConfigActions()

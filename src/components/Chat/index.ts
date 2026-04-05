@@ -2,7 +2,6 @@
  * 聊天组件导出
  */
 
-export { MessageBubble } from './MessageBubble';
 export { ChatInput } from './ChatInput';
 export { SessionHistoryPanel } from './SessionHistoryPanel';
 export { AIPopover } from './AIPopover';

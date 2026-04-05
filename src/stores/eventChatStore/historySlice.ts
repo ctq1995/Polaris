@@ -6,7 +6,6 @@
  * 已使用依赖注入模式解耦外部 Store：
  * - configActions: getConfig
  * - workspaceActions: getCurrentWorkspace
- * - toolPanelActions: clearTools, addTool
  *
  * 持久化说明：
  * - 会话元数据由 zustand persist 中间件自动持久化
