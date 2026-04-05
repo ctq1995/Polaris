@@ -8,7 +8,6 @@ import { TopMenuBar as TopMenuBarComponent } from './components/TopMenuBar';
 import { GitPanel } from './components/GitPanel';
 import { ActivityBar, LeftPanel, LeftPanelContent, CenterStage, RightPanel } from './components/Layout';
 import { EnhancedChatMessages, ChatInput, ChatStatusBar, SessionHistoryPanel } from './components/Chat';
-import { CompactMode } from './components/CompactMode';
 import type { SettingsTabId } from './components/Settings/SettingsSidebar';
 import { SimpleTodoPanel } from './components/TodoPanel/SimpleTodoPanel';
 import { TranslatePanel, SelectionContextMenu } from './components/Translate';
@@ -182,11 +181,7 @@ function App() {
         }
 
         // 按需初始化传统 AI Engine
-        const codexConfig = {
-          executablePath: config?.codex.cliPath || 'codex',
-        };
-
-        await bootstrapEngines(defaultEngine as any, codexConfig);
+        await bootstrapEngines(defaultEngine as any);
 
         // 初始化 Agent 系统
         await bootstrapAgents();
@@ -505,83 +500,73 @@ function App() {
         isCompactMode={isCompact}
       />
 
-      {/* 小屏模式：精简对话界面 */}
-      {isCompact ? (
-        <div className="flex-1 overflow-hidden">
-          <CompactMode
-            onSend={sendMessage}
-            onInterrupt={interruptChat}
-            disabled={!currentWorkspace}
-            isStreaming={isStreaming}
-          />
-        </div>
-      ) : (
-        /* 正常模式：完整布局 */
-        <div className="flex flex-1 overflow-hidden relative">
-          {/* Activity Bar - 支持折叠和悬停显示 */}
+      {/* 主内容区域 - 正常模式和小窗模式统一布局 */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Activity Bar - 仅正常模式显示 */}
+        {!isCompact && (
           <ActivityBar
             onOpenSettings={() => setShowSettings(true)}
             onToggleRightPanel={toggleRightPanel}
             rightPanelCollapsed={rightPanelCollapsed}
           />
+        )}
 
-          {/* 左侧可切换面板 (FileExplorer 或 GitPanel 或 TodoPanel 或 ToolPanel 或 DeveloperPanel) - 条件显示 */}
-          {hasLeftPanel && (
-            <LeftPanel fillRemaining={leftPanelFillRemaining}>
-              <LeftPanelContent
-                filesContent={<FileExplorer />}
-                gitContent={
-                  <GitPanel
-                    onOpenDiffInTab={(diff) => {
-                      openDiffTab(diff);
-                    }}
-                  />
-                }
-                todoContent={<SimpleTodoPanel />}
-                translateContent={<TranslatePanel onSendToChat={sendMessage} />}
-                schedulerContent={<SchedulerPanel />}
-                requirementContent={<RequirementPanel />}
-                terminalContent={<TerminalPanel />}
-                toolsContent={<ToolPanel fillRemaining />}
-                developerContent={
-                  <Suspense fallback={<div className="flex items-center justify-center h-full text-text-muted">{t('status.loading')}</div>}>
-                    <DeveloperPanel fillRemaining />
-                  </Suspense>
-                }
-              />
-            </LeftPanel>
+        {/* 左侧可切换面板 - 仅正常模式显示 */}
+        {!isCompact && hasLeftPanel && (
+          <LeftPanel fillRemaining={leftPanelFillRemaining}>
+            <LeftPanelContent
+              filesContent={<FileExplorer />}
+              gitContent={
+                <GitPanel
+                  onOpenDiffInTab={(diff) => {
+                    openDiffTab(diff);
+                  }}
+                />
+              }
+              todoContent={<SimpleTodoPanel />}
+              translateContent={<TranslatePanel onSendToChat={sendMessage} />}
+              schedulerContent={<SchedulerPanel />}
+              requirementContent={<RequirementPanel />}
+              terminalContent={<TerminalPanel />}
+              toolsContent={<ToolPanel fillRemaining />}
+              developerContent={
+                <Suspense fallback={<div className="flex items-center justify-center h-full text-text-muted">{t('status.loading')}</div>}>
+                  <DeveloperPanel fillRemaining />
+                </Suspense>
+              }
+            />
+          </LeftPanel>
+        )}
+
+        {/* 中间编辑区 (Tab 系统) - 仅正常模式显示 */}
+        {!isCompact && hasCenterStage && <CenterStage fillRemaining={centerStageFillRemaining} />}
+
+        {/* 右侧 AI 对话面板 - 小窗模式始终显示，正常模式可折叠 */}
+        {(isCompact || !rightPanelCollapsed) && (
+          <RightPanel fillRemaining={isCompact || rightPanelFillRemaining}>
+          {/* 错误提示 */}
+          {error && (
+            <div className="mx-4 mt-4 p-3 bg-danger-faint border border-danger/30 rounded-xl text-danger text-sm shrink-0">
+              {error}
+            </div>
           )}
 
-          {/* 中间编辑区 (Tab 系统) */}
-          <CenterStage fillRemaining={centerStageFillRemaining} />
+          {/* 消息区域 */}
+          <EnhancedChatMessages />
 
-          {/* 右侧 AI 对话面板 */}
-          {!rightPanelCollapsed && (
-            <RightPanel fillRemaining={rightPanelFillRemaining}>
-              {/* 错误提示 */}
-              {error && (
-                <div className="mx-4 mt-4 p-3 bg-danger-faint border border-danger/30 rounded-xl text-danger text-sm shrink-0">
-                  {error}
-                </div>
-              )}
+          {/* 对话状态栏 */}
+          <ChatStatusBar />
 
-              {/* 消息区域 */}
-              <EnhancedChatMessages />
-
-              {/* 对话状态栏 */}
-              <ChatStatusBar />
-
-              {/* 输入区域 */}
-              <ChatInput
-                onSend={sendMessage}
-                onInterrupt={interruptChat}
-                disabled={!currentWorkspace}
-                isStreaming={isStreaming}
-              />
-            </RightPanel>
-          )}
-        </div>
-      )}
+          {/* 输入区域 */}
+          <ChatInput
+            onSend={sendMessage}
+            onInterrupt={interruptChat}
+            disabled={!currentWorkspace}
+            isStreaming={isStreaming}
+          />
+        </RightPanel>
+        )}
+      </div>
 
       {/* 设置模态框 */}
       {showSettings && (
