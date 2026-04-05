@@ -2,17 +2,16 @@
  * FloatingIsland - 悬浮岛主组件
  *
  * 位于聊天区域顶部居中，包含：
- * - 导航按钮（预留）
+ * - Q 图标（窗口拖拽区域）
  * - 会话选择器
  * - 工作区选择器
- * - 更多工具按钮（预留）
+ * - 更多工具按钮
  */
 
 import { memo, useState, useCallback, useRef, useEffect } from 'react'
 import { cn } from '@/utils/cn'
 import { SessionSelector } from './SessionSelector'
 import { WorkspaceSelector } from './WorkspaceSelector'
-import { NavigationButton } from './NavigationButton'
 import { MoreToolsButton } from './MoreToolsButton'
 
 export const FloatingIsland = memo(function FloatingIsland() {
@@ -77,8 +76,14 @@ export const FloatingIsland = memo(function FloatingIsland() {
           'shadow-lg shadow-black/5'
         )}
       >
-        {/* 左导航按钮（预留） */}
-        <NavigationButton direction="prev" disabled />
+        {/* Q 图标（窗口拖拽区域） */}
+        <div
+          data-tauri-drag-region
+          className="flex items-center justify-center w-7 h-7 rounded-full cursor-move select-none"
+          title="拖拽移动窗口"
+        >
+          <span className="text-xs font-bold text-primary pointer-events-none">Q</span>
+        </div>
 
         {/* 分隔线 */}
         <div className="w-px h-5 bg-border" />
@@ -105,9 +110,6 @@ export const FloatingIsland = memo(function FloatingIsland() {
 
         {/* 更多工具按钮 */}
         <MoreToolsButton />
-
-        {/* 右导航按钮（预留） */}
-        <NavigationButton direction="next" disabled />
       </div>
     </div>
   )

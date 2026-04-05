@@ -5,5 +5,4 @@
 export { FloatingIsland } from './FloatingIsland'
 export { SessionSelector } from './SessionSelector'
 export { WorkspaceSelector } from './WorkspaceSelector'
-export { NavigationButton } from './NavigationButton'
 export { MoreToolsButton } from './MoreToolsButton'

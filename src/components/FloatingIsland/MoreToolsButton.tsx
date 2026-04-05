@@ -20,6 +20,8 @@ import {
   Square,
   X,
   Loader2,
+  PanelLeft,
+  PanelLeftClose,
 } from 'lucide-react'
 import { useViewStore } from '@/stores'
 import { useActiveSessionMessages } from '@/stores/conversationStore/useActiveSession'
@@ -125,7 +127,7 @@ const MoreToolsDropdown = memo(function MoreToolsDropdown({
   position,
   onClose,
 }: MoreToolsDropdownProps) {
-  const { toggleSessionHistory } = useViewStore()
+  const { toggleSessionHistory, activityBarCollapsed, toggleActivityBar } = useViewStore()
   const { messages } = useActiveSessionMessages()
   const [isExporting, setIsExporting] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
@@ -191,6 +193,12 @@ const MoreToolsDropdown = memo(function MoreToolsDropdown({
   // 历史会话
   const handleHistory = () => {
     toggleSessionHistory()
+    onClose()
+  }
+
+  // 左侧边栏切换
+  const handleToggleSidebar = () => {
+    toggleActivityBar()
     onClose()
   }
 
@@ -261,6 +269,11 @@ const MoreToolsDropdown = memo(function MoreToolsDropdown({
             icon={Clock}
             label="历史会话"
             onClick={handleHistory}
+          />
+          <MenuItem
+            icon={activityBarCollapsed ? PanelLeft : PanelLeftClose}
+            label={activityBarCollapsed ? '显示侧边栏' : '隐藏侧边栏'}
+            onClick={handleToggleSidebar}
           />
         </div>
 
