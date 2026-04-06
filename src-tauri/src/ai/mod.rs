@@ -13,6 +13,7 @@ mod engine;
 mod history;
 mod history_claude;
 mod event_parser;
+mod adapters;
 
 pub use traits::{EngineId, SessionOptions, HistoryEntry};
 pub use registry::EngineRegistry;
@@ -21,3 +22,9 @@ pub use history::{
     Pagination, PagedResult, SessionMeta, HistoryMessage, SessionHistoryProvider,
 };
 pub use history_claude::ClaudeHistoryProvider;
+pub use adapters::{
+    ContentBlockDelta, ContentBlockDeltaEvent, ContentBlockStartEvent, ContentBlockStopEvent,
+    InputContentBlock, InputMessage, MessageDelta, MessageDeltaEvent, MessageRequest,
+    MessageResponse, MessageStartEvent, MessageStopEvent, OutputContentBlock, StreamEvent,
+    ToolChoice, ToolDefinition, ToolResultContentBlock, Usage,
+};
