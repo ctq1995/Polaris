@@ -652,6 +652,15 @@ export function createConversationStore(
         // 获取工作区路径（提前声明，用于错误处理）
         const actualWorkspaceDir = workspaceDir || deps.getWorkspace()?.path
 
+        // 调试日志：打印工作区信息
+        console.log('[ConversationStore] sendMessage 调试信息:', {
+          sessionId,
+          conversationId,
+          providedWorkspaceDir: workspaceDir,
+          actualWorkspaceDir,
+          depsWorkspace: deps.getWorkspace(),
+        })
+
         // 构建用户消息
         const userMessage = {
           id: crypto.randomUUID(),
@@ -776,6 +785,13 @@ export function createConversationStore(
         const actualWorkspaceDir = deps.getWorkspace()?.path
         const config = deps.getConfig()
         const currentEngine = config?.defaultEngine || 'claude-code'
+
+        // 调试日志：打印工作区信息
+        console.log('[ConversationStore] continueChat 调试信息:', {
+          conversationId,
+          actualWorkspaceDir,
+          depsWorkspace: deps.getWorkspace(),
+        })
 
         const normalizedPrompt = prompt
           .replace(/\r\n/g, '\\n')

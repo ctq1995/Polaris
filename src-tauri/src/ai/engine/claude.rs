@@ -363,6 +363,9 @@ impl AIEngine for ClaudeEngine {
         options: SessionOptions,
     ) -> Result<String> {
         tracing::info!("[ClaudeEngine] 启动会话，消息长度: {}", message.len());
+        tracing::info!("[ClaudeEngine] 系统提示词: {:?}", options.system_prompt);
+        tracing::info!("[ClaudeEngine] 工作目录: {:?}", options.work_dir);
+        tracing::info!("[ClaudeEngine] MCP 配置路径: {:?}", options.mcp_config_path);
 
         // 检查 CLI 可用性
         if !self.check_cli_available() {
@@ -403,6 +406,9 @@ impl AIEngine for ClaudeEngine {
         options: SessionOptions,
     ) -> Result<()> {
         tracing::info!("[ClaudeEngine] 继续会话: {}, 消息长度: {}", session_id, message.len());
+        tracing::info!("[ClaudeEngine] 系统提示词: {:?}", options.system_prompt);
+        tracing::info!("[ClaudeEngine] 工作目录: {:?}", options.work_dir);
+        tracing::info!("[ClaudeEngine] MCP 配置路径: {:?}", options.mcp_config_path);
 
         // 检查 CLI 可用性（确保 node_exe 和 cli_js 已初始化）
         if !self.check_cli_available() {

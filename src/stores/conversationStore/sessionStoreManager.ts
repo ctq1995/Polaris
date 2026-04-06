@@ -56,6 +56,13 @@ function createSessionManagerStore() {
       const sessionId = options.id || crypto.randomUUID()
       const timestamp = new Date().toISOString()
 
+      console.log('[SessionStoreManager] createSession 调用:', {
+        sessionId,
+        optionsWorkspaceId: options.workspaceId,
+        optionsType: options.type,
+        optionsTitle: options.title,
+      })
+
       // 检查会话是否已存在
       if (get().stores.has(sessionId)) {
         console.log('[SessionStoreManager] 会话已存在:', sessionId)
@@ -76,6 +83,12 @@ function createSessionManagerStore() {
         updatedAt: timestamp,
       }
 
+      console.log('[SessionStoreManager] 创建会话元数据:', {
+        sessionId,
+        metadataWorkspaceId: metadata.workspaceId,
+        metadataType: metadata.type,
+      })
+
       // 构建依赖注入
       const contextId = `session-${sessionId}`
       const deps: StoreDeps = {
@@ -84,8 +97,42 @@ function createSessionManagerStore() {
           return state.config as { defaultEngine?: string } | null
         },
         getWorkspace: () => {
-          const state = useWorkspaceStore.getState()
-          return state.getCurrentWorkspace()
+          // 获取【当前会话】的工作区（优先级：会话工作区 > 全局工作区）
+          // 注意：这里使用创建时绑定的 sessionId，而不是 activeSessionId
+          // 确保每个会话使用自己的工作区，不受会话切换影响
+          const managerState = get()
+          const workspaceState = useWorkspaceStore.getState()
+
+          // 调试日志
+          console.log('[SessionStoreManager] deps.getWorkspace 调用:', {
+            boundSessionId: sessionId,
+            activeSessionId: managerState.activeSessionId,
+          })
+
+          // 优先使用当前会话的工作区
+          const metadata = managerState.sessionMetadata.get(sessionId)
+          console.log('[SessionStoreManager] 会话元数据:', {
+            sessionId,
+            metadataWorkspaceId: metadata?.workspaceId,
+            metadataWorkspaceName: metadata?.workspaceName,
+          })
+
+          if (metadata?.workspaceId) {
+            const workspace = workspaceState.workspaces.find(w => w.id === metadata.workspaceId)
+            console.log('[SessionStoreManager] 查找工作区结果:', {
+              workspaceId: metadata.workspaceId,
+              foundWorkspace: workspace ? { id: workspace.id, name: workspace.name, path: workspace.path } : null,
+            })
+            if (workspace) {
+              console.log('[SessionStoreManager] 返回会话工作区:', workspace.path)
+              return workspace
+            }
+          }
+
+          // 回退到全局工作区
+          const globalWorkspace = workspaceState.getCurrentWorkspace()
+          console.log('[SessionStoreManager] 回退到全局工作区:', globalWorkspace?.path)
+          return globalWorkspace
         },
         getEventRouter: () => getEventRouter(),
         contextId,
@@ -507,11 +554,22 @@ function createSessionManagerStore() {
         return
       }
 
+      console.log('[SessionStoreManager] updateSessionWorkspace 调用:', {
+        sessionId,
+        newWorkspaceId: workspaceId,
+        oldWorkspaceId: metadata.workspaceId,
+      })
+
       // 获取工作区名称
       let workspaceName: string | undefined
       if (workspaceId) {
         const workspace = useWorkspaceStore.getState().workspaces.find(w => w.id === workspaceId)
         workspaceName = workspace?.name
+        console.log('[SessionStoreManager] 找到工作区:', {
+          workspaceId,
+          workspaceName,
+          workspacePath: workspace?.path,
+        })
       }
 
       // 更新 SessionMetadata
@@ -535,7 +593,7 @@ function createSessionManagerStore() {
         store.setState({ workspaceId })
       }
 
-      console.log('[SessionStoreManager] 更新会话工作区:', sessionId, workspaceId)
+      console.log('[SessionStoreManager] 更新会话工作区完成:', sessionId, workspaceId)
     },
 
     addContextWorkspace: (sessionId: string, workspaceId: string) => {
