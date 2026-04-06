@@ -125,6 +125,8 @@ pub async fn scheduler_update_task(
         // === 其他 ===
         group: task.group,
         notify_on_complete: Some(task.notify_on_complete),
+        // === 后执行配置 ===
+        post_execution: task.post_execution,
         ..Default::default()
     })
 }

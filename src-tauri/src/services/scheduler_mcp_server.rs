@@ -361,6 +361,7 @@ fn execute_create_task(arguments: Value, repository: &UnifiedSchedulerRepository
         timeout_minutes: None,
         group: None,
         notify_on_complete: true,
+        post_execution: None,
     };
 
     let task = repository.create_task(params)?;

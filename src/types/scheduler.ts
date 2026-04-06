@@ -7,6 +7,29 @@
 /** 触发类型 */
 export type TriggerType = 'once' | 'cron' | 'interval';
 
+/** 后执行条件类型 */
+export type PostExecutionCondition =
+  | 'always'        // 无条件执行
+  | 'on_success'    // 仅成功时执行
+  | 'on_failure'    // 仅失败时执行
+  | 'has_pending_work'; // 协议模式：检查是否有待办任务
+
+/** 后执行配置 */
+export interface PostExecutionConfig {
+  /** A: 循环执行 - 完成后继续执行自身 */
+  continueSelf?: boolean;
+  /** 循环执行延迟 (如 "5m", "1h") */
+  continueDelay?: string;
+  /** B: 链式触发 - 完成后触发其他任务 */
+  triggerTasks?: string[];
+  /** 链式触发延迟 */
+  triggerDelay?: string;
+  /** D: 条件控制 */
+  condition?: PostExecutionCondition;
+  /** 达到最大次数后禁用任务 */
+  disableOnMaxRuns?: boolean;
+}
+
 /** 任务执行状态 */
 export type TaskStatus = 'running' | 'success' | 'failed';
 
@@ -264,6 +287,10 @@ export interface ScheduledTask {
   group?: string;
   /** 完成通知 */
   notifyOnComplete: boolean;
+
+  // === 后执行配置 ===
+  /** 后执行配置 */
+  postExecution?: PostExecutionConfig;
 }
 
 /** 创建任务参数 */
@@ -321,6 +348,10 @@ export interface CreateTaskParams {
   group?: string;
   /** 完成通知 */
   notifyOnComplete?: boolean;
+
+  // === 后执行配置 ===
+  /** 后执行配置 */
+  postExecution?: PostExecutionConfig;
 }
 
 // ============ 调度器状态 ============

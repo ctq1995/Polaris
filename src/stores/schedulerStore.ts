@@ -18,6 +18,7 @@ import type {
   ProtocolTemplate,
   CreateProtocolTemplateParams,
   TaskCategory,
+  PostExecutionCondition,
 } from '../types/scheduler';
 import type { AIEvent } from '../ai-runtime';
 import * as tauri from '../services/tauri';
@@ -214,6 +215,12 @@ interface SchedulerState {
   toggleProtocolTemplate: (id: string, enabled: boolean) => Promise<void>;
   /** 使用模板生成协议文档 */
   renderProtocolDocument: (template: ProtocolTemplate, params: Record<string, string>) => Promise<string>;
+
+  // === 后执行逻辑 ===
+  /** 评估后执行条件 */
+  evaluatePostExecutionCondition: (taskId: string, condition: PostExecutionCondition, executionStatus: 'success' | 'failed') => Promise<boolean>;
+  /** 处理后执行逻辑 */
+  handlePostExecution: (taskId: string, executionStatus: 'success' | 'failed') => Promise<void>;
 }
 
 export const useSchedulerStore = create<SchedulerState>((set, get) => ({
@@ -473,6 +480,11 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
             t.id === id ? { ...t, lastRunStatus: status } : t
           ),
         };
+      });
+
+      // 处理后执行逻辑（异步执行，不阻塞当前流程）
+      get().handlePostExecution(id, status).catch(e => {
+        console.error('[Scheduler] 后执行处理失败:', e);
       });
     } catch (e) {
       console.error('更新任务执行状态失败:', e);
@@ -917,4 +929,173 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   renderProtocolDocument: async (template, params) => {
     return await tauri.schedulerRenderProtocolDocument(template, params);
   },
+
+  // === 后执行逻辑 ===
+
+  /**
+   * 评估后执行条件
+   * @param taskId 任务 ID
+   * @param condition 条件类型
+   * @param executionStatus 执行状态 ('success' | 'failed')
+   * @returns 是否满足条件
+   */
+  evaluatePostExecutionCondition: async (
+    taskId: string,
+    condition: PostExecutionCondition,
+    executionStatus: 'success' | 'failed'
+  ): Promise<boolean> => {
+    // always: 无条件执行
+    if (condition === 'always') {
+      return true;
+    }
+
+    // on_success: 仅成功时执行
+    if (condition === 'on_success') {
+      return executionStatus === 'success';
+    }
+
+    // on_failure: 仅失败时执行
+    if (condition === 'on_failure') {
+      return executionStatus === 'failed';
+    }
+
+    // has_pending_work: 检查是否有待办任务（协议模式）
+    if (condition === 'has_pending_work') {
+      try {
+        const task = get().tasks.find(t => t.id === taskId);
+        if (!task || task.mode !== 'protocol' || !task.taskPath || !task.workDir) {
+          // 非协议模式或缺少路径信息，默认返回 true
+          return true;
+        }
+
+        // 读取 memory/tasks.md 检查是否有待办任务
+        const { invoke } = await import('@tauri-apps/api/core');
+        const tasksContent = await invoke<string>('scheduler_read_memory_tasks', {
+          taskPath: task.taskPath,
+          workDir: task.workDir,
+        });
+
+        // 检查是否有未完成的待办项（- [ ] 格式）
+        const pendingTaskRegex = /^[-*]\s+\[ \]/m;
+        return pendingTaskRegex.test(tasksContent);
+      } catch (e) {
+        console.error('[Scheduler] 检查待办任务失败:', e);
+        return false;
+      }
+    }
+
+    return false;
+  },
+
+  /**
+   * 处理后执行逻辑
+   * 在任务执行完成后调用，处理循环执行和链式触发
+   * @param taskId 任务 ID
+   * @param executionStatus 执行状态 ('success' | 'failed')
+   */
+  handlePostExecution: async (taskId: string, executionStatus: 'success' | 'failed') => {
+    const task = get().tasks.find(t => t.id === taskId);
+    if (!task || !task.postExecution) {
+      return;
+    }
+
+    const config = task.postExecution;
+    console.log('[Scheduler] 处理后执行逻辑:', { taskId, config, executionStatus });
+
+    // 1. 评估条件
+    const condition = config.condition || 'always';
+    const shouldExecute = await get().evaluatePostExecutionCondition(taskId, condition, executionStatus);
+
+    if (!shouldExecute) {
+      console.log('[Scheduler] 后执行条件不满足，跳过:', { taskId, condition, executionStatus });
+      return;
+    }
+
+    // 2. 处理循环执行 (continueSelf)
+    if (config.continueSelf) {
+      const currentRuns = task.currentRuns || 0;
+      const maxRuns = task.maxRuns;
+
+      // 检查是否达到最大执行次数
+      if (maxRuns && currentRuns >= maxRuns) {
+        console.log('[Scheduler] 已达到最大执行次数，不再继续:', { taskId, currentRuns, maxRuns });
+
+        // 如果配置了达到最大次数后禁用任务
+        if (config.disableOnMaxRuns) {
+          await get().toggleTask(taskId, false);
+          console.log('[Scheduler] 已禁用任务:', taskId);
+        }
+      } else {
+        // 计算延迟时间
+        const delayMs = config.continueDelay ? parseDelayToMs(config.continueDelay) : 0;
+
+        console.log('[Scheduler] 计划继续执行自身:', { taskId, delayMs, currentRuns });
+
+        // 延迟后重新触发
+        if (delayMs > 0) {
+          setTimeout(() => {
+            get().runTask(taskId, { subscribe: false });
+          }, delayMs);
+        } else {
+          // 立即触发
+          await get().runTask(taskId, { subscribe: false });
+        }
+      }
+    }
+
+    // 3. 处理链式触发 (triggerTasks)
+    if (config.triggerTasks && config.triggerTasks.length > 0) {
+      const triggerDelayMs = config.triggerDelay ? parseDelayToMs(config.triggerDelay) : 0;
+
+      console.log('[Scheduler] 计划触发其他任务:', { taskId, triggerTasks: config.triggerTasks, triggerDelayMs });
+
+      for (const targetTaskId of config.triggerTasks) {
+        // 检查目标任务是否存在
+        const targetTask = get().tasks.find(t => t.id === targetTaskId);
+        if (!targetTask) {
+          console.warn('[Scheduler] 目标任务不存在，跳过:', targetTaskId);
+          continue;
+        }
+
+        if (!targetTask.enabled) {
+          console.log('[Scheduler] 目标任务已禁用，跳过:', targetTaskId);
+          continue;
+        }
+
+        if (triggerDelayMs > 0) {
+          setTimeout(() => {
+            get().runTask(targetTaskId, { subscribe: false });
+          }, triggerDelayMs);
+        } else {
+          // 使用 Promise.all 并行触发，不等待完成
+          get().runTask(targetTaskId, { subscribe: false }).catch(e => {
+            console.error('[Scheduler] 触发任务失败:', targetTaskId, e);
+          });
+        }
+      }
+    }
+  },
 }));
+
+/**
+ * 解析延迟字符串为毫秒数
+ * 支持格式: "30s", "5m", "2h", "1d"
+ */
+function parseDelayToMs(delay: string): number {
+  const match = delay.match(/^(\d+)([smhd])$/);
+  if (!match) {
+    console.warn('[Scheduler] 无效的延迟格式:', delay);
+    return 0;
+  }
+
+  const num = parseInt(match[1], 10);
+  const unit = match[2];
+
+  switch (unit) {
+    case 's': return num * 1000;
+    case 'm': return num * 60 * 1000;
+    case 'h': return num * 60 * 60 * 1000;
+    case 'd': return num * 24 * 60 * 60 * 1000;
+    default: return 0;
+  }
+}

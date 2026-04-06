@@ -11,8 +11,9 @@
 
 use crate::error::{AppError, Result};
 use crate::models::scheduler::{
-    apply_template, CreateTaskParams, CreateTemplateParams, PromptTemplate, ScheduledTask, TaskCategory, TaskMode,
-    TaskStatus, TaskStore, TemplateStore, TriggerType,
+    apply_template, CreateTaskParams, CreateTemplateParams, PostExecutionCondition,
+    PostExecutionConfig, PromptTemplate, ScheduledTask, TaskCategory, TaskMode, TaskStatus,
+    TaskStore, TemplateStore, TriggerType,
 };
 use crate::services::scheduler::storage::{TaskStorage, TaskUpdateParams, WorkspaceInfo};
 use chrono::Utc;
@@ -391,6 +392,7 @@ impl TaskStorage for LocalFileStorage {
             timeout_minutes: params.timeout_minutes,
             group: sanitize_optional_string(params.group),
             notify_on_complete: params.notify_on_complete,
+            post_execution: params.post_execution,
         };
 
         data.tasks.push(task.clone());
@@ -513,6 +515,10 @@ impl TaskStorage for LocalFileStorage {
 
         if let Some(notify_on_complete) = updates.notify_on_complete {
             task.notify_on_complete = notify_on_complete;
+        }
+
+        if updates.post_execution.is_some() {
+            task.post_execution = updates.post_execution;
         }
 
         task.updated_at = Utc::now().timestamp();
@@ -820,6 +826,7 @@ fn normalize_task_item(value: &serde_json::Value) -> Option<ScheduledTask> {
         timeout_minutes: object.get("timeoutMinutes").and_then(|v| v.as_u64()).map(|n| n as u32),
         group: optional_string_field(object.get("group")),
         notify_on_complete: object.get("notifyOnComplete").and_then(|v| v.as_bool()).unwrap_or(true),
+        post_execution: parse_post_execution(object.get("postExecution")),
     })
 }
 
@@ -865,6 +872,36 @@ fn parse_template_params(value: Option<&serde_json::Value>) -> Option<HashMap<St
         obj.iter()
             .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
             .collect()
+    })
+}
+
+fn parse_post_execution(value: Option<&serde_json::Value>) -> Option<PostExecutionConfig> {
+    value.and_then(|v| v.as_object()).map(|obj| {
+        let continue_self = obj.get("continueSelf").and_then(|v| v.as_bool()).unwrap_or(false);
+        let continue_delay = optional_string_field(obj.get("continueDelay"));
+        let trigger_tasks = obj.get("triggerTasks").and_then(|v| v.as_array()).map(|arr| {
+            arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()
+        });
+        let trigger_delay = optional_string_field(obj.get("triggerDelay"));
+        let condition = obj.get("condition").and_then(|v| v.as_str()).and_then(|s| {
+            match s {
+                "always" => Some(PostExecutionCondition::Always),
+                "on_success" => Some(PostExecutionCondition::OnSuccess),
+                "on_failure" => Some(PostExecutionCondition::OnFailure),
+                "has_pending_work" => Some(PostExecutionCondition::HasPendingWork),
+                _ => None,
+            }
+        });
+        let disable_on_max_runs = obj.get("disableOnMaxRuns").and_then(|v| v.as_bool()).unwrap_or(false);
+
+        PostExecutionConfig {
+            continue_self,
+            continue_delay,
+            trigger_tasks,
+            trigger_delay,
+            condition,
+            disable_on_max_runs,
+        }
     })
 }
 

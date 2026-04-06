@@ -24,6 +24,45 @@ pub enum TriggerType {
     Interval,
 }
 
+/// 后执行条件类型
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PostExecutionCondition {
+    /// 无条件执行
+    #[default]
+    Always,
+    /// 仅成功时执行
+    OnSuccess,
+    /// 仅失败时执行
+    OnFailure,
+    /// 协议模式：检查是否有待办任务
+    HasPendingWork,
+}
+
+/// 后执行配置
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PostExecutionConfig {
+    /// A: 循环执行 - 完成后继续执行自身
+    #[serde(default)]
+    pub continue_self: bool,
+    /// 循环执行延迟 (如 "5m", "1h")
+    #[serde(default)]
+    pub continue_delay: Option<String>,
+    /// B: 链式触发 - 完成后触发其他任务
+    #[serde(default)]
+    pub trigger_tasks: Option<Vec<String>>,
+    /// 链式触发延迟
+    #[serde(default)]
+    pub trigger_delay: Option<String>,
+    /// D: 条件控制
+    #[serde(default)]
+    pub condition: Option<PostExecutionCondition>,
+    /// 达到最大次数后禁用任务
+    #[serde(default)]
+    pub disable_on_max_runs: bool,
+}
+
 /// 任务状态
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -412,6 +451,11 @@ pub struct ScheduledTask {
     /// 完成通知
     #[serde(default = "default_true")]
     pub notify_on_complete: bool,
+
+    // === 后执行配置 ===
+    /// 后执行配置
+    #[serde(default)]
+    pub post_execution: Option<PostExecutionConfig>,
 }
 
 /// 创建任务参数
@@ -485,6 +529,11 @@ pub struct CreateTaskParams {
     /// 完成通知
     #[serde(default = "default_true")]
     pub notify_on_complete: bool,
+
+    // === 后执行配置 ===
+    /// 后执行配置
+    #[serde(default)]
+    pub post_execution: Option<PostExecutionConfig>,
 }
 
 fn default_enabled() -> bool {

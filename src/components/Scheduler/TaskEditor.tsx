@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ScheduledTask, CreateTaskParams, TriggerType, TaskMode, TaskCategory, ProtocolTemplate } from '../../types/scheduler';
+import type { ScheduledTask, CreateTaskParams, TriggerType, TaskMode, TaskCategory, ProtocolTemplate, PostExecutionConfig, PostExecutionCondition } from '../../types/scheduler';
 import { TEMPLATE_VARIABLES, TASK_MODE_LABELS, TASK_CATEGORY_LABELS } from '../../types/scheduler';
 import { TriggerConfig } from './TriggerConfig';
 import { ProtocolTemplateSelector, TemplateParamsForm } from './ProtocolTemplateSelector';
@@ -77,6 +77,12 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
   const [maxRetries, setMaxRetries] = useState<number | undefined>(task?.maxRetries);
   const [retryInterval, setRetryInterval] = useState(task?.retryInterval || '');
   const [timeoutMinutes, setTimeoutMinutes] = useState<number | undefined>(task?.timeoutMinutes);
+
+  // 后执行配置
+  const [postExecution, setPostExecution] = useState<PostExecutionConfig | undefined>(task?.postExecution);
+
+  // 后执行配置展开状态
+  const [showPostExecution, setShowPostExecution] = useState(!!task?.postExecution);
 
   // 加载模板
   useEffect(() => {
@@ -152,6 +158,8 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
       timeoutMinutes: timeoutMinutes || undefined,
       // 其他
       group: group.trim() || undefined,
+      // 后执行配置
+      postExecution: postExecution,
     });
   };
 
@@ -388,6 +396,135 @@ export function TaskEditor({ task, onSave, onClose, title }: TaskEditorProps) {
                     className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
+              </div>
+
+              {/* 后执行配置 */}
+              <div className="border-t border-border-subtle pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowPostExecution(!showPostExecution)}
+                  className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  <span className={`transform transition-transform ${showPostExecution ? 'rotate-90' : ''}`}>▶</span>
+                  {t('editor.postExecution.title')}
+                </button>
+
+                {showPostExecution && (
+                  <div className="mt-3 space-y-4 pl-4">
+                    {/* 循环执行 */}
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="continueSelf"
+                        checked={postExecution?.continueSelf || false}
+                        onChange={(e) => setPostExecution({
+                          ...postExecution,
+                          continueSelf: e.target.checked,
+                        })}
+                        className="rounded border-border-subtle"
+                      />
+                      <label htmlFor="continueSelf" className="text-sm text-text-primary">
+                        {t('editor.postExecution.continueSelf')}
+                      </label>
+                    </div>
+
+                    {postExecution?.continueSelf && (
+                      <div className="pl-6">
+                        <label className="block text-xs text-text-muted mb-1">
+                          {t('editor.postExecution.continueDelay')}
+                        </label>
+                        <input
+                          type="text"
+                          value={postExecution.continueDelay || ''}
+                          onChange={(e) => setPostExecution({
+                            ...postExecution,
+                            continueDelay: e.target.value || undefined,
+                          })}
+                          placeholder="5m"
+                          className="w-24 px-2 py-1 bg-background-base border border-border-subtle rounded text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                      </div>
+                    )}
+
+                    {/* 链式触发 */}
+                    <div>
+                      <label className="block text-sm text-text-secondary mb-1">
+                        {t('editor.postExecution.triggerTasks')}
+                      </label>
+                      <input
+                        type="text"
+                        value={postExecution?.triggerTasks?.join(', ') || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.trim();
+                          const tasks = value ? value.split(',').map(t => t.trim()).filter(Boolean) : undefined;
+                          setPostExecution({
+                            ...postExecution,
+                            triggerTasks: tasks,
+                          });
+                        }}
+                        placeholder={t('editor.postExecution.triggerTasksPlaceholder')}
+                        className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      <p className="mt-1 text-xs text-text-muted">{t('editor.postExecution.triggerTasksHint')}</p>
+                    </div>
+
+                    {postExecution?.triggerTasks && postExecution.triggerTasks.length > 0 && (
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">
+                          {t('editor.postExecution.triggerDelay')}
+                        </label>
+                        <input
+                          type="text"
+                          value={postExecution.triggerDelay || ''}
+                          onChange={(e) => setPostExecution({
+                            ...postExecution,
+                            triggerDelay: e.target.value || undefined,
+                          })}
+                          placeholder="10s"
+                          className="w-24 px-2 py-1 bg-background-base border border-border-subtle rounded text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                      </div>
+                    )}
+
+                    {/* 条件控制 */}
+                    <div>
+                      <label className="block text-sm text-text-secondary mb-1">
+                        {t('editor.postExecution.condition')}
+                      </label>
+                      <select
+                        value={postExecution?.condition || 'always'}
+                        onChange={(e) => setPostExecution({
+                          ...postExecution,
+                          condition: e.target.value as PostExecutionCondition,
+                        })}
+                        className="w-full px-3 py-2 bg-background-base border border-border-subtle rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        <option value="always">{t('editor.postExecution.conditionAlways')}</option>
+                        <option value="on_success">{t('editor.postExecution.conditionOnSuccess')}</option>
+                        <option value="on_failure">{t('editor.postExecution.conditionOnFailure')}</option>
+                        <option value="has_pending_work">{t('editor.postExecution.conditionHasPendingWork')}</option>
+                      </select>
+                      <p className="mt-1 text-xs text-text-muted">{t('editor.postExecution.conditionHint')}</p>
+                    </div>
+
+                    {/* 达到最大次数后禁用 */}
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="disableOnMaxRuns"
+                        checked={postExecution?.disableOnMaxRuns || false}
+                        onChange={(e) => setPostExecution({
+                          ...postExecution,
+                          disableOnMaxRuns: e.target.checked,
+                        })}
+                        className="rounded border-border-subtle"
+                      />
+                      <label htmlFor="disableOnMaxRuns" className="text-sm text-text-primary">
+                        {t('editor.postExecution.disableOnMaxRuns')}
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
