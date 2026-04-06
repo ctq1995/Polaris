@@ -37,7 +37,40 @@ vi.mock('../../core/engine-bootstrap', () => ({
 // Mock workspaceReference
 vi.mock('../../services/workspaceReference', () => ({
   parseWorkspaceReferences: vi.fn((content) => ({ processedMessage: content })),
-  buildSystemPrompt: vi.fn(() => 'System prompt'),
+  buildWorkspaceSystemPrompt: vi.fn(() => 'System prompt'),
+  getUserSystemPrompt: vi.fn(() => ''),
+}))
+
+// Mock types/errors
+vi.mock('../../types/errors', () => ({
+  toAppError: vi.fn((e) => ({
+    message: String(e),
+    getUserMessage: () => 'AI 处理失败，请稍后重试',
+  })),
+  errorLogger: { log: vi.fn() },
+  ErrorSource: { AI: 'ai' },
+}))
+
+// Mock utils/logger
+vi.mock('../../utils/logger', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
+}))
+
+// Mock sessionStoreManager
+vi.mock('../conversationStore/sessionStoreManager', () => ({
+  sessionStoreManager: {
+    getState: vi.fn(() => ({
+      getActiveSessionId: vi.fn(() => null),
+      getSessionMessages: vi.fn(),
+      setSessionMessages: vi.fn(),
+      updateSessionStatus: vi.fn(),
+    })),
+  },
 }))
 
 // Mock utils
@@ -320,12 +353,11 @@ describe('eventHandlerSlice', () => {
       expect(invoke).toHaveBeenCalledWith(
         'start_chat',
         expect.objectContaining({
-          message: expect.any(String),
+          message: 'Hello',
           options: expect.objectContaining({
-            systemPrompt: expect.any(String),
-            workDir: expect.any(String),
+            workDir: '/test/workspace',
             contextId: 'main',
-            engineId: expect.any(String),
+            engineId: 'claude-code',
             enableMcpTools: true,
           }),
         })
@@ -353,12 +385,15 @@ describe('eventHandlerSlice', () => {
     })
 
     it('发送消息时应设置 isStreaming 为 true', async () => {
+      // 注意：修复竞态条件后，isStreaming 由 session_start 事件设置
+      // 所以在 sendMessage 返回后，如果没有收到 session_start 事件，isStreaming 应为 false
       const store = createTestStore(mockDeps)
       vi.mocked(invoke).mockResolvedValueOnce('new-session-id')
 
       await store.getState().sendMessage('Hello')
 
-      expect(store.getState().isStreaming).toBe(true)
+      // 修复后：isStreaming 不再在 sendMessage 中设置，而是等待 session_start 事件
+      expect(store.getState().isStreaming).toBe(false)
     })
 
     it('发送失败时应设置错误', async () => {
@@ -433,7 +468,7 @@ describe('eventHandlerSlice', () => {
   describe('interruptChat', () => {
     it('应调用 interrupt_chat', async () => {
       const store = createTestStore(mockDeps)
-      store.setState({ conversationId: 'test-session-id' })
+      store.setState({ conversationId: 'test-session-id', isStreaming: true })
 
       vi.mocked(invoke).mockResolvedValueOnce(undefined)
 

@@ -37,6 +37,25 @@ vi.mock('../conversationStore/sessionStoreManager', () => ({
   },
 }))
 
+// Mock useViewStore
+vi.mock('../index', () => ({
+  useViewStore: {
+    getState: () => ({
+      setActiveView: vi.fn(),
+    }),
+  },
+}))
+
+// Mock utils/logger
+vi.mock('../../utils/logger', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
+}))
+
 // Import after mocking
 import { createHistorySlice } from './historySlice'
 import type { EventChatState } from './types'
