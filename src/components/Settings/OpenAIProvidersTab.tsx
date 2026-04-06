@@ -31,12 +31,17 @@ export function OpenAIProvidersTab({ config, onConfigChange, loading }: OpenAIPr
   const [testingProviderId, setTestingProviderId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Map<string, TestResult>>(new Map())
 
-  const providers = config.openaiProviders || []
+  // 兼容旧数据：为没有 _uid 的 provider 生成临时 uid
+  const providers = (config.openaiProviders || []).map(p => ({
+    ...p,
+    _uid: p._uid || p.id,
+  }))
   const activeProviderId = config.activeProviderId
 
   // 添加新 Provider
   const addProvider = () => {
     const newProvider: OpenAIProvider = {
+      _uid: `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       id: `provider-${Date.now()}`,
       name: 'New Provider',
       apiKey: '',
@@ -143,6 +148,7 @@ export function OpenAIProvidersTab({ config, onConfigChange, loading }: OpenAIPr
   const duplicateProvider = (provider: OpenAIProvider) => {
     const duplicated: OpenAIProvider = {
       ...provider,
+      _uid: `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       id: `provider-${Date.now()}`,
       name: `${provider.name} (Copy)`,
       enabled: false,
@@ -173,7 +179,7 @@ export function OpenAIProvidersTab({ config, onConfigChange, loading }: OpenAIPr
       <div className="space-y-3">
         {providers.map(provider => (
           <ProviderCard
-            key={provider.id}
+            key={provider._uid}
             provider={provider}
             isActive={provider.id === activeProviderId}
             isTesting={testingProviderId === provider.id}

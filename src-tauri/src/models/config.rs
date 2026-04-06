@@ -1,5 +1,18 @@
 use serde::{Deserialize, Serialize};
+use std::hash::{BuildHasher, Hasher};
 use std::path::PathBuf;
+
+/// 生成唯一标识符
+fn generate_uid() -> String {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let hash = std::collections::hash_map::RandomState::new()
+        .build_hasher()
+        .finish();
+    format!("uid-{}-{:08x}", ts, hash)
+}
 
 /// Claude Code 引擎配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +36,10 @@ impl Default for ClaudeCodeConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenAIProvider {
+    /// 内部唯一标识符（创建时生成，不可变，用于 React key）
+    #[serde(default = "generate_uid")]
+    pub _uid: String,
+
     /// 唯一标识符（用于区分不同配置）
     pub id: String,
 
@@ -87,6 +104,7 @@ fn default_openai_supports_tools() -> bool {
 impl Default for OpenAIProvider {
     fn default() -> Self {
         Self {
+            _uid: generate_uid(),
             id: String::new(),
             name: "New Provider".to_string(),
             api_key: String::new(),
