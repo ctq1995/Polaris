@@ -219,6 +219,112 @@ impl ClawCodeEngine {
         self.config = Some(config);
     }
 
+    /// 处理流事件，更新工具调用状态
+    ///
+    /// 返回：
+    /// - ai_event: 发送给用户的事件（如果有）
+    /// - new_state: 新的工具调用状态（如果有变化）
+    #[allow(dead_code)]
+    fn handle_stream_event(
+        &self,
+        event: &crate::ai::adapters::StreamEvent,
+        session_id: &str,
+        current_state: &ToolCallState,
+    ) -> (Option<AIEvent>, Option<ToolCallState>) {
+        use crate::ai::adapters::{ContentBlockDelta, OutputContentBlock, StreamEvent};
+
+        match event {
+            // 内容块开始 - 可能是工具调用开始
+            StreamEvent::ContentBlockStart(e) => {
+                match &e.content_block {
+                    OutputContentBlock::ToolUse { id, name, input } => {
+                        // 工具调用开始：初始化收集状态
+                        let initial_json = if input.is_object() {
+                            serde_json::to_string(input).unwrap_or_default()
+                        } else {
+                            String::new()
+                        };
+
+                        let new_state = ToolCallState::CollectingInput {
+                            tool_id: id.clone(),
+                            tool_name: name.clone(),
+                            input_json: initial_json,
+                        };
+
+                        // 发送 ToolCallStart 事件给用户
+                        let args = input.as_object()
+                            .map(|obj| obj.iter()
+                                .map(|(k, v)| (k.clone(), v.clone()))
+                                .collect())
+                            .unwrap_or_default();
+
+                        let ai_event = AIEvent::ToolCallStart(
+                            crate::models::ToolCallStartEvent::new(session_id, name.clone(), args)
+                                .with_call_id(id.clone())
+                        );
+
+                        (Some(ai_event), Some(new_state))
+                    }
+                    OutputContentBlock::Text { .. } => (None, None),
+                    OutputContentBlock::Thinking { .. } => (None, None),
+                    OutputContentBlock::RedactedThinking { .. } => (None, None),
+                }
+            }
+
+            // 内容块增量 - 文本、工具输入 JSON、思考内容
+            StreamEvent::ContentBlockDelta(e) => {
+                match &e.delta {
+                    ContentBlockDelta::TextDelta { text } => {
+                        (Some(AIEvent::token(session_id, text.clone())), None)
+                    }
+                    ContentBlockDelta::InputJsonDelta { partial_json } => {
+                        match current_state {
+                            ToolCallState::CollectingInput { tool_id, tool_name, input_json } => {
+                                let new_json = format!("{}{}", input_json, partial_json);
+                                let new_state = ToolCallState::CollectingInput {
+                                    tool_id: tool_id.clone(),
+                                    tool_name: tool_name.clone(),
+                                    input_json: new_json,
+                                };
+                                (None, Some(new_state))
+                            }
+                            _ => (None, None)
+                        }
+                    }
+                    ContentBlockDelta::ThinkingDelta { thinking } => {
+                        (Some(AIEvent::Thinking(crate::models::ThinkingEvent::new(session_id, thinking.clone()))), None)
+                    }
+                    ContentBlockDelta::SignatureDelta { .. } => (None, None),
+                }
+            }
+
+            // 内容块结束 - 工具调用参数收集完成
+            StreamEvent::ContentBlockStop(_) => {
+                match current_state {
+                    ToolCallState::CollectingInput { tool_id, tool_name, input_json } => {
+                        let input: serde_json::Value = serde_json::from_str(input_json)
+                            .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+
+                        let new_state = ToolCallState::ReadyToExecute {
+                            tool_id: tool_id.clone(),
+                            tool_name: tool_name.clone(),
+                            input,
+                        };
+
+                        (None, Some(new_state))
+                    }
+                    _ => (None, None)
+                }
+            }
+
+            StreamEvent::MessageStart(_) => (None, None),
+            StreamEvent::MessageDelta(_) => (None, None),
+            StreamEvent::MessageStop(_) => {
+                (Some(AIEvent::session_end(session_id)), Some(ToolCallState::Idle))
+            }
+        }
+    }
+
     /// 执行工具调用
     ///
     /// 从 ReadyToExecute 状态获取工具信息，执行工具，返回结果。
