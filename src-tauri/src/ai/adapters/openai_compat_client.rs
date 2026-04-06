@@ -167,9 +167,16 @@ impl OpenAiCompatClient {
 
     /// 发送流式消息请求
     pub async fn stream_message(&self, request: &MessageRequest) -> Result<MessageStream> {
+        tracing::info!("[OpenAiCompatClient] 开始流式请求 (model: {})", request.model);
         let response = self
             .send_with_retry(&request.clone().with_streaming())
             .await?;
+
+        // 打印响应状态日志
+        tracing::info!(
+            "[OpenAiCompatClient] 流式响应状态: {}",
+            response.status()
+        );
 
         Ok(MessageStream {
             request_id: request_id_from_headers(response.headers()),
@@ -213,12 +220,25 @@ impl OpenAiCompatClient {
     /// 发送原始请求
     async fn send_raw_request(&self, request: &MessageRequest) -> Result<reqwest::Response> {
         let request_url = chat_completions_endpoint(&self.config.base_url);
+        let request_body = build_chat_completion_request(request, &self.config);
+
+        // 打印原生请求日志（调试用）
+        tracing::info!(
+            "[OpenAiCompatClient] 发送请求: url={}, model={}, tools={:?}",
+            request_url,
+            request_body["model"],
+            request_body.get("tools").map(|t| t.as_array().map(|a| a.len()))
+        );
+        tracing::debug!(
+            "[OpenAiCompatClient] 请求详情:\n{}",
+            serde_json::to_string_pretty(&request_body).unwrap_or_else(|_| request_body.to_string())
+        );
 
         self.http
             .post(&request_url)
             .header("content-type", "application/json")
             .bearer_auth(&self.config.api_key)
-            .json(&build_chat_completion_request(request, &self.config))
+            .json(&request_body)
             .send()
             .await
             .map_err(|e| AppError::NetworkError(e.to_string()))
@@ -259,6 +279,8 @@ impl MessageStream {
     pub async fn next_event(&mut self) -> Result<Option<StreamEvent>> {
         loop {
             if let Some(event) = self.pending.pop_front() {
+                // 打印事件日志（调试用）
+                tracing::trace!("[OpenAiCompatClient] 收到事件: {:?}", event);
                 return Ok(Some(event));
             }
 
@@ -267,11 +289,13 @@ impl MessageStream {
                 if let Some(event) = self.pending.pop_front() {
                     return Ok(Some(event));
                 }
+                tracing::debug!("[OpenAiCompatClient] 流结束");
                 return Ok(None);
             }
 
             match self.response.chunk().await {
                 Ok(Some(chunk)) => {
+                    tracing::trace!("[OpenAiCompatClient] 收到 chunk: {} bytes", chunk.len());
                     for parsed in self.parser.push(&chunk)? {
                         self.pending.extend(self.state.ingest_chunk(parsed)?);
                     }
@@ -279,7 +303,10 @@ impl MessageStream {
                 Ok(None) => {
                     self.done = true;
                 }
-                Err(e) => return Err(AppError::NetworkError(e.to_string())),
+                Err(e) => {
+                    tracing::error!("[OpenAiCompatClient] 流错误: {}", e);
+                    return Err(AppError::NetworkError(e.to_string()));
+                }
             }
         }
     }
