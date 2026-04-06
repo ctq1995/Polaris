@@ -252,9 +252,22 @@ impl BasicToolExecutor {
     }
 
     /// 内置工具处理器：read_file
+    ///
+    /// 真实实现：读取文件内容，支持 offset/limit 分页。
+    /// 参考 claw-code file_ops.rs 的实现逻辑。
     fn handle_read_file(ctx: &ToolExecutionContext, input: &Value) -> Result<String, ToolError> {
+        use std::fs;
+        use std::io::Read;
+
+        /// 最大文件读取大小（10 MB）
+        const MAX_READ_SIZE: u64 = 10 * 1024 * 1024;
+
         let path = input["path"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 path 参数".to_string()))?;
+
+        // 可选参数
+        let offset: Option<usize> = input["offset"].as_u64().map(|v| v as usize);
+        let limit: Option<usize> = input["limit"].as_u64().map(|v| v as usize);
 
         let resolved_path = ctx.resolve_path(path);
 
@@ -263,21 +276,93 @@ impl BasicToolExecutor {
             return Err(ToolError::PermissionDenied {
                 tool: "read_file".to_string(),
                 required: PermissionMode::ReadOnly,
-                current: PermissionMode::ReadOnly,
+                current: ctx.permission_policy.default_mode,
             });
         }
 
-        // 模拟实现：返回提示信息
-        // 完整实现需要实际文件读取逻辑
-        Ok(format!("读取文件: {}", resolved_path.display()))
+        // 检查文件是否存在
+        if !resolved_path.exists() {
+            return Err(ToolError::ExecutionError(format!(
+                "文件不存在: {}",
+                resolved_path.display()
+            )));
+        }
+
+        // 检查文件大小
+        let metadata = fs::metadata(&resolved_path)
+            .map_err(|e| ToolError::ExecutionError(format!("无法获取文件元数据: {}", e)))?;
+
+        if metadata.len() > MAX_READ_SIZE {
+            return Err(ToolError::ExecutionError(format!(
+                "文件过大 ({} bytes, 最大 {} bytes)",
+                metadata.len(),
+                MAX_READ_SIZE
+            )));
+        }
+
+        // 检查是否为二进制文件（检查前 8KB 是否包含 NUL 字节）
+        let mut file = fs::File::open(&resolved_path)
+            .map_err(|e| ToolError::ExecutionError(format!("无法打开文件: {}", e)))?;
+
+        let mut buffer = [0u8; 8192];
+        let bytes_read = file.read(&mut buffer)
+            .map_err(|e| ToolError::ExecutionError(format!("无法读取文件: {}", e)))?;
+
+        if buffer[..bytes_read].contains(&0) {
+            return Err(ToolError::ExecutionError("文件似乎是二进制文件".to_string()));
+        }
+
+        // 重新读取完整内容（因为是文本文件）
+        let content = fs::read_to_string(&resolved_path)
+            .map_err(|e| ToolError::ExecutionError(format!("无法读取文件内容: {}", e)))?;
+
+        // 按行处理分页
+        let lines: Vec<&str> = content.lines().collect();
+        let start_index = offset.unwrap_or(0).min(lines.len());
+        let end_index = limit.map_or(lines.len(), |lim| {
+            start_index.saturating_add(lim).min(lines.len())
+        });
+
+        let selected_content = lines[start_index..end_index].join("\n");
+
+        // 构建输出（JSON 格式，与 claw-code 兼容）
+        let output = serde_json::json!({
+            "type": "text",
+            "file": {
+                "filePath": resolved_path.to_string_lossy(),
+                "content": selected_content,
+                "numLines": end_index.saturating_sub(start_index),
+                "startLine": start_index.saturating_add(1),
+                "totalLines": lines.len()
+            }
+        });
+
+        Ok(output.to_string())
     }
 
     /// 内置工具处理器：write_file
+    ///
+    /// 真实实现：写入文件内容，支持创建新文件和更新现有文件。
+    /// 返回结构化输出包含文件路径和操作类型。
     fn handle_write_file(ctx: &ToolExecutionContext, input: &Value) -> Result<String, ToolError> {
+        use std::fs;
+
+        /// 最大写入大小（10 MB）
+        const MAX_WRITE_SIZE: usize = 10 * 1024 * 1024;
+
         let path = input["path"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 path 参数".to_string()))?;
-        let _content = input["content"].as_str()
+        let content = input["content"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 content 参数".to_string()))?;
+
+        // 检查内容大小
+        if content.len() > MAX_WRITE_SIZE {
+            return Err(ToolError::ExecutionError(format!(
+                "内容过大 ({} bytes, 最大 {} bytes)",
+                content.len(),
+                MAX_WRITE_SIZE
+            )));
+        }
 
         let resolved_path = ctx.resolve_path(path);
 
@@ -286,22 +371,62 @@ impl BasicToolExecutor {
             return Err(ToolError::PermissionDenied {
                 tool: "write_file".to_string(),
                 required: PermissionMode::WorkspaceWrite,
-                current: PermissionMode::ReadOnly,
+                current: ctx.permission_policy.default_mode,
             });
         }
 
-        // 模拟实现：返回提示信息
-        Ok(format!("写入文件: {}", resolved_path.display()))
+        // 检查是否有写入权限
+        if !ctx.permission_policy.default_mode.satisfies(&PermissionMode::WorkspaceWrite) {
+            return Err(ToolError::PermissionDenied {
+                tool: "write_file".to_string(),
+                required: PermissionMode::WorkspaceWrite,
+                current: ctx.permission_policy.default_mode,
+            });
+        }
+
+        // 读取原文件（如果存在）
+        let original_file = fs::read_to_string(&resolved_path).ok();
+
+        // 创建父目录（如果不存在）
+        if let Some(parent) = resolved_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| ToolError::ExecutionError(format!("无法创建目录: {}", e)))?;
+        }
+
+        // 写入文件
+        fs::write(&resolved_path, content)
+            .map_err(|e| ToolError::ExecutionError(format!("无法写入文件: {}", e)))?;
+
+        // 构建输出
+        let output = serde_json::json!({
+            "type": if original_file.is_some() { "update" } else { "create" },
+            "filePath": resolved_path.to_string_lossy(),
+            "content": content,
+            "originalFile": original_file
+        });
+
+        Ok(output.to_string())
     }
 
     /// 内置工具处理器：edit_file
+    ///
+    /// 真实实现：在文件中替换指定字符串。
+    /// 支持 replace_all 参数进行全局替换。
     fn handle_edit_file(ctx: &ToolExecutionContext, input: &Value) -> Result<String, ToolError> {
+        use std::fs;
+
         let path = input["path"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 path 参数".to_string()))?;
-        let _old_string = input["old_string"].as_str()
+        let old_string = input["old_string"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 old_string 参数".to_string()))?;
-        let _new_string = input["new_string"].as_str()
+        let new_string = input["new_string"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 new_string 参数".to_string()))?;
+        let replace_all = input["replace_all"].as_bool().unwrap_or(false);
+
+        // 检查 old_string 和 new_string 是否不同
+        if old_string == new_string {
+            return Err(ToolError::ExecutionError("old_string 和 new_string 必须不同".to_string()));
+        }
 
         let resolved_path = ctx.resolve_path(path);
 
@@ -310,31 +435,277 @@ impl BasicToolExecutor {
             return Err(ToolError::PermissionDenied {
                 tool: "edit_file".to_string(),
                 required: PermissionMode::WorkspaceWrite,
-                current: PermissionMode::ReadOnly,
+                current: ctx.permission_policy.default_mode,
             });
         }
 
-        // 模拟实现：返回提示信息
-        Ok(format!("编辑文件: {}", resolved_path.display()))
+        // 检查是否有写入权限
+        if !ctx.permission_policy.default_mode.satisfies(&PermissionMode::WorkspaceWrite) {
+            return Err(ToolError::PermissionDenied {
+                tool: "edit_file".to_string(),
+                required: PermissionMode::WorkspaceWrite,
+                current: ctx.permission_policy.default_mode,
+            });
+        }
+
+        // 检查文件是否存在
+        if !resolved_path.exists() {
+            return Err(ToolError::ExecutionError(format!(
+                "文件不存在: {}",
+                resolved_path.display()
+            )));
+        }
+
+        // 读取原文件
+        let original_file = fs::read_to_string(&resolved_path)
+            .map_err(|e| ToolError::ExecutionError(format!("无法读取文件: {}", e)))?;
+
+        // 检查 old_string 是否存在于文件中
+        if !original_file.contains(old_string) {
+            return Err(ToolError::ExecutionError("old_string 未在文件中找到".to_string()));
+        }
+
+        // 执行替换
+        let updated = if replace_all {
+            original_file.replace(old_string, new_string)
+        } else {
+            // 只替换第一次出现
+            original_file.replacen(old_string, new_string, 1)
+        };
+
+        // 写入更新后的内容
+        fs::write(&resolved_path, &updated)
+            .map_err(|e| ToolError::ExecutionError(format!("无法写入文件: {}", e)))?;
+
+        // 构建输出
+        let output = serde_json::json!({
+            "filePath": resolved_path.to_string_lossy(),
+            "oldString": old_string,
+            "newString": new_string,
+            "originalFile": original_file,
+            "replaceAll": replace_all
+        });
+
+        Ok(output.to_string())
     }
 
     /// 内置工具处理器：glob_search
+    ///
+    /// 真实实现：使用 glob 模式搜索文件。
+    /// 参考 claw-code glob_search 实现。
     fn handle_glob_search(ctx: &ToolExecutionContext, input: &Value) -> Result<String, ToolError> {
+        use std::time::Instant;
+        use glob::glob;
+        use std::path::PathBuf;
+
         let pattern = input["pattern"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 pattern 参数".to_string()))?;
-        let _path = input["path"].as_str();
+        let search_path = input["path"].as_str();
 
-        // 模拟实现：返回提示信息
-        Ok(format!("Glob 搜索: {} (工作目录: {})", pattern, ctx.work_dir.display()))
+        // 确定搜索基础目录
+        let base_dir = if let Some(p) = search_path {
+            ctx.resolve_path(p)
+        } else {
+            ctx.work_dir.clone()
+        };
+
+        // 检查基础目录在工作区内
+        if !ctx.check_path_in_workspace(&base_dir) {
+            return Err(ToolError::PermissionDenied {
+                tool: "glob_search".to_string(),
+                required: PermissionMode::ReadOnly,
+                current: ctx.permission_policy.default_mode,
+            });
+        }
+
+        // 构建完整 glob 模式
+        let full_pattern = if std::path::Path::new(pattern).is_absolute() {
+            pattern.to_string()
+        } else {
+            base_dir.join(pattern).to_string_lossy().into_owned()
+        };
+
+        let started = Instant::now();
+        let mut matches: Vec<PathBuf> = Vec::new();
+
+        // 执行 glob 搜索
+        let glob_result = glob(&full_pattern)
+            .map_err(|e| ToolError::ExecutionError(format!("无效的 glob 模式: {}", e)))?;
+
+        for entry in glob_result.flatten() {
+            if entry.is_file() {
+                matches.push(entry);
+            }
+        }
+
+        // 按修改时间排序（最新的优先）
+        matches.sort_by_key(|path: &PathBuf| {
+            std::fs::metadata(path)
+                .and_then(|m| m.modified())
+                .ok()
+                .map(std::cmp::Reverse)
+        });
+
+        // 限制结果数量（最多 100 个）
+        let truncated = matches.len() > 100;
+        let filenames: Vec<String> = matches
+            .into_iter()
+            .take(100)
+            .map(|p: PathBuf| p.to_string_lossy().into_owned())
+            .collect();
+
+        // 构建输出
+        let output = serde_json::json!({
+            "durationMs": started.elapsed().as_millis(),
+            "numFiles": filenames.len(),
+            "filenames": filenames,
+            "truncated": truncated
+        });
+
+        Ok(output.to_string())
     }
 
     /// 内置工具处理器：grep_search
+    ///
+    /// 真实实现：使用正则表达式搜索文件内容。
+    /// 参考 claw-code grep_search 实现。
     fn handle_grep_search(ctx: &ToolExecutionContext, input: &Value) -> Result<String, ToolError> {
+        use regex::RegexBuilder;
+        use walkdir::WalkDir;
+        use glob::Pattern;
+
         let pattern = input["pattern"].as_str()
             .ok_or_else(|| ToolError::InvalidInput("缺少 pattern 参数".to_string()))?;
+        let search_path = input["path"].as_str();
+        let glob_filter = input["glob"].as_str();
+        let case_insensitive = input["-i"].as_bool().unwrap_or(false);
+        let output_mode = input["output_mode"].as_str().unwrap_or("files_with_matches");
+        let head_limit: Option<usize> = input["head_limit"].as_u64().map(|v| v as usize);
+        let line_numbers = input["-n"].as_bool().unwrap_or(true);
 
-        // 模拟实现：返回提示信息
-        Ok(format!("Grep 搜索: {} (工作目录: {})", pattern, ctx.work_dir.display()))
+        // 确定搜索基础目录
+        let base_dir = if let Some(p) = search_path {
+            ctx.resolve_path(p)
+        } else {
+            ctx.work_dir.clone()
+        };
+
+        // 检查基础目录在工作区内
+        if !ctx.check_path_in_workspace(&base_dir) {
+            return Err(ToolError::PermissionDenied {
+                tool: "grep_search".to_string(),
+                required: PermissionMode::ReadOnly,
+                current: ctx.permission_policy.default_mode,
+            });
+        }
+
+        // 构建正则表达式
+        let regex = RegexBuilder::new(pattern)
+            .case_insensitive(case_insensitive)
+            .build()
+            .map_err(|e| ToolError::ExecutionError(format!("无效的正则表达式: {}", e)))?;
+
+        // 构建 glob 过滤器
+        let glob_pattern = glob_filter
+            .map(|g| Pattern::new(g))
+            .transpose()
+            .map_err(|e| ToolError::ExecutionError(format!("无效的 glob 模式: {}", e)))?;
+
+        let mut filenames = Vec::new();
+        let mut content_lines = Vec::new();
+        let mut total_matches = 0usize;
+
+        // 遍历文件
+        for entry in WalkDir::new(&base_dir).into_iter().flatten() {
+            let file_path = entry.path();
+
+            // 只处理文件
+            if !file_path.is_file() {
+                continue;
+            }
+
+            // 应用 glob 过滤
+            if let Some(ref gp) = glob_pattern {
+                if !gp.matches_path(file_path) {
+                    continue;
+                }
+            }
+
+            // 读取文件内容
+            let Ok(file_contents) = std::fs::read_to_string(file_path) else {
+                continue;
+            };
+
+            if output_mode == "count" {
+                let count = regex.find_iter(&file_contents).count();
+                if count > 0 {
+                    filenames.push(file_path.to_string_lossy().into_owned());
+                    total_matches += count;
+                }
+                continue;
+            }
+
+            // 收集匹配行
+            let lines: Vec<&str> = file_contents.lines().collect();
+            let mut matched_indices = Vec::new();
+
+            for (index, line) in lines.iter().enumerate() {
+                if regex.is_match(line) {
+                    total_matches += 1;
+                    matched_indices.push(index);
+                }
+            }
+
+            if matched_indices.is_empty() {
+                continue;
+            }
+
+            filenames.push(file_path.to_string_lossy().into_owned());
+
+            // 如果需要输出内容
+            if output_mode == "content" {
+                for index in matched_indices {
+                    let line = lines[index];
+                    let prefix = if line_numbers {
+                        format!("{}:{}:", file_path.to_string_lossy(), index + 1)
+                    } else {
+                        format!("{}:", file_path.to_string_lossy())
+                    };
+                    content_lines.push(format!("{prefix}{line}"));
+                }
+            }
+        }
+
+        // 应用限制
+        let (filenames, applied_limit) = apply_limit(filenames, head_limit);
+        let content_output = if output_mode == "content" {
+            let (lines, _) = apply_limit(content_lines, head_limit);
+            Some(lines.join("\n"))
+        } else {
+            None
+        };
+
+        // 构建输出
+        let output = serde_json::json!({
+            "mode": output_mode,
+            "numFiles": filenames.len(),
+            "filenames": filenames,
+            "content": content_output,
+            "numMatches": if output_mode == "count" { Some(total_matches) } else { None },
+            "appliedLimit": applied_limit
+        });
+
+        Ok(output.to_string())
+    }
+}
+
+/// 辅助函数：应用限制
+fn apply_limit<T>(items: Vec<T>, limit: Option<usize>) -> (Vec<T>, Option<usize>) {
+    if let Some(lim) = limit {
+        let truncated = items.len() > lim;
+        (items.into_iter().take(lim).collect(), if truncated { Some(lim) } else { None })
+    } else {
+        (items, None)
     }
 }
 
@@ -447,18 +818,56 @@ mod basic_executor_tests {
 
     #[tokio::test]
     async fn test_basic_executor_execute_read_file() {
-        let mut executor = BasicToolExecutor::new("/tmp/test");
+        use std::fs;
+        use tempfile::tempdir;
+
+        // 创建临时目录和测试文件
+        let temp_dir = tempdir().expect("无法创建临时目录");
+        let test_file = temp_dir.path().join("test.txt");
+        fs::write(&test_file, "Hello, World!\nSecond line\nThird line").expect("无法写入测试文件");
+
+        let mut executor = BasicToolExecutor::new(temp_dir.path());
         executor.register_builtin_tools();
 
         let input = serde_json::json!({
-            "path": "test.txt"
+            "path": test_file.to_string_lossy()
         });
 
         let result = executor.execute("read_file", &input).await;
-        // 因为是模拟实现，应该成功
+        // 真实实现应该成功并返回 JSON 格式
         assert!(result.is_ok());
         let output = result.unwrap();
-        assert!(output.contains("读取文件"));
+        // 解析 JSON 输出
+        let json: serde_json::Value = serde_json::from_str(&output).expect("输出应该是有效 JSON");
+        assert_eq!(json["type"], "text");
+        assert!(json["file"]["content"].as_str().unwrap().contains("Hello, World"));
+    }
+
+    #[tokio::test]
+    async fn test_basic_executor_execute_read_file_with_limit() {
+        use std::fs;
+        use tempfile::tempdir;
+
+        // 创建临时目录和测试文件
+        let temp_dir = tempdir().expect("无法创建临时目录");
+        let test_file = temp_dir.path().join("multi.txt");
+        fs::write(&test_file, "Line 1\nLine 2\nLine 3\nLine 4\nLine 5").expect("无法写入测试文件");
+
+        let mut executor = BasicToolExecutor::new(temp_dir.path());
+        executor.register_builtin_tools();
+
+        let input = serde_json::json!({
+            "path": test_file.to_string_lossy(),
+            "offset": 1,
+            "limit": 2
+        });
+
+        let result = executor.execute("read_file", &input).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        let json: serde_json::Value = serde_json::from_str(&output).expect("输出应该是有效 JSON");
+        // 应该只包含 Line 2 和 Line 3
+        assert_eq!(json["file"]["numLines"], 2);
     }
 
     #[tokio::test]
@@ -478,20 +887,59 @@ mod basic_executor_tests {
 
     #[tokio::test]
     async fn test_basic_executor_execute_write_file_with_permission() {
+        use std::fs;
+        use tempfile::tempdir;
+
         // WorkspaceWrite 模式下，write_file 应成功
-        let mut executor = BasicToolExecutor::new("/tmp/test")
+        let temp_dir = tempdir().expect("无法创建临时目录");
+
+        let mut executor = BasicToolExecutor::new(temp_dir.path())
             .with_permission_mode(PermissionMode::WorkspaceWrite);
         executor.register_builtin_tools();
 
         let input = serde_json::json!({
             "path": "test.txt",
-            "content": "hello"
+            "content": "hello world"
         });
 
         let result = executor.execute("write_file", &input).await;
         assert!(result.is_ok());
         let output = result.unwrap();
-        assert!(output.contains("写入文件"));
+        // 验证 JSON 输出
+        let json: serde_json::Value = serde_json::from_str(&output).expect("输出应该是有效 JSON");
+        assert_eq!(json["type"], "create");
+        assert!(json["filePath"].as_str().unwrap().contains("test.txt"));
+    }
+
+    #[tokio::test]
+    async fn test_basic_executor_execute_edit_file_with_permission() {
+        use std::fs;
+        use tempfile::tempdir;
+
+        let temp_dir = tempdir().expect("无法创建临时目录");
+        let test_file = temp_dir.path().join("edit.txt");
+        fs::write(&test_file, "Hello, World!").expect("无法写入测试文件");
+
+        let mut executor = BasicToolExecutor::new(temp_dir.path())
+            .with_permission_mode(PermissionMode::WorkspaceWrite);
+        executor.register_builtin_tools();
+
+        let input = serde_json::json!({
+            "path": test_file.to_string_lossy(),
+            "old_string": "Hello",
+            "new_string": "Goodbye"
+        });
+
+        let result = executor.execute("edit_file", &input).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        let json: serde_json::Value = serde_json::from_str(&output).expect("输出应该是有效 JSON");
+        assert_eq!(json["oldString"], "Hello");
+        assert_eq!(json["newString"], "Goodbye");
+
+        // 验证文件内容已更新
+        let updated = fs::read_to_string(&test_file).expect("无法读取文件");
+        assert!(updated.contains("Goodbye"));
     }
 
     #[test]

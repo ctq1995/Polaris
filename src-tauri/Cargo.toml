@@ -51,6 +51,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing-appender = "0.2"
 regex = "1"
+glob = "0.3"
 base64 = "0.22"
 urlencoding = "2"
 url = "2"
@@ -79,9 +80,6 @@ crossbeam-channel = "0.5"
 
 # 文件系统监听
 notify = { version = "6", features = ["macos_kqueue"] }
-
-# 测试依赖
-tempfile = "3"
 
 [dev-dependencies]
 tempfile = "3"
