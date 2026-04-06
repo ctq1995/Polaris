@@ -56,6 +56,7 @@
 - 代码块边界识别错误
 - 列表和标题渲染异常
 - 实时更新导致 DOM 闪烁和重排
+- **流式阶段内容显示异常**：出现内容重复、文本错位等问题，即使是纯文本显示也存在渲染错误
 
 #### 验收标准
 
@@ -64,6 +65,7 @@
 3. WHEN THE Streaming_Message 包含代码块, THE StreamingTextContent SHALL 正确识别代码块边界（```），即使代码块尚未完成
 4. WHEN THE Streaming_Message 接收完成, THE TextBlockRenderer SHALL 渲染完整的 Markdown 内容（包括代码语法高亮）
 5. FOR ALL 流式阶段的 Markdown 渲染, THE StreamingTextContent SHALL 避免 DOM 闪烁、重排和布局跳动
+6. FOR ALL 流式阶段的内容显示, THE StreamingTextContent SHALL 避免内容重复、文本错位等显示异常，确保每个字符只显示一次且位置正确
 
 ### 需求 2: 完全重写 TextBlockRenderer 和 StreamingTextContent 组件（核心需求）
 
@@ -72,6 +74,7 @@
 **当前实现问题:**
 - TextBlockRenderer: 使用 react-markdown，但在流式阶段无法正确处理不完整的 Markdown 语法
 - StreamingTextContent (line 234-330): 仅实现代码块标记高亮（``` 符号），完全不渲染 Markdown 格式，这是为了规避渲染错误的临时方案
+- **流式显示异常**: 即使是纯文本模式，也存在内容重复、文本错位等问题，说明底层渲染逻辑存在缺陷
 
 **重写目标:** 设计新的渲染策略，能够在流式阶段正确处理不完整的 Markdown 语法，同时保持现有样式和架构。
 
@@ -79,9 +82,10 @@
 
 1. THE TextBlockRenderer SHALL 完全重写实现，采用新的渲染策略修复流式渲染期间的 Markdown 显示错误
 2. THE StreamingTextContent SHALL 完全重写实现，移除当前的代码块标记高亮逻辑（line 234-330），实现完整的流式 Markdown 渲染
-3. THE TextBlockRenderer SHALL 保持现有的 CSS 类名和样式（prose prose-invert prose-sm max-w-none），确保视觉一致性
-4. THE TextBlockRenderer SHALL 继续支持分层渲染模式（full/preview/archive），不改变现有架构
-5. THE 新实现 SHALL 提供清晰的错误处理机制，当 Markdown 解析失败时降级为纯文本显示，而不是崩溃或显示错误
+3. THE 新实现 SHALL 修复流式阶段的内容重复和文本错位问题，确保内容显示的正确性和一致性
+4. THE TextBlockRenderer SHALL 保持现有的 CSS 类名和样式（prose prose-invert prose-sm max-w-none），确保视觉一致性
+5. THE TextBlockRenderer SHALL 继续支持分层渲染模式（full/preview/archive），不改变现有架构
+6. THE 新实现 SHALL 提供清晰的错误处理机制，当 Markdown 解析失败时降级为纯文本显示，而不是崩溃或显示错误
 
 ### 需求 3: 保持现有架构组件
 

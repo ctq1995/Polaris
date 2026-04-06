@@ -20,6 +20,21 @@ use crate::ai::traits::{AIEngine, EngineId, SessionOptions};
 use crate::error::{AppError, Result};
 use crate::models::AIEvent;
 
+/// 默认系统提示词（告知模型工具可用）
+const DEFAULT_SYSTEM_PROMPT_WITH_TOOLS: &str = "你是一个 AI 助手，可以使用工具来完成任务。
+
+你有以下工具可用：
+- read_file: 读取文件内容
+- write_file: 写入文件内容
+- edit_file: 编辑文件内容（字符串替换）
+- glob_search: 使用 Glob 模式搜索文件
+- grep_search: 使用正则表达式搜索文件内容
+
+当用户请求涉及文件操作时，请主动使用相应工具。调用工具时，确保参数正确且路径在工作目录范围内。";
+
+/// 默认系统提示词（无工具）
+const DEFAULT_SYSTEM_PROMPT_NO_TOOLS: &str = "你是一个 AI 助手，请根据用户请求提供帮助。";
+
 /// 工具调用状态
 ///
 /// 用于跟踪流式响应中的工具调用进度。
@@ -413,6 +428,7 @@ impl ClawCodeEngine {
         Some((tool_id, tool_name, result_str, is_error))
     }
 
+
     /// 构建消息请求
     fn build_request(
         &self,
@@ -450,11 +466,26 @@ impl ClawCodeEngine {
             None
         };
 
+        // 构建系统提示词（如果启用工具，添加默认提示）
+        let final_system_prompt = if tools.is_some() {
+            match system_prompt {
+                Some(prompt) if !prompt.is_empty() => {
+                    Some(format!("{}\n\n{}", DEFAULT_SYSTEM_PROMPT_WITH_TOOLS, prompt))
+                }
+                _ => Some(DEFAULT_SYSTEM_PROMPT_WITH_TOOLS.to_string()),
+            }
+        } else {
+            match system_prompt {
+                Some(prompt) if !prompt.is_empty() => Some(prompt.to_string()),
+                _ => Some(DEFAULT_SYSTEM_PROMPT_NO_TOOLS.to_string()),
+            }
+        };
+
         MessageRequest {
             model: config.model.clone(),
             max_tokens: config.max_tokens,
             messages,
-            system: system_prompt.map(|s| s.to_string()),
+            system: final_system_prompt,
             tools,
             tool_choice,
             stream: true,
