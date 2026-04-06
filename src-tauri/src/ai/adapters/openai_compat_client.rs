@@ -12,7 +12,6 @@
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use futures_util::StreamExt;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};

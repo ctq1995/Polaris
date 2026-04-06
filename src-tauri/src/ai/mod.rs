@@ -17,7 +17,7 @@ pub mod adapters;
 
 pub use traits::{EngineId, SessionOptions, HistoryEntry};
 pub use registry::EngineRegistry;
-pub use engine::{ClaudeEngine, OpenAIEngine};
+pub use engine::{ClaudeEngine, ClawCodeConfig, ClawCodeEngine, OpenAIEngine};
 pub use history::{
     Pagination, PagedResult, SessionMeta, HistoryMessage, SessionHistoryProvider,
 };
