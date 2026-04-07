@@ -12,6 +12,7 @@
 import { memo, useMemo } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { DeferredMermaidDiagram } from '../components/Chat/DeferredMermaidDiagram';
 
 /** 渲染片段类型 */
 interface RenderPart {
@@ -247,46 +248,99 @@ export function hasOpenCodeBlock(content: string): boolean {
 }
 
 /**
- * 分割内容：将代码块和普通文本分开
+ * 分割内容：将代码块、Mermaid 图表和普通文本分开
  *
  * 返回片段数组，标记每段是否已完成（不会再变化）：
  * - 代码块之前的文本：completed = true
  * - 最后一个已关闭代码块之后的文本：completed = false（可能还会追加）
  * - 已关闭的代码块：completed = true
  * - 未闭合的代码块标记：completed = false
+ * - Mermaid 图表块：completed = true（已完整闭合）
  */
 export function splitByCodeBlocks(content: string): Array<{
-  type: 'text' | 'code-block';
+  type: 'text' | 'code-block' | 'mermaid-block';
   content: string;
   language?: string;
   completed: boolean;
 }> {
-  const parts: Array<{ type: 'text' | 'code-block'; content: string; language?: string; completed: boolean }> = [];
+  const parts: Array<{ type: 'text' | 'code-block' | 'mermaid-block'; content: string; language?: string; completed: boolean }> = [];
 
-  // 匹配已关闭的代码块：```lang\ncode\n```
-  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+  // 匹配已关闭的 Mermaid 代码块：```mermaid\ncode\n```（支持可选空格）
+  const mermaidRegex = /`{3}\s*mermaid\s*\n([\s\S]*?)`{3}/g;
+
+  // 匹配已关闭的普通代码块：```lang\ncode\n```（排除 mermaid，lang 可为空）
+  // 支持：```typescript\ncode\n``` 或 ```\ncode\n```
+  const codeBlockRegex = /`{3}(\w*)\n([\s\S]*?)`{3}/g;
+
+  // 合并处理：先找出所有代码块的位置，然后按顺序处理
+  interface BlockMatch {
+    index: number;
+    endIndex: number;
+    type: 'code-block' | 'mermaid-block';
+    content: string;
+    language?: string;
+  }
+
+  const allBlocks: BlockMatch[] = [];
+
+  // 找出所有 Mermaid 块
+  let mermaidMatch: RegExpExecArray | null;
+  while ((mermaidMatch = mermaidRegex.exec(content)) !== null) {
+    allBlocks.push({
+      index: mermaidMatch.index,
+      endIndex: mermaidMatch.index + mermaidMatch[0].length,
+      type: 'mermaid-block',
+      content: mermaidMatch[1].trim(),
+    });
+  }
+
+  // 找出所有普通代码块（排除 mermaid）
+  let codeMatch: RegExpExecArray | null;
+  codeBlockRegex.lastIndex = 0;
+  while ((codeMatch = codeBlockRegex.exec(content)) !== null) {
+    // 检查是否是 mermaid（已在上面处理）
+    if (codeMatch[1].toLowerCase() === 'mermaid') continue;
+
+    // 检查是否与其他块重叠
+    const overlaps = allBlocks.some(
+      b => (codeMatch!.index >= b.index && codeMatch!.index < b.endIndex) ||
+           (codeMatch!.index + codeMatch![0].length > b.index && codeMatch!.index + codeMatch![0].length <= b.endIndex)
+    );
+    if (overlaps) continue;
+
+    allBlocks.push({
+      index: codeMatch.index,
+      endIndex: codeMatch.index + codeMatch[0].length,
+      type: 'code-block',
+      content: codeMatch[2],
+      language: codeMatch[1] || undefined,
+    });
+  }
+
+  // 按位置排序
+  allBlocks.sort((a, b) => a.index - b.index);
+
+  // 处理所有块和文本
   let lastIndex = 0;
-  let match;
-
-  while ((match = codeBlockRegex.exec(content)) !== null) {
-    // 添加代码块之前的文本（已完成的）
-    if (match.index > lastIndex) {
+  for (const block of allBlocks) {
+    // 添加块之前的文本（已完成的）
+    if (block.index > lastIndex) {
       parts.push({
         type: 'text',
-        content: content.slice(lastIndex, match.index),
+        content: content.slice(lastIndex, block.index),
         completed: true,
       });
     }
 
-    // 添加已关闭的代码块
+    // 添加代码块或 Mermaid 块
     parts.push({
-      type: 'code-block',
-      content: match[2],
-      language: match[1] || undefined,
+      type: block.type,
+      content: block.content,
+      language: block.language,
       completed: true,
     });
 
-    lastIndex = match.index + match[0].length;
+    lastIndex = block.endIndex;
   }
 
   // 处理最后一个已关闭代码块之后的内容
@@ -357,35 +411,44 @@ export default LightweightMarkdown;
 // 渐进式流式 Markdown 渲染器
 // ============================================================================
 
+/** DOMPurify 安全配置 */
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
+    'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'a', 'span', 'div', 'mark', 'table', 'thead', 'tbody',
+    'tr', 'td', 'th', 'hr', 'dl', 'dt', 'dd',
+  ],
+  ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
+};
+
+/** 将 Markdown 内容解析并净化为安全 HTML */
+function sanitizeMarkdown(content: string): string {
+  const raw = marked.parse(content) as string;
+  return DOMPurify.sanitize(raw, SANITIZE_CONFIG);
+}
+
 /**
- * 已完成段落渲染器（使用完整 Markdown 解析）
+ * 已完成文本块渲染器（单一容器）
  *
- * 使用 React.memo 确保已完成的段落不会因为新内容到达而重新渲染
- * 使用 CSS contain: content 告诉浏览器此元素布局独立，减少重排范围
+ * 所有段落渲染在同一容器中，<p> margin 正确折叠，避免独立 div 包裹导致间距翻倍。
+ * 使用 CSS contain: content 限制重排范围。
  */
-const CompletedParagraph = memo(function CompletedParagraph({
+const CompletedTextBlock = memo(function CompletedTextBlock({
   content,
-  index,
 }: {
   content: string;
-  index: number;
+  blockIndex?: number;
 }) {
   const html = useMemo(() => {
-    const raw = marked.parse(content) as string;
-    return DOMPurify.sanitize(raw, {
-      ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
-        'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'a', 'span', 'div', 'mark', 'table', 'thead', 'tbody',
-        'tr', 'td', 'th', 'hr', 'dl', 'dt', 'dd',
-      ],
-      ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
-    });
+    if (!content.trim()) return null;
+    return sanitizeMarkdown(content);
   }, [content]);
+
+  if (!html) return null;
 
   return (
     <div
-      key={`para-${index}`}
       className="break-words"
       style={{ contain: 'content' }}
       dangerouslySetInnerHTML={{ __html: html }}
@@ -394,137 +457,82 @@ const CompletedParagraph = memo(function CompletedParagraph({
 });
 
 /**
- * 渲染已完成的文本段落（使用段落分割 + 完整 Markdown）
- * 用于代码块之前或已关闭代码块之间的文本
- */
-const CompletedTextBlock = memo(function CompletedTextBlock({
-  content,
-  blockIndex,
-}: {
-  content: string;
-  blockIndex: number;
-}) {
-  const rendered = useMemo(() => {
-    if (!content.trim()) return null;
-
-    // 按空行分割段落
-    const paragraphs = content.split(/\n\n+/);
-
-    if (paragraphs.length <= 1) {
-      // 单段落，直接完整渲染
-      const raw = marked.parse(content) as string;
-      const html = DOMPurify.sanitize(raw, {
-        ALLOWED_TAGS: [
-          'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
-          'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-          'a', 'span', 'div', 'mark', 'table', 'thead', 'tbody',
-          'tr', 'td', 'th', 'hr', 'dl', 'dt', 'dd',
-        ],
-        ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
-      });
-      return <div className="break-words" style={{ contain: 'content' }} dangerouslySetInnerHTML={{ __html: html }} />;
-    }
-
-    return (
-      <span className="whitespace-pre-wrap break-words">
-        {paragraphs.map((para, i) => (
-          <CompletedParagraph
-            key={`cb-${blockIndex}-p-${i}`}
-            content={para + '\n\n'}
-            index={i}
-          />
-        ))}
-      </span>
-    );
-  }, [content, blockIndex]);
-
-  return rendered;
-});
-
-/**
  * 渐进式流式 Markdown 渲染器
  *
- * 核心思路：
- * 1. 按 \n\n（空行）分割段落
- * 2. 已完成的段落（非最后一段）：使用完整 Markdown 渲染（marked + DOMPurify）
- * 3. 最后一段：如果 completed=true 则用完整渲染，否则用轻量渲染
- * 4. 代码块场景：已关闭代码块之前的文本视为已完成，使用完整渲染
+ * 核心改动：已完成段落合并到同一容器渲染，避免独立 div 包裹导致 <p> margin 不折叠。
  *
- * 性能优势：
- * - 已完成的段落只渲染一次（React.memo + content 稳定）
- * - 只有最后一段会随流式更新重新渲染
- * - 标题、列表、表格等块级元素在段落完成后立即可见
- * - 代码块场景不再降级为纯行内渲染
- * - completed 模式实现流式→非流式无缝切换（同一组件，无 DOM 结构变化）
+ * 策略：
+ * 1. 已完成内容 → 单一容器 + marked + DOMPurify（<p> margin 折叠，无多余空行）
+ * 2. 流式最后一段 → LightweightMarkdown（轻量行内渲染）
+ * 3. 代码块 → StreamingCodeBlock / DeferredMermaidDiagram
+ * 4. CSS contain: content 限制重排范围
  */
 export const ProgressiveStreamingMarkdown = memo(function ProgressiveStreamingMarkdown({
   content,
   completed = false,
 }: {
   content: string;
-  /** 当内容已全部到达时设为 true，最后一段也用完整 Markdown 渲染 */
   completed?: boolean;
 }) {
   const result = useMemo(() => {
     if (!content) return null;
 
-    // 性能限制
     if (content.length > 50000) {
       return <span className="whitespace-pre-wrap break-words">{content}</span>;
     }
 
-    // 检测代码块
     const codeBlockCount = (content.match(/```/g) || []).length;
 
-    // 如果没有代码块，按段落分割
+    // 无代码块路径
     if (codeBlockCount === 0) {
-      // 按空行分割段落
+      // 已完成：单一容器渲染全部内容
+      if (completed) {
+        return (
+          <div className="break-words" style={{ contain: 'content' }}
+            dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(content) }} />
+        );
+      }
+
+      // 流式：按段落分割
       const paragraphs = content.split(/\n\n+/);
 
       if (paragraphs.length <= 1) {
-        // 只有一个段落
-        if (completed) {
-          // 已完成，用完整 Markdown
-          const raw = marked.parse(content) as string;
-          const html = DOMPurify.sanitize(raw, {
-            ALLOWED_TAGS: [
-              'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
-              'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-              'a', 'span', 'div', 'mark', 'table', 'thead', 'tbody',
-              'tr', 'td', 'th', 'hr', 'dl', 'dt', 'dd',
-            ],
-            ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
-          });
-          return <div className="break-words" dangerouslySetInnerHTML={{ __html: html }} />;
-        }
         return <LightweightMarkdown content={content} />;
       }
 
+      // 已完成段落合并渲染 + 最后一段轻量渲染
+      // 关键：已完成段落在同一容器内，<p> margin 折叠，不会出现多余空行
+      const completedContent = paragraphs.slice(0, -1).join('\n\n') + '\n\n';
+      const lastPara = paragraphs[paragraphs.length - 1];
+
       return (
-        <span className="whitespace-pre-wrap break-words">
-          {paragraphs.map((para, i) => {
-            const isLast = i === paragraphs.length - 1;
-            if (isLast && !completed) {
-              return <LightweightMarkdown key={`last-${i}`} content={para} />;
-            }
-            return (
-              <CompletedParagraph
-                key={`complete-${i}`}
-                content={para + '\n\n'}
-                index={i}
-              />
-            );
-          })}
-        </span>
+        <>
+          <div className="break-words" style={{ contain: 'content' }}
+            dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(completedContent) }} />
+          <LightweightMarkdown content={lastPara} />
+        </>
       );
     }
 
-    // 有代码块，使用增强分割逻辑
+    // 有代码块路径
     const parts = splitByCodeBlocks(content);
 
     return (
       <span className="whitespace-pre-wrap break-words">
         {parts.map((part, index) => {
+          // Mermaid 图表块
+          if (part.type === 'mermaid-block') {
+            return (
+              <DeferredMermaidDiagram
+                key={`mermaid-${index}`}
+                code={part.content}
+                id={`mermaid-${Date.now()}-${index}`}
+                isStreaming={!completed}
+              />
+            );
+          }
+
+          // 代码块
           if (part.type === 'code-block') {
             return (
               <StreamingCodeBlock
@@ -535,7 +543,7 @@ export const ProgressiveStreamingMarkdown = memo(function ProgressiveStreamingMa
             );
           }
 
-          // 文本部分：根据 completed 标记决定渲染策略
+          // 已完成文本：单一容器渲染
           if (part.completed) {
             return (
               <CompletedTextBlock
@@ -546,8 +554,7 @@ export const ProgressiveStreamingMarkdown = memo(function ProgressiveStreamingMa
             );
           }
 
-          // 未完成的文本（最后一个已关闭代码块之后）
-          // 如果 completed=true，整段都用完整 Markdown
+          // 未完成文本 + completed：整段完整渲染
           if (completed) {
             return (
               <CompletedTextBlock
@@ -558,27 +565,21 @@ export const ProgressiveStreamingMarkdown = memo(function ProgressiveStreamingMa
             );
           }
 
-          // 流式中：使用段落级渐进渲染
+          // 未完成文本（流式中）：段落级渐进渲染
           const paragraphs = part.content.split(/\n\n+/);
           if (paragraphs.length <= 1) {
             return <LightweightMarkdown key={`ltext-${index}`} content={part.content} />;
           }
 
+          // 已完成段落合并 + 最后一段轻量
+          const completedParasContent = paragraphs.slice(0, -1).join('\n\n') + '\n\n';
+          const lastPara = paragraphs[paragraphs.length - 1];
+
           return (
             <span key={`streaming-${index}`}>
-              {paragraphs.map((para, i) => {
-                const isLast = i === paragraphs.length - 1;
-                if (isLast) {
-                  return <LightweightMarkdown key={`s-last-${i}`} content={para} />;
-                }
-                return (
-                  <CompletedParagraph
-                    key={`s-complete-${i}`}
-                    content={para + '\n\n'}
-                    index={i}
-                  />
-                );
-              })}
+              <div className="break-words" style={{ contain: 'content' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(completedParasContent) }} />
+              <LightweightMarkdown content={lastPara} />
             </span>
           );
         })}
