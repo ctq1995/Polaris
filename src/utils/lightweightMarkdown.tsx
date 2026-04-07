@@ -436,10 +436,19 @@ const SANITIZE_CONFIG = {
   ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
 };
 
+/** 将 <table> 包裹在可横向滚动的容器中，防止宽表格撑开父布局 */
+function wrapTables(html: string): string {
+  return html.replace(
+    /(<table[\s>][\s\S]*?<\/table>)/g,
+    '<div class="table-scroll-wrapper">$1</div>'
+  );
+}
+
 /** 将 Markdown 内容解析并净化为安全 HTML */
 function sanitizeMarkdown(content: string): string {
   const raw = marked.parse(content) as string;
-  return DOMPurify.sanitize(raw, SANITIZE_CONFIG);
+  const sanitized = DOMPurify.sanitize(raw, SANITIZE_CONFIG);
+  return wrapTables(sanitized);
 }
 
 /**

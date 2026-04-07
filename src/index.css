@@ -183,7 +183,13 @@ body {
 .prose table {
   width: 100%;
   border-collapse: collapse;
+  margin: 0;
+}
+
+.prose .table-scroll-wrapper {
+  overflow-x: auto;
   margin: 12px 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .prose th,

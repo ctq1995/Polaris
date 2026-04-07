@@ -267,6 +267,14 @@ function getContentFingerprint(content: string): string {
  * - 增量内容检测：新内容是旧内容延伸时，只渲染新增部分
  * - 预设允许的 HTML 标签和属性
  */
+/** 将 <table> 包裹在可横向滚动的容器中，防止宽表格撑开父布局 */
+function wrapTables(html: string): string {
+  return html.replace(
+    /(<table[\s>][\s\S]*?<\/table>)/g,
+    '<div class="table-scroll-wrapper">$1</div>'
+  );
+}
+
 export class MarkdownRenderCache {
   private cache: LRUCache<MarkdownCacheEntry>;
   private lastContent: string = '';
@@ -343,10 +351,11 @@ export class MarkdownRenderCache {
     // 完整渲染
     try {
       const raw = marked.parse(content) as string;
-      const html = DOMPurify.sanitize(raw, {
+      let html = DOMPurify.sanitize(raw, {
         ALLOWED_TAGS: this.ALLOWED_TAGS,
         ALLOWED_ATTR: this.ALLOWED_ATTR,
       });
+      html = wrapTables(html);
 
       // 缓存结果
       this.cache.set(fingerprint, {
@@ -398,10 +407,10 @@ export class MarkdownRenderCache {
     try {
       // 渲染新增部分
       const newRaw = marked.parse(newPart) as string;
-      const newHtml = DOMPurify.sanitize(newRaw, {
+      const newHtml = wrapTables(DOMPurify.sanitize(newRaw, {
         ALLOWED_TAGS: this.ALLOWED_TAGS,
         ALLOWED_ATTR: this.ALLOWED_ATTR,
-      });
+      }));
 
       // 合并 HTML
       // 注意：这里简化处理，直接拼接。对于块级元素可能需要额外处理
