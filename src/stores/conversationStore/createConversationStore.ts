@@ -15,13 +15,12 @@ import { parseWorkspaceReferences, buildWorkspaceSystemPrompt, getUserSystemProm
 
 /**
  * 从用户消息生成标题
- * 取前 4 个字符作为标题，超出的部分用省略号
+ * 取前 16 个字符作为标题，超出的部分用省略号
  */
 function generateTitleFromMessage(content: string): string {
   // 移除换行和多余空格
   const cleanContent = content.replace(/\n/g, ' ').trim()
-  // 取前 4 个字符
-  const maxTitleLength = 4
+  const maxTitleLength = 16
   if (cleanContent.length <= maxTitleLength) {
     return cleanContent
   }
