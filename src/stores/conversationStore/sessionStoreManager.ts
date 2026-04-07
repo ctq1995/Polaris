@@ -96,42 +96,29 @@ function createSessionManagerStore() {
           return state.config as { defaultEngine?: string } | null
         },
         getWorkspace: () => {
-          // 获取【当前会话】的工作区（优先级：会话工作区 > 全局工作区）
+          // 获取【当前会话】的工作区
+          // 优先级：metadata.workspaceId（支持用户后续更新）> 初始 options.workspaceId > 全局工作区
           // 注意：这里使用创建时绑定的 sessionId，而不是 activeSessionId
           // 确保每个会话使用自己的工作区，不受会话切换影响
-          const managerState = get()
           const workspaceState = useWorkspaceStore.getState()
 
-          // 调试日志
-          console.log('[SessionStoreManager] deps.getWorkspace 调用:', {
-            boundSessionId: sessionId,
-            activeSessionId: managerState.activeSessionId,
-          })
-
-          // 优先使用当前会话的工作区
+          // 优先从 metadata 获取（支持用户通过 WorkspaceMenu 等更新工作区）
+          const managerState = get()
           const metadata = managerState.sessionMetadata.get(sessionId)
-          console.log('[SessionStoreManager] 会话元数据:', {
-            sessionId,
-            metadataWorkspaceId: metadata?.workspaceId,
-            metadataWorkspaceName: metadata?.workspaceName,
-          })
 
-          if (metadata?.workspaceId) {
-            const workspace = workspaceState.workspaces.find(w => w.id === metadata.workspaceId)
-            console.log('[SessionStoreManager] 查找工作区结果:', {
-              workspaceId: metadata.workspaceId,
-              foundWorkspace: workspace ? { id: workspace.id, name: workspace.name, path: workspace.path } : null,
-            })
+          // 确定要使用的 workspaceId：优先 metadata，其次初始值
+          // 这避免了竞态问题：metadata 不存在时用初始值，存在时用更新后的值
+          const targetWorkspaceId = metadata?.workspaceId || options.workspaceId
+
+          if (targetWorkspaceId) {
+            const workspace = workspaceState.workspaces.find(w => w.id === targetWorkspaceId)
             if (workspace) {
-              console.log('[SessionStoreManager] 返回会话工作区:', workspace.path)
               return workspace
             }
           }
 
           // 回退到全局工作区
-          const globalWorkspace = workspaceState.getCurrentWorkspace()
-          console.log('[SessionStoreManager] 回退到全局工作区:', globalWorkspace?.path)
-          return globalWorkspace
+          return workspaceState.getCurrentWorkspace()
         },
         getContextWorkspaceIds: () => {
           // 获取当前会话的关联工作区 ID 列表
