@@ -21,6 +21,7 @@ interface ContentBlockErrorBoundaryProps {
 interface ContentBlockErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  retryKey: number;
 }
 
 /**
@@ -35,6 +36,7 @@ export class ContentBlockErrorBoundary extends Component<
     this.state = {
       hasError: false,
       error: null,
+      retryKey: 0,
     };
   }
 
@@ -56,7 +58,7 @@ export class ContentBlockErrorBoundary extends Component<
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState(prev => ({ hasError: false, error: null, retryKey: prev.retryKey + 1 }));
   };
 
   render() {
@@ -64,7 +66,8 @@ export class ContentBlockErrorBoundary extends Component<
       return <ContentBlockFallback blockType={this.props.blockType} onRetry={this.handleRetry} />;
     }
 
-    return this.props.children;
+    // key 变更强制 React 重新挂载子组件树，确保 retry 生效
+    return <div key={this.state.retryKey}>{this.props.children}</div>;
   }
 }
 

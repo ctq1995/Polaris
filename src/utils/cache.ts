@@ -426,6 +426,7 @@ export class MarkdownRenderCache {
   clear(): void {
     this.cache.clear();
     this.lastContent = '';
+    this.lastHtml = '';
     this.lastRenderedLength = 0;
   }
 
