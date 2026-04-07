@@ -191,8 +191,8 @@ const TextBlockRenderer = memo(function TextBlockRenderer({
   isStreaming?: boolean;
   renderMode?: MessageRenderMode;
 }) {
-  // Store 层已有 50ms 缓冲，React 层不再需要节流
-  // 直接使用 block.content，响应延迟仅取决于 store 的 flush 间隔（50ms）
+  // Store 层使用段落级缓冲（等待 \n\n 或 200ms 超时），React 层不再需要节流
+  // 直接使用 block.content，响应延迟仅取决于 store 的 flush 间隔
 
   // 归档模式：仅显示摘要（截取前 200 字符）
   if (renderMode === 'archive') {
@@ -1848,7 +1848,7 @@ const EmptyState = memo(function EmptyState() {
  *
  * 性能优化：
  * - 流式阶段直接从 currentMessage 读取内容，不更新 messages 数组
- * - 避免 50ms 一次的整个消息列表重渲染
+ * - 避免段落级缓冲导致的整个消息列表重渲染
  *
  * Props:
  * - sessionId: 可选，指定要显示的会话 ID（用于多窗口场景）

@@ -63,6 +63,7 @@ const SCALE_CONFIG = {
 /**
  * 全局状态存储（每个图表独立）
  */
+const MAX_DIAGRAM_STATES = 100;
 const diagramStates = new Map<string, DiagramState>();
 
 /**
@@ -70,6 +71,10 @@ const diagramStates = new Map<string, DiagramState>();
  */
 function getDiagramState(id: string): DiagramState {
   if (!diagramStates.has(id)) {
+    if (diagramStates.size >= MAX_DIAGRAM_STATES) {
+      const firstKey = diagramStates.keys().next().value;
+      if (firstKey !== undefined) diagramStates.delete(firstKey);
+    }
     diagramStates.set(id, {
       viewMode: 'chart',
       scale: SCALE_CONFIG.default,
@@ -83,6 +88,10 @@ function getDiagramState(id: string): DiagramState {
  */
 function saveDiagramState(id: string, state: DiagramState) {
   diagramStates.set(id, state);
+}
+
+function removeDiagramState(id: string) {
+  diagramStates.delete(id);
 }
 
 /**
@@ -104,6 +113,11 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code, id }: Mermaid
   const [svg, setSvg] = useState<string>('');
   const [isVisible, setIsVisible] = useState(false); // 是否在视口中可见
   const hasRenderedRef = useRef(false); // 是否已渲染过（避免重复渲染）
+
+  // 组件卸载时清理全局状态，防止内存泄漏
+  useEffect(() => {
+    return () => removeDiagramState(id);
+  }, [id]);
 
   // 图表交互状态
   const [diagramState, setDiagramState] = useState<DiagramState>(() => getDiagramState(id));

@@ -49,10 +49,16 @@ interface DiagramState {
   scale: number;
 }
 
+const MAX_DIAGRAM_STATES = 100;
 const diagramStates = new Map<string, DiagramState>();
 
 function getDiagramState(id: string): DiagramState {
   if (!diagramStates.has(id)) {
+    // 超过上限时清除最早的条目
+    if (diagramStates.size >= MAX_DIAGRAM_STATES) {
+      const firstKey = diagramStates.keys().next().value;
+      if (firstKey !== undefined) diagramStates.delete(firstKey);
+    }
     diagramStates.set(id, {
       viewMode: 'chart',
       scale: SCALE_CONFIG.default,
@@ -63,6 +69,10 @@ function getDiagramState(id: string): DiagramState {
 
 function saveDiagramState(id: string, state: DiagramState) {
   diagramStates.set(id, state);
+}
+
+function removeDiagramState(id: string) {
+  diagramStates.delete(id);
 }
 
 /**
@@ -83,6 +93,12 @@ export const DeferredMermaidDiagram = memo(function DeferredMermaidDiagram({
   const [copySuccess, setCopySuccess] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasRequestedRender = useRef(false);
+  const renderedCodeRef = useRef<string>('');
+
+  // 组件卸载时清理全局状态，防止内存泄漏
+  useEffect(() => {
+    return () => removeDiagramState(id);
+  }, [id]);
 
   // 更新状态并持久化
   const updateState = useCallback((updates: Partial<DiagramState>) => {
@@ -95,7 +111,8 @@ export const DeferredMermaidDiagram = memo(function DeferredMermaidDiagram({
 
   // 渲染 Mermaid 图表
   const renderDiagram = useCallback(async () => {
-    if (hasRequestedRender.current) return;
+    // 允许代码变更后重新渲染
+    if (hasRequestedRender.current && renderedCodeRef.current === code) return;
     hasRequestedRender.current = true;
 
     if (!code || !code.trim()) {
@@ -123,6 +140,7 @@ export const DeferredMermaidDiagram = memo(function DeferredMermaidDiagram({
 
       // 渲染图表
       const { svg } = await mermaidInstance.render(uniqueId, code);
+      renderedCodeRef.current = code;
       setSvg(svg);
       setRenderState('success');
     } catch (err) {
