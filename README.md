@@ -123,13 +123,6 @@ Polaris 内置三个独立的 MCP Server，可供其他 AI 工具使用：
 - `polaris-requirements-mcp` - 需求管理
 - `polaris-scheduler-mcp` - 定时任务管理
 
-## 推荐 IDE
-
-[VS Code](https://code.visualstudio.com/) + 以下扩展：
-
-- [Tauri](https://marketplace.visualvisualstudio.com/items?itemName=tauri-apps.tauri-vscode)
-- [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
-
 ## 社区
 
 [linux.do](https://linux.do/) - 讨论与反馈
