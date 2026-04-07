@@ -165,8 +165,8 @@ export const QuickSwitchContent = memo(function QuickSwitchContent({
       className={cn(
         // 尺寸：更紧凑
         'w-56',
-        // 深色玻璃风格
-        'bg-background-elevated/98 backdrop-blur-2xl',
+        // 实心背景
+        'bg-[#1A1A1F]',
         // 边框
         'border border-border/40',
         'rounded-2xl rounded-tr-none',

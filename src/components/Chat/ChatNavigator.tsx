@@ -143,15 +143,15 @@ export function ChatNavigator({
 
   return (
     <>
-      {/* 贴边玻璃风格悬浮球 - 固定在右边缘垂直居中 */}
+      {/* 贴边悬浮球 - 固定在右边缘垂直居中 */}
       <div
         className={clsx(
           'fixed right-0 top-1/2 -translate-y-1/2',
           // 尺寸：28x48px，贴边设计
           'w-7 h-12 -mr-3',
-          // 玻璃风格
+          // 实心背景
           'rounded-l-xl',
-          'bg-background-elevated/85 backdrop-blur-xl',
+          'bg-[#1A1A1F]',
           'border border-border/50 border-r-0',
           'shadow-lg shadow-black/5',
           // 内容布局
@@ -161,8 +161,8 @@ export function ChatNavigator({
           'group',
           // 悬停状态
           isPanelVisible
-            ? 'bg-background-elevated/95 shadow-xl'
-            : 'hover:bg-background-elevated/95 hover:shadow-xl'
+            ? 'bg-[#22222A] shadow-xl'
+            : 'hover:bg-[#22222A] hover:shadow-xl'
         )}
         onMouseEnter={handleFloatingBallMouseEnter}
         onMouseLeave={handleFloatingBallMouseLeave}
@@ -194,7 +194,7 @@ export function ChatNavigator({
       {isPanelVisible && (
         <div
           className={clsx(
-            'absolute w-56 bg-background-elevated/95 backdrop-blur-sm',
+            'absolute w-56 bg-[#1A1A1F]',
             'border border-border rounded-lg shadow-lg shadow-primary/10',
             'overflow-hidden animate-in fade-in zoom-in-95 duration-150',
             'pointer-events-auto flex flex-col',
@@ -205,7 +205,7 @@ export function ChatNavigator({
           onMouseLeave={handlePanelMouseLeave}
         >
           {/* 标题 */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-background-surface shrink-0">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-[#25252B] shrink-0">
             <span className="text-xs font-medium text-text-secondary flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5" />
               {t('navigator.title')}
@@ -216,14 +216,14 @@ export function ChatNavigator({
           </div>
 
           {/* 对话轮次列表 */}
-          <div className="overflow-y-auto chat-navigator-list flex-1 min-h-0">
+          <div className="overflow-y-auto chat-navigator-list flex-1 min-h-0 bg-[#1A1A1F]">
             {rounds.map((round, idx) => (
               <div
                 key={round.roundIndex}
                 ref={idx === currentRoundIndex ? currentItemRef : null}
                 className={clsx(
                   'px-3 py-2 border-b border-border-subtle/50 cursor-pointer transition-colors',
-                  'hover:bg-background-hover',
+                  'hover:bg-[#2D2D35]',
                   idx === currentRoundIndex && 'bg-primary/10 border-l-2 border-l-primary'
                 )}
                 onClick={() => handleRoundClick(idx)}
@@ -276,7 +276,7 @@ export function ChatNavigator({
           </div>
 
           {/* 底部按钮 */}
-          <div className="p-2 border-t border-border-subtle bg-background-surface shrink-0">
+          <div className="p-2 border-t border-border-subtle bg-[#25252B] shrink-0">
             <button
               className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
               onClick={handleScrollToBottom}
